@@ -36,7 +36,7 @@ if nightly:
 setup(
     name=project_name,
     version=__version__,
-    description="!Alpha Version! - This repository contains code to easy access trained models of the chair or train new ones yourself.",
+    description="!Alpha Version! - This repository contains code to setup a computational backend server for the nova annotation tool. You can use this backend to train models of your choosing or create explanations for existing models.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/pypa/sampleproject",
