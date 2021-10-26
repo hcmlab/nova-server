@@ -16,7 +16,7 @@ jobs:
     - name: Build and publish
       env:
         TWINE_USERNAME: __token__
-        TWINE_PASSWORD: ${{ secrets.PYPI_PAPYPI_NIGHTLY }}
+        TWINE_PASSWORD: ${{ secrets.PYPI_NIGHTLY }}
       run: |
         python setup.py sdist bdist_wheel --nightly
         twine upload dist/*
