@@ -14,7 +14,6 @@ def ml_thread_wrapper(func):
             try:
                 ml_lock.acquire()
                 func(*args, **kwargs)
-                ml_lock.release()
             finally:
                 ml_lock.release()
         t = Thread(target=lock, args=args, kwargs=kwargs)

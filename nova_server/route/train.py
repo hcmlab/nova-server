@@ -1,8 +1,7 @@
 import importlib
-
 import numpy as np
 from flask import Blueprint, request, jsonify
-from nova_server.utils import tfds_utils, thread_utils
+from nova_server.utils import tfds_utils, thread_utils, status_utils
 import imblearn
 
 
@@ -14,6 +13,7 @@ thread = Blueprint("thread", __name__)
 def train_thread():
     if request.method == "POST":
         id = train_model(request.form)
+        status_utils.add_new_job(id)
         data = {'job_id': id }
         return jsonify(data)
 
@@ -58,3 +58,18 @@ def train_model(request_form):
 
     # Save Model
     trainer.save(model, modelpath)
+
+@train.route("/test", methods=["POST"])
+def test_thread():
+    if request.method == "POST":
+        id = test()
+        status_utils.add_new_job(id)
+        data = {'job_id': id }
+        return jsonify(data)
+
+@thread_utils.ml_thread_wrapper
+def test():
+   import time
+   import random
+   
+   time.sleep(random.randint(1,100))
