@@ -13,23 +13,28 @@
       </tr>
     </thead>
     <tbody>
-      {% for job in jobs %}
-        <tr>
-          <td>{{ job.job_id }}</td>
-          <td>{{ job.status }}</td>
-          <td>{{ job.progress }}</td>
-          <td>{{ job.start_time }}</td>
-          <td>{{ job.end_time }}</td>
-          <td>{{ job.interactive_url }}</td>
-        </tr>
-      {% endfor %}
     </tbody>
   </table>
 {% endblock %}
+
 {% block scripts %}
   <script>
     $(document).ready(function () {
-      $('#data').DataTable();
+      var table = $('#data').DataTable({
+        ajax: '/data',
+        columns: [
+          {data: 'job_id'},
+          {data: 'status'},
+          {data: 'progress'},
+          {data: 'start_time'},
+          {data: 'end_time'},
+          {data: 'interactive_url'}
+        ],
+      });
+      setInterval( function () {
+      table.ajax.reload();
+    }, 1000 );
     });
+
   </script>
 {% endblock %}
