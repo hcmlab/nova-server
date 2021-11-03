@@ -1,57 +1,60 @@
 import importlib
+
 import numpy as np
 from flask import Blueprint, request, jsonify
-from nova_server.utils import tfds_utils
+from nova_server.utils import tfds_utils, thread_utils
 import imblearn
 
+
 train = Blueprint("train", __name__)
+thread = Blueprint("thread", __name__)
 
 
 @train.route("/train", methods=["POST"])
-def train_model():
-
-    data = {"success": "failed"}
-
+def train_thread():
     if request.method == "POST":
-        spec = importlib.util.spec_from_file_location(
-            "trainer", request.form.get("trainerScript")
-        )
-        trainer = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(trainer)
+        id = train_model(request.form)
+        data = {'job_id': id }
+        return jsonify(data)
 
-        # Building the dataset
-        ds, ds_info = tfds_utils.dataset_from_request(request)
 
-        # Preprocess data
-        data_it = ds.as_numpy_iterator()
-        data_list = list(data_it)
-        data_list.sort(key=lambda x: int(x["frame"].decode("utf-8").split("_")[0]))
-        x = [v[request.form.get("stream").split(" ")[0]] for v in data_list]
-        y = [v[request.form.get("scheme").split(";")[0]] for v in data_list]
+@thread_utils.ml_thread_wrapper
+def train_model(request_form):
+    spec = importlib.util.spec_from_file_location(
+        "trainer", request_form.get("trainerScript")
+    )
+    trainer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(trainer)
 
-        x_np = np.ma.concatenate(x, axis=0)
-        y_np = np.array(y)
+    # Building the dataset
+    ds, ds_info = tfds_utils.dataset_from_request_form(request_form)
 
-        if request.form.get("balance") == "over":
-            print("OVERSAMPLING from {} Samples".format(x_np.shape))
-            oversample = imblearn.over_sampling.SMOTE()
-            x_np, y_np = oversample.fit_resample(x_np, y_np)
-            print("to {} Samples".format(x_np.shape))
-        if request.form.get("balance") == "under":
-            print("UNDERSAMPLING from {} Samples".format(x_np.shape))
-            undersample = imblearn.under_sampling.RandomUnderSampler()
-            x_np, y_np = undersample.fit_resample(x_np, y_np)
-            print("to {} Samples".format(x_np.shape))
+    # Preprocess data
+    data_it = ds.as_numpy_iterator()
+    data_list = list(data_it)
+    data_list.sort(key=lambda x: int(x["frame"].decode("utf-8").split("_")[0]))
+    x = [v[request_form.get("stream").split(" ")[0]] for v in data_list]
+    y = [v[request_form.get("scheme").split(";")[0]] for v in data_list]
 
-        # Load model
-        modelpath = request.form.get("trainerPath")
+    x_np = np.ma.concatenate(x, axis=0)
+    y_np = np.array(y)
 
-        # Train Model
-        model = trainer.train(x_np, y_np)
+    if request_form.get("balance") == "over":
+        print("OVERSAMPLING from {} Samples".format(x_np.shape))
+        oversample = imblearn.over_sampling.SMOTE()
+        x_np, y_np = oversample.fit_resample(x_np, y_np)
+        print("to {} Samples".format(x_np.shape))
+    if request_form.get("balance") == "under":
+        print("UNDERSAMPLING from {} Samples".format(x_np.shape))
+        undersample = imblearn.under_sampling.RandomUnderSampler()
+        x_np, y_np = undersample.fit_resample(x_np, y_np)
+        print("to {} Samples".format(x_np.shape))
 
-        # Save Model
-        trainer.save(model, modelpath)
+    # Load model
+    modelpath = request_form.get("trainerPath")
 
-        data["success"] = "success"
+    # Train Model
+    model = trainer.train(x_np, y_np)
 
-    return jsonify(data)
+    # Save Model
+    trainer.save(model, modelpath)

@@ -1,16 +1,16 @@
 import hcai_datasets
 import tensorflow_datasets as tfds
 
-def dataset_from_request(request):
+def dataset_from_request_form(request_form):
     """
     Creates a tensorflow dataset from nova dynamically
     :param request_form: the requestform that specifices the parameters of the dataset
     """
     db_config_dict = {
-        'ip': request.form.get("server").split(':')[0],
-        'port': int(request.form.get("server").split(':')[1]),
-        'user': request.form.get("username"),
-        'password': request.form.get("password")
+        'ip': request_form.get("server").split(':')[0],
+        'port': int(request_form.get("server").split(':')[1]),
+        'user': request_form.get("username"),
+        'password': request_form.get("password")
     }
 
     ds, ds_info = tfds.load(
@@ -28,13 +28,13 @@ def dataset_from_request(request):
             'db_config_dict': db_config_dict,
 
             # Dataset Config
-            'dataset': request.form.get("database"),
-            'nova_data_dir': request.form.get("dataPath"),
-            'sessions': request.form.get("sessions").split(';'),
-            'roles': request.form.get("roles").split(';'),
-            'schemes': request.form.get("scheme").split(';'),
-            'annotator': request.form.get("annotator"),
-            'data_streams': request.form.get("stream").split(' '),
+            'dataset': request_form.get("database"),
+            'nova_data_dir': request_form.get("dataPath"),
+            'sessions': request_form.get("sessions").split(';'),
+            'roles': request_form.get("roles").split(';'),
+            'schemes': request_form.get("scheme").split(';'),
+            'annotator': request_form.get("annotator"),
+            'data_streams': request_form.get("stream").split(' '),
 
             # Sample Config
             'frame_size': 0.04,
@@ -43,8 +43,8 @@ def dataset_from_request(request):
             'start': 0,
             'end': 0,
             'flatten_samples': True,
-            'supervised_keys': [request.form.get("stream").split(' ')[0],
-                                request.form.get("scheme").split(';')[0]],
+            'supervised_keys': [request_form.get("stream").split(' ')[0],
+                                request_form.get("scheme").split(';')[0]],
 
             # Additional Config
             'clear_cache': True,
