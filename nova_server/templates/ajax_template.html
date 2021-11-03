@@ -10,6 +10,7 @@
         <th>Start</th>
         <th>End</th>
         <th>URL</th>
+        <th>LOG</th>
       </tr>
     </thead>
     <tbody>
@@ -28,8 +29,15 @@
           {data: 'progress'},
           {data: 'start_time'},
           {data: 'end_time'},
-          {data: 'interactive_url'}
+          {data: 'interactive_url'},
+          {data: 'job_id'}
         ],
+        columnDefs: [ {
+          "targets": -1,
+          "render": function ( data, type, row, meta ) {
+            return '<a href="/download/log/'+data+'">Download</a>';
+          }
+        } ]
       });
       setInterval( function () {
       table.ajax.reload();

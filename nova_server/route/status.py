@@ -1,5 +1,5 @@
-from flask import Blueprint, request, jsonify
-from nova_server.utils.status_utils import JOBS
+from flask import Blueprint, request, jsonify, send_file
+from nova_server.utils.status_utils import JOBS, get_log_path
 
 status = Blueprint("status", __name__)
 
@@ -13,4 +13,13 @@ def jobstatus():
             job_status = {"error": "Unknown job id {}".format(id)}
 
         return jsonify(job_status)
+
+@status.route("/download/log/<id>", methods=["POST", "GET"])
+def download_log(id):
+    lp = get_log_path(id)
+    if lp is None:
+        job_status = {"error": "Unknown job id {}".format(id)}
+        return jsonify(job_status)
+    return send_file(lp)
+
 

@@ -5,6 +5,7 @@ import numpy as np
 from flask import Blueprint, request, jsonify
 from nova_server.utils import tfds_utils, thread_utils, status_utils
 import imblearn
+import logging
 
 
 train = Blueprint("train", __name__)
@@ -22,6 +23,10 @@ def train_thread():
 
 @thread_utils.ml_thread_wrapper
 def train_model(request_form):
+
+    # Init logging
+    logger = logging.getLogger(threading.current_thread().name)
+
     spec = importlib.util.spec_from_file_location(
         "trainer", request_form.get("trainerScript")
     )
@@ -60,27 +65,3 @@ def train_model(request_form):
 
     # Save Model
     trainer.save(model, modelpath)
-
-
-@train.route("/test", methods=["POST"])
-def test_thread():
-    if request.method == "POST":
-        id = test()
-        status_utils.add_new_job(id)
-        data = {"job_id": id}
-        return jsonify(data)
-
-
-@thread_utils.ml_thread_wrapper
-def test():
-    import time
-    import random
-
-    total_time = random.randint(1, 250)
-    for i in range(1, 11):
-        current_progress = i * total_time // 10
-        status_utils.update_progress(threading.currentThread().getName(), f"{current_progress} / {total_time}")
-        time.sleep(total_time // 10)
-
-    status_utils.update_status(threading.currentThread().getName(), status_utils.JobStatus.FINISHED)
-

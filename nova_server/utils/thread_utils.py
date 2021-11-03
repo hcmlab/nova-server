@@ -1,7 +1,11 @@
 import threading
+import logging
 from threading import Thread
 
 ml_lock = threading.Lock()
+jc_lock = threading.Lock()
+job_counter = 0
+
 
 def ml_thread_wrapper(func):
     """
@@ -9,16 +13,25 @@ def ml_thread_wrapper(func):
     :param func:
     :return: The thread id
     """
+
     def wrapper(*args, **kwargs):
+        global job_counter
+
         def lock(*args, **kwargs):
             try:
-                #ml_lock.acquire()
+                ml_lock.acquire()
                 func(*args, **kwargs)
             finally:
-                ...
-                #ml_lock.release()
-        t = Thread(target=lock, args=args, kwargs=kwargs)
+                ml_lock.release()
+
+        jc_lock.acquire()
+        job_id = str(job_counter)
+        job_counter += 1
+        jc_lock.release()
+
+        t = Thread(target=lock, name=job_id, args=args, kwargs=kwargs)
         t.start()
-        id = t.getName()
-        return id
+
+        return t.name
+
     return wrapper
