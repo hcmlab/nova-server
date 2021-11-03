@@ -37,17 +37,15 @@ def example_jobqueque():
         print(data)
         return data
 
-    id_1 = add_job()
-    id_2 = add_job()
-    id_3 = add_job()
-    id_4 = add_job()
-    id_5 = add_job()
+    ret = []
+    for i in range(10):
+        ret.append(add_job())
 
-    status_1 = get_status(id_1)
-    status_2 = get_status(id_2)
-    status_3 = get_status(id_3)
-    status_4 = get_status(id_4)
-    status_5 = get_status(id_5)
+    import time
+    time.sleep(1)
+
+    for i in ret:
+        get_status(i)
 
     serve(app, host="127.0.0.1", port=8080)
 

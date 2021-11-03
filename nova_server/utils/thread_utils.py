@@ -1,7 +1,7 @@
 import threading
-import logging
 from threading import Thread
 
+status_lock = threading.Lock()
 ml_lock = threading.Lock()
 jc_lock = threading.Lock()
 job_counter = 0
@@ -33,5 +33,16 @@ def ml_thread_wrapper(func):
         t.start()
 
         return t.name
+
+    return wrapper
+
+
+def status_thread_wrapper(func):
+    def wrapper(*args, **kwargs):
+        try:
+            status_lock.acquire()
+            return func(*args, **kwargs)
+        finally:
+            status_lock.release()
 
     return wrapper

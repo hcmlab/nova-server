@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, send_file
-from nova_server.utils.status_utils import JOBS, get_log_path
+from nova_server.utils.status_utils import JOBS, get_log_path, get_all_jobs
 
 status = Blueprint("status", __name__)
 
@@ -22,4 +22,6 @@ def download_log(id):
         return jsonify(job_status)
     return send_file(lp)
 
-
+@status.route("/jobstatusall", methods=["GET"])
+def jobstatusall():
+    return jsonify(get_all_jobs())
