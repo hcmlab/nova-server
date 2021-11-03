@@ -5,9 +5,10 @@ JOBS = {}
 
 
 class JobStatus(Enum):
-    RUNNING = 0
-    FINISHED = 1
-    ERROR = 2
+    WAITING = 0
+    RUNNING = 1
+    FINISHED = 2
+    ERROR = 3
 
 
 class Job:
@@ -15,7 +16,7 @@ class Job:
         self.start_time = str(datetime.now())
         self.end_time = None
         self.progress = None
-        self.status = JobStatus.RUNNING
+        self.status = JobStatus.WAITING
         self.job_id = job_id
         self.interactive_url = interactive_url
 
