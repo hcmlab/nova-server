@@ -1,20 +1,21 @@
 from nova_server.nova_backend import create_server
 from flask import json
+from waitress import serve
 
-def example_train():
+
+def example_train(data):
     app = create_server()
     response = app.test_client().post(
         '/train',
-        data={
-            'file': 'a',
-        },
+        data=data,
         content_type='multipart/form-data'
     )
     data = json.loads(response.get_data(as_text=True))
     print(data)
+    serve(app, host="127.0.0.1", port=8080)
+
 
 def example_jobqueque():
-    from waitress import serve
     app = create_server()
 
     def add_job():
@@ -49,6 +50,23 @@ def example_jobqueque():
 
     serve(app, host="127.0.0.1", port=8080)
 
+def example_predict_to_nova():
+    app = create_server()
+    response = app.test_client().post(
+        '/predict',
+        data={
+            'file': 'a',
+        },
+        content_type='multipart/form-data'
+    )
+    data = json.loads(response.get_data(as_text=True))
+    print(data)
+
 if __name__ == '__main__':
-    #example_train()
-    example_jobqueque()
+
+    # add your own request payload here
+    from nova_server.tests.test_payloads import test_train as data
+
+    example_train(data)
+    #example_predict_to_nova()
+    #example_jobqueque()

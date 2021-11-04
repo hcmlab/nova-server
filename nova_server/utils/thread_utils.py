@@ -9,9 +9,10 @@ job_counter = 0
 
 def ml_thread_wrapper(func):
     """
-    Executing the function in a mutex protected thread for asynchronous execution of long running ml tasks
+    Executing the function in a mutex protected thread for asynchronous execution of long running ml tasks.
+    The thread waits with execution unit the status_lock is released. To do any initialization before the thread starts acquire the status lock before creating the thread.
     :param func:
-    :return: The thread id
+    :return: The thread
     """
 
     def wrapper(*args, **kwargs):
@@ -19,6 +20,7 @@ def ml_thread_wrapper(func):
 
         def lock(*args, **kwargs):
             try:
+                # Only one ml thread can be active at the same time
                 ml_lock.acquire()
                 func(*args, **kwargs)
             finally:
@@ -30,9 +32,8 @@ def ml_thread_wrapper(func):
         jc_lock.release()
 
         t = Thread(target=lock, name=job_id, args=args, kwargs=kwargs)
-        t.start()
 
-        return t.name
+        return t
 
     return wrapper
 
