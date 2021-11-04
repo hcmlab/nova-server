@@ -19,8 +19,9 @@ def init_logger(logger, module_name):
         log_path = get_log_path_for_thread(module_name)
         job_id = threading.current_thread().name
 
+        # TODO: verify dataflow is correct before publishing release version. JOB-Creation should not cause a race condtion
         #if not job_id in status_utils.JOBS.keys():
-         #   status_utils.add_new_job(job_id)
+        #    status_utils.add_new_job(job_id)
 
         status_utils.set_log_path(job_id, log_path)
         handler = logging.FileHandler(log_path, "w")
@@ -29,7 +30,8 @@ def init_logger(logger, module_name):
         logger.setLevel(logging.DEBUG)
         return logger
     except Exception as e:
-        print('Fuck')
+        print('Logger for {} could not be initialized.'.format(str(threading.current_thread().name)))
+        raise e
 
 def get_logger_for_thread(module_name):
     logger = logging.getLogger(get_logfile_name_for_thread(module_name))
