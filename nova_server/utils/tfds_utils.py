@@ -1,5 +1,5 @@
-import hcai_datasets
-import tensorflow_datasets as tfds
+from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import HcaiNovaDynamicIterable
+
 
 def dataset_from_request_form(request_form):
     """
@@ -13,42 +13,32 @@ def dataset_from_request_form(request_form):
         'password': request_form.get("password")
     }
 
-    ds, ds_info = tfds.load(
-        'hcai_nova_dynamic',
-        split='dynamic_split',
-        with_info=True,
-        as_supervised=False,
-        data_dir='.',
-        read_config=tfds.ReadConfig(
-            shuffle_seed=1337
-        ),
-        builder_kwargs={
-            # Database Config
-            'db_config_path': None,  # os.path.join(os.path.dirname(os.path.abspath(__file__)), 'db.cfg'),
-            'db_config_dict': db_config_dict,
+    ds_iter = HcaiNovaDynamicIterable(
+        # Database Config
+        db_config_path=None,  # os.path.join(os.path.dirname(os.path.abspath(__file__)), 'db.cfg'),
+        db_config_dict=db_config_dict,
 
-            # Dataset Config
-            'dataset': request_form.get("database"),
-            'nova_data_dir': request_form.get("dataPath"),
-            'sessions': request_form.get("sessions").split(';'),
-            'roles': request_form.get("roles").split(';'),
-            'schemes': request_form.get("scheme").split(';'),
-            'annotator': request_form.get("annotator"),
-            'data_streams': request_form.get("stream").split(' '),
+        # Dataset Config
+        dataset=request_form.get("database"),
+        nova_data_dir=request_form.get("dataPath"),
+        sessions=request_form.get("sessions").split(';'),
+        roles=request_form.get("roles").split(';'),
+        schemes=request_form.get("scheme").split(';'),
+        annotator=request_form.get("annotator"),
+        data_streams=request_form.get("stream").split(' '),
 
-            # Sample Config
-            'frame_size': 0.04,
-            'left_context': 0,
-            'right_context': 0,
-            'start': request_form.get("start"),
-            'end': request_form.get("end"),
-            'flatten_samples': True,
-            'supervised_keys': [request_form.get("stream").split(' ')[0],
-                                request_form.get("scheme").split(';')[0]],
+        # Sample Config
+        frame_size=0.04,
+        left_context=0,
+        right_context=0,
+        start=request_form.get("start"),
+        end=request_form.get("end"),
+        flatten_samples=True,
+        supervised_keys=[request_form.get("stream").split(' ')[0],
+                         request_form.get("scheme").split(';')[0]],
 
-            # Additional Config
-            'clear_cache': True,
-        }
+        # Additional Config
+        clear_cache=True,
     )
 
-    return ds, ds_info
+    return ds_iter

@@ -54,7 +54,7 @@ def train_model(request_form):
     update_progress('Dataloading')
 
     try:
-        ds, ds_info = tfds_utils.dataset_from_request_form(request_form)
+        ds_iter = tfds_utils.dataset_from_request_form(request_form)
     except ValueError as ve:
         status_utils.update_status(threading.current_thread().name, status_utils.JobStatus.ERROR)
         logger.error('Error when loading dataset {}'.format(str(ve)))
@@ -63,9 +63,8 @@ def train_model(request_form):
 
     # Preprocess data
     logger.info("Start preprocessing...")
-    data_it = ds.as_numpy_iterator()
-    data_list = list(data_it)
-    data_list.sort(key=lambda x: int(x["frame"].decode("utf-8").split("_")[0]))
+    data_list = list(ds_iter)
+    data_list.sort(key=lambda x: int(x["frame"].split("_")[0]))
     x = [v[request_form.get("stream").split(" ")[0]] for v in data_list]
     y = [v[request_form.get("scheme").split(";")[0]] for v in data_list]
 
