@@ -16,7 +16,7 @@ def train_thread():
     if request.method == "POST":
         thread = train_model(request.form)
         thread_id = thread.name
-        status_utils.add_new_job(thread_id)
+        status_utils.add_new_job(thread_id, train.name)
         data = {"job_id": thread_id}
         thread.start()
         return jsonify(data)
@@ -113,4 +113,5 @@ def train_model(request_form):
         raise err
     logger.info("...done")
 
+    update_progress('Done')
     status_utils.update_status(threading.current_thread().name, status_utils.JobStatus.FINISHED)
