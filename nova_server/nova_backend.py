@@ -9,7 +9,7 @@ from nova_server.tests.test_route import test
 import argparse
 
 parser = argparse.ArgumentParser(description='Commandline arguments to configure the nova backend server')
-parser.add_argument('-h', '--host', type=st, default='0.0.0.0', help='The host ip address')
+parser.add_argument('-h', '--host', type=str, default='0.0.0.0', help='The host ip address')
 parser.add_argument('-p', '--port', type=int, default=8080, help='The port the server listens on')
 parser.add_argument('-t', '--template_folder', type=str, optional=True, default='.', help='Path for the templates to load relative to this script')
 
