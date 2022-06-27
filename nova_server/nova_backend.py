@@ -6,10 +6,21 @@ from nova_server.route.status import status
 from nova_server.route.ui import ui
 from nova_server.tests.test_route import test
 
+import argparse
 
-def create_app():
+parser = argparse.ArgumentParser(description='Commandline arguments to configure the nova backend server')
+parser.add_argument('-h', '--host', type=st, default='0.0.0.0', help='The host ip address')
+parser.add_argument('-p', '--port', type=int, default=8080, help='The port the server listens on')
+parser.add_argument('-t', '--template_folder', type=str, optional=True, default='.', help='Path for the templates to load relative to this script')
+
+
+args = parser.parse_args()
+print(args.accumulate(args.integers))
+
+
+def create_app(template_folder):
     print("Starting nova-backend server")
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder)
     app.register_blueprint(train)
     app.register_blueprint(predict)
     app.register_blueprint(extract)
@@ -21,11 +32,7 @@ def create_app():
 
 if __name__ == "__main__":
     from waitress import serve
-
-    app = create_app()
-    serve(app, host="127.0.0.1", port=8080)
-
-# TODO: Init database access
-# app.config['MONGODB_SETTINGS'] = {
-# 'host': 'mongodb://localhost/movie-bag'
-# }
+    app = create_app(template_folder=args.template_folder)
+    host = args.host
+    ip = args.ip
+    serve(app, host=host, port=ip)
