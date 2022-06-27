@@ -11,7 +11,7 @@ import argparse
 parser = argparse.ArgumentParser(description='Commandline arguments to configure the nova backend server')
 parser.add_argument('--host', type=str, default='0.0.0.0', help='The host ip address')
 parser.add_argument('--port', type=int, default=8080, help='The port the server listens on')
-parser.add_argument('--template_folder', type=str, optional=True, default='.', help='Path for the templates to load relative to this script')
+parser.add_argument('--template_folder', type=str, default='.', help='Path for the templates to load relative to this script')
 
 
 args = parser.parse_args()
