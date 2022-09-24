@@ -1,3 +1,6 @@
+import sys
+sys.path.append('/Users/Marco/Documents/Uni/Masterarbeit/hcai_datasets')
+
 from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import HcaiNovaDynamicIterable
 
 
@@ -27,12 +30,13 @@ def dataset_from_request_form(request_form):
         annotator=request_form.get("annotator"),
         data_streams=request_form.get("stream").split(' '),
 
+        # TODO MARCO: Werte von unten dürfen nicht hard codiert sein requeste_form muss in nova erweitert werden, damit diese werte auch übergeben werden
         # Sample Config
         frame_size=0.04,
-        left_context=0,
-        right_context=0,
-        start=request_form.get("start"),
-        end=request_form.get("end"),
+        left_context=request_form.get("leftContext"),
+        right_context=request_form.get("rightContext"),
+        start=0,
+        end=request_form.get("cmlbegintime"),
         flatten_samples=True,
         supervised_keys=[request_form.get("stream").split(' ')[0],
                          request_form.get("scheme").split(';')[0]],
