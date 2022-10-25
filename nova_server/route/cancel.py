@@ -1,5 +1,10 @@
+import nova_server.utils.status_utils
+
 from flask import Blueprint, request, jsonify
+from nova_server.utils import status_utils
 from nova_server.utils.key_utils import get_key_from_request_form
+from nova_server.utils.thread_utils import THREADS
+from nova_server.utils.log_utils import LOGS
 
 
 cancel = Blueprint("cancel", __name__)
@@ -8,10 +13,19 @@ cancel = Blueprint("cancel", __name__)
 @cancel.route("/cancel", methods=["POST"])
 def complete_thread():
     if request.method == "POST":
-        thread_key = get_key_from_request_form(request.form)
+        request_form = request.form.to_dict()
+        key = get_key_from_request_form(request_form)
 
-        # TODO
-        # Check if Thread is available with the given thread_key
-        # If cancel thread and write into log, that it was successful
-        # else write into log, that it was not successful
-        return jsonify({'success': "false"})
+        if key in THREADS:
+            thread = THREADS[key]
+            thread.raise_exception()
+            status_utils.update_status(key, status_utils.JobStatus.WAITING)
+            if key in LOGS:
+                log = LOGS[key]
+                log.info("Action successfully canceled.")
+            return jsonify({'success': "true"})
+        else:
+            if key in LOGS:
+                log = LOGS[key]
+                log.info("Cancel was not successful.")
+            return jsonify({'success': "false"})

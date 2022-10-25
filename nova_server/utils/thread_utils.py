@@ -1,15 +1,17 @@
+import ctypes
 import threading
-from threading import Thread
 
 status_lock = threading.Lock()
 ml_lock = threading.Lock()
 jc_lock = threading.Lock()
 job_counter = 0
 
+THREADS = {}
+
 
 def ml_thread_wrapper(func):
     """
-    Executing the function in a mutex protected thread for asynchronous execution of long running ml tasks.
+    Executing the function in a mutex protected thread for asynchronous execution of long-running ml tasks.
     The thread waits with execution unit the status_lock is released. To do any initialization before the thread starts acquire the status lock before creating the thread.
     :param func:
     :return: The thread
@@ -31,8 +33,7 @@ def ml_thread_wrapper(func):
         job_counter += 1
         jc_lock.release()
 
-        t = Thread(target=lock, name=job_id, args=args, kwargs=kwargs)
-
+        t = BackendThread(target=lock, name=job_id, args=args, kwargs=kwargs)
         return t
 
     return wrapper
@@ -47,3 +48,22 @@ def status_thread_wrapper(func):
             status_lock.release()
 
     return wrapper
+
+
+class BackendThread(threading.Thread):
+    def __init__(self, target, name, args, kwargs):
+        threading.Thread.__init__(self, target=target, name=name, args=args, kwargs=kwargs)
+
+    def get_id(self):
+        if hasattr(self, '_thread_id'):
+            return self._thread_id
+        for id, thread in threading._active.items():
+            if thread is self:
+                return id
+
+    def raise_exception(self):
+        thread_id = self.get_id()
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id,
+                                                         ctypes.py_object(SystemExit))
+        if res > 1:
+            ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)

@@ -41,7 +41,7 @@ def get_logger_for_thread(log_key):
     logger = logging.getLogger(get_logfile_name_for_thread(log_key))
     if not logger.handlers:
         logger = init_logger(logger, log_key)
-    return logger, log_key
+    return logger
 
 
 def remove_log_from_dict(log_key):

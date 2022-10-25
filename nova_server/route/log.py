@@ -9,7 +9,8 @@ log = Blueprint("log", __name__)
 @log.route("/log", methods=["POST"])
 def complete_thread():
     if request.method == "POST":
-        log_key = get_key_from_request_form(request.form)
+        request_form = request.form.to_dict()
+        log_key = get_key_from_request_form(request_form)
         if log_key in log_utils.LOGS:
             logger = log_utils.LOGS[log_key]
             path = logger.handlers[0].baseFilename
@@ -20,4 +21,4 @@ def complete_thread():
                 output += line
             return jsonify({'message': output})
         else:
-            return jsonify({'message': ''})
+            return jsonify({'message': 'No log for the given parameters found.'})

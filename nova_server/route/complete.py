@@ -1,13 +1,9 @@
-import pathlib
-import sys
-import importlib
-import threading
-
-import numpy as np
 from flask import Blueprint, request, jsonify
-from nova_server.utils import tfds_utils, thread_utils, status_utils, log_utils
-import imblearn
-
+from nova_server.route.train import train_model
+from nova_server.route.predict import predict_data
+from nova_server.utils.thread_utils import THREADS
+from nova_server.utils import thread_utils, status_utils, log_utils
+from nova_server.utils.key_utils import get_key_from_request_form
 
 complete = Blueprint("complete", __name__)
 thread = Blueprint("thread", __name__)
@@ -16,32 +12,27 @@ thread = Blueprint("thread", __name__)
 @complete.route("/complete", methods=["POST"])
 def complete_thread():
     if request.method == "POST":
-        thread = complete(request.form)
-        thread_id = thread.name
-        status_utils.add_new_job(thread_id)
-        data = {"job_id": thread_id}
+        request_form = request.form.to_dict()
+        key = get_key_from_request_form(request_form)
+        thread = complete_session(request_form)
+        status_utils.add_new_job(key)
+        data = {"success": "true"}
         thread.start()
+        THREADS[key] = thread
         return jsonify(data)
 
 
 @thread_utils.ml_thread_wrapper
-def complete(request_form):
-    trainer_file = request_form.get("trainerScript")
+def complete_session(request_form):
+    weights_path = train_model(request_form)
 
-    if trainer_file is None:
-        print("TRAINER FILE IS NONE")
+    if weights_path is None:
+        key = get_key_from_request_form(request_form)
+        logger = log_utils.get_logger_for_thread(key)
+        logger.error("An error occurred while training!")
         return
 
-    spec = importlib.util.spec_from_file_location("trainer", trainer_file)
-    trainer = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(trainer)
-
-    model = None
-    model_path = pathlib.Path(request_form.get("trainerPath"))
-
-    try:
-        ds_iter = tfds_utils.dataset_from_request_form(request_form)
-    except ValueError as ve:
-        print("NOT ABLE TO LOAD THE DATA FROM DATABASE")
-        return
-
+    request_form["weightsPath"] = weights_path
+    request_form["startTime"] = request_form["cmlBeginTime"]
+    request_form["cmlBeginTime"] = None
+    predict_data(request_form)
