@@ -5,6 +5,7 @@
     <thead>
       <tr>
         <th>JobID</th>
+        <th>Type</th>
         <th>Status</th>
         <th>Progress</th>
         <th>Start</th>
@@ -16,6 +17,7 @@
       {% for job in jobs %}
         <tr>
           <td>{{ job.job_id }}</td>
+          <td>{{ job.job_type }}</td>
           <td>{{ job.status }}</td>
           <td>{{ job.progress }}</td>
           <td>{{ job.start_time }}</td>

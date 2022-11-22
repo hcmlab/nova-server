@@ -2,7 +2,6 @@ from datetime import datetime
 from enum import Enum
 from nova_server.utils.thread_utils import status_thread_wrapper
 
-
 JOBS = {}
 
 
@@ -34,6 +33,7 @@ class Job:
 def add_new_job(job_key, interactive_url=None):
     job = Job(job_key, interactive_url)
     JOBS[job_key] = job
+
     return True
 
 
@@ -43,6 +43,7 @@ def remove_job(job_key):
         del JOBS[job_key]
     except KeyError:
         print(f"Key {job_key} is not in the dictionary")
+
 
 
 @status_thread_wrapper
@@ -58,12 +59,14 @@ def update_status(job_key, status: JobStatus):
         print(f"Key {job_key} is not in the dictionary")
 
 
+
 @status_thread_wrapper
 def update_progress(job_key, progress: str):
     try:
         JOBS[job_key].progress = progress
     except KeyError:
         print(f"Key {job_key} is not in the dictionary")
+
 
 
 @status_thread_wrapper
@@ -74,12 +77,14 @@ def set_log_path(job_key, log_path):
         print(f"Key {job_key} is not in the dictionary")
 
 
+
 @status_thread_wrapper
 def get_log_path(job_key):
     try:
         return JOBS[str(job_key)].log_path
     except KeyError:
         print(f"Key {job_key} is not in the dictionary")
+
 
 
 @status_thread_wrapper
