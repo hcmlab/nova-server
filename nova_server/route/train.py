@@ -4,7 +4,7 @@ import pathlib
 import imblearn
 import numpy as np
 import importlib.util
-
+import xml.etree.ElementTree as ET
 
 from flask import Blueprint, request, jsonify
 from nova_server.utils import tfds_utils, thread_utils, status_utils, log_utils
@@ -37,7 +37,7 @@ def train_thread_function(request_form):
 def train_model(request_form):
     key = get_key_from_request_form(request_form)
     status_utils.update_status(key, status_utils.JobStatus.RUNNING)
-    update_progress(key, 'Initalizing')
+    update_progress(key, 'Initializing')
 
     trainer_file = request_form["trainerScript"]
     logger = log_utils.get_logger_for_thread(key)
@@ -62,7 +62,7 @@ def train_model(request_form):
     model_path = pathlib.Path(request_form["trainerPath"])
 
     try:
-        update_progress(key, 'Dataloading')
+        update_progress(key, 'Data loading')
         ds_iter = tfds_utils.dataset_from_request_form(request_form)
         logger.info("Train-Data successfully loaded...")
     except ValueError:
@@ -106,9 +106,11 @@ def train_model(request_form):
         return
 
     delete_unnecessary_files(model_path)
+    update_trainer_file(pathlib.Path(request_form["templatePath"]))
     trainer_file_path = pathlib.Path.joinpath(model_path.parents[0], 'models', 'trainer',
                                               request_form["schemeType"].lower(), request_form["scheme"],
-                                              request_form["stream"], request_form["trainerScriptName"])
+                                              request_form["streamType"] + "{" + request_form["streamName"] + "}",
+                                              request_form["trainerScriptName"])
     move_files(pathlib.Path(str(model_path) + ".pth"), pathlib.Path(request_form["templatePath"]),
                trainer_file_path, logger)
     logger.info("Training done!")
@@ -137,6 +139,12 @@ def move_files(weights_path, trainer_path, out_path, logger):
             shutil.copy(file, os.path.join(out_path, filename))
 
 
+def update_trainer_file(trainer_path):
+    root = ET.parse(pathlib.Path(trainer_path))
+    info = root.find('info')
+    info.set('trained', 'true')
+
+
 def delete_unnecessary_files(path):
     weights_file_name = os.path.basename(path)
     path_to_files = path.parents[0]
@@ -148,7 +156,7 @@ def delete_unnecessary_files(path):
 
 def preprocess_data(request_form, data_list):
     data_list.sort(key=lambda x: int(x["frame"].split("_")[0]))
-    x = [v[request_form["stream"].split(" ")[0]] for v in data_list]
+    x = [v[request_form["streamName"].split(" ")[0]] for v in data_list]
     y = [v[request_form["scheme"].split(";")[0]] for v in data_list]
 
     return np.ma.concatenate(x, axis=0), np.array(y)

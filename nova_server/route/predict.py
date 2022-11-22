@@ -1,11 +1,12 @@
 import importlib.util
 
+import numpy as np
 from flask import Blueprint, request, jsonify
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
 from nova_server.utils.key_utils import get_key_from_request_form
-from nova_server.utils import status_utils, thread_utils, log_utils, tfds_utils
-from nova_server.utils.polygon_utils import prediction_to_binary_mask, mask_to_polygons, get_confidence_from_prediction
+from nova_server.utils import status_utils, thread_utils, log_utils, tfds_utils, db_utils
+from nova_server.utils import polygon_utils
 
 
 predict = Blueprint("predict", __name__)
@@ -49,7 +50,7 @@ def predict_data(request_form):
 
     try:
         update_progress(key, 'Dataloading')
-        ds_iter = tfds_utils.dataset_from_request_form(request_form)
+        ds_iter = tfds_utils.dataset_from_request_form(request_form, mode="predict")
         logger.info("Prediction-Data successfully loaded...")
     except ValueError:
         log_utils.remove_log_from_dict(key)
@@ -57,7 +58,6 @@ def predict_data(request_form):
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return
 
-    # TODO MARCO: data_list enthält nicht alle Frames...
     data_list = list(ds_iter)
 
     logger.info("Trying to start predictions...")
@@ -65,13 +65,20 @@ def predict_data(request_form):
     if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
         data_list.sort(key=lambda x: int(x[request_form["scheme"]]['name']))
         amount_of_labels = len(ds_iter.label_info[list(ds_iter.label_info)[0]].labels) + 1
-
+        output_shape = np.uint8(data_list[0][list(data_list[0])[1]])[0].shape  # 1 = width, 0 = height
         model = trainer.load(request_form["weightsPath"], amount_of_labels)
-        predictions = trainer.predict(model, data_list, logger)
-
-        binary_masks = prediction_to_binary_mask(predictions, label_count=amount_of_labels)
-        all_polygons = mask_to_polygons(binary_masks)
-        confidences = get_confidence_from_prediction(predictions, all_polygons)
+        # 1. Predict
+        confidences_layer = trainer.predict(model, data_list, logger, output_shape)
+        # 2. Create True/False Bitmaps
+        binary_masks = polygon_utils.prediction_to_binary_mask(confidences_layer)
+        # 3. Get Polygons
+        all_polygons = polygon_utils.mask_to_polygons(binary_masks)
+        # 4. Get Confidences
+        confidences = polygon_utils.get_confidences_from_predictions(confidences_layer, all_polygons)
+        # 5. Write to database
+        success = db_utils.write_polygons_to_db(request_form, all_polygons, confidences)
+        if not success.acknowledged:
+            logger.error("An unknown error occurred while writing the date into the database! Try to redo the process.")
 
     elif request_form["schemeType"] == "DISCRETE":
         # TODO Marco
@@ -85,8 +92,6 @@ def predict_data(request_form):
     elif request_form["schemeType"] == "POINT":
         # TODO
         ...
-
-    # TODO MARCO predictions in DB schreiben (in Nova muss danach neu geladen werden)
 
     status_utils.update_status(key, status_utils.JobStatus.FINISHED)
     print()

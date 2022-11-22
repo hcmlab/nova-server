@@ -33,6 +33,4 @@ def complete_session(request_form):
         return
 
     request_form["weightsPath"] = weights_path
-    request_form["startTime"] = request_form["cmlBeginTime"]
-    request_form["cmlBeginTime"] = None
     predict_data(request_form)

@@ -91,3 +91,4 @@ zipp==3.6.0
 setuptools~=57.4.0
 imantics~=0.1.12
 shapely~=1.7.1
+rasterio

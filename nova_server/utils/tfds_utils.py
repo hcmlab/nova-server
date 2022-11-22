@@ -4,9 +4,10 @@ sys.path.append('/Users/Marco/Documents/Uni/Masterarbeit/hcai_datasets')
 from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import HcaiNovaDynamicIterable
 
 
-def dataset_from_request_form(request_form):
+def dataset_from_request_form(request_form, mode="train"):
     """
     Creates a tensorflow dataset from nova dynamically
+    :param mode: train or predict
     :param request_form: the requestform that specifices the parameters of the dataset
     """
     db_config_dict = {
@@ -16,10 +17,12 @@ def dataset_from_request_form(request_form):
         'password': request_form["password"]
     }
 
-    if request_form["cmlBeginTime"] == "null":
-        end = None
+    if mode == "train":
+        start = request_form["startTime"] + "ms"
+        end = request_form["cmlBeginTime"] + "ms"
     else:
-        end = request_form["cmlBeginTime"]
+        start = request_form["cmlBeginTime"] + "ms"
+        end = request_form["cmlEndTime"] + "ms"
 
     ds_iter = HcaiNovaDynamicIterable(
         # Database Config
@@ -33,16 +36,16 @@ def dataset_from_request_form(request_form):
         roles=request_form["roles"].split(';'),
         schemes=request_form["scheme"].split(';'),
         annotator=request_form["annotator"],
-        data_streams=request_form["stream"].split(' '),
+        data_streams=request_form["streamName"].split(' '),
 
         # Sample Config
-        frame_size=0.04, # (1000 / SR) / 1000
+        frame_size=request_form["sampleRate"],
         left_context=request_form["leftContext"],
         right_context=request_form["rightContext"],
-        start=request_form["startTime"],
+        start=start,
         end=end,
         flatten_samples=True,
-        supervised_keys=[request_form["stream"].split(' ')[0],
+        supervised_keys=[request_form["streamName"].split(' ')[0],
                          request_form["scheme"].split(';')[0]],
 
         # Additional Config
