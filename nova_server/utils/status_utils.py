@@ -13,13 +13,12 @@ class JobStatus(Enum):
 
 
 class Job:
-    def __init__(self, job_id, job_type=None, interactive_url=None, log_path=None):
+    def __init__(self, job_key, interactive_url=None, log_path=None):
         self.start_time = None
         self.end_time = None
         self.progress = None
         self.status = JobStatus.WAITING
-        self.job_id = job_id
-        self.job_type = job_type
+        self.job_key = job_key
         self.interactive_url = interactive_url
         self.log_path = log_path
 
@@ -31,55 +30,61 @@ class Job:
 
 
 @status_thread_wrapper
-def add_new_job(job_id, job_type, interactive_url=None):
-    job = Job(job_id, job_type, interactive_url)
-    JOBS[job_id] = job
+def add_new_job(job_key, interactive_url=None):
+    job = Job(job_key, interactive_url)
+    JOBS[job_key] = job
+
     return True
 
 
 @status_thread_wrapper
-def remove_job(job_id):
+def remove_job(job_key):
     try:
-        del JOBS[job_id]
+        del JOBS[job_key]
     except KeyError:
-        print(f"Key {job_id} is not in the dictionary")
+        print(f"Key {job_key} is not in the dictionary")
+
 
 
 @status_thread_wrapper
-def update_status(job_id, status: JobStatus):
+def update_status(job_key, status: JobStatus):
     try:
-        JOBS[job_id].status = status
+        JOBS[job_key].status = status
 
         if status == status.RUNNING:
-            JOBS[job_id].start_time = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+            JOBS[job_key].start_time = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
         if status == status.FINISHED or status == status.ERROR:
-            JOBS[job_id].end_time = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+            JOBS[job_key].end_time = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
     except KeyError:
-        print(f"Key {job_id} is not in the dictionary")
+        print(f"Key {job_key} is not in the dictionary")
+
 
 
 @status_thread_wrapper
-def update_progress(job_id, progress: str):
+def update_progress(job_key, progress: str):
     try:
-        JOBS[job_id].progress = progress
+        JOBS[job_key].progress = progress
     except KeyError:
-        print(f"Key {job_id} is not in the dictionary")
+        print(f"Key {job_key} is not in the dictionary")
+
 
 
 @status_thread_wrapper
-def set_log_path(job_id, log_path):
+def set_log_path(job_key, log_path):
     try:
-        JOBS[job_id].log_path = log_path
+        JOBS[job_key].log_path = log_path
     except KeyError:
-        print(f"Key {job_id} is not in the dictionary")
+        print(f"Key {job_key} is not in the dictionary")
+
 
 
 @status_thread_wrapper
-def get_log_path(job_id):
+def get_log_path(job_key):
     try:
-        return JOBS[str(job_id)].log_path
+        return JOBS[str(job_key)].log_path
     except KeyError:
-        print(f"Key {job_id} is not in the dictionary")
+        print(f"Key {job_key} is not in the dictionary")
+
 
 
 @status_thread_wrapper
