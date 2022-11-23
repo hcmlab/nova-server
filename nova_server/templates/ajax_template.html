@@ -5,7 +5,6 @@
     <thead>
       <tr>
         <th>JobID</th>
-        <th>Type</th>
         <th>Status</th>
         <th>Progress</th>
         <th>Start</th>
@@ -25,8 +24,7 @@
       var table = $('#data').DataTable({
         ajax: '/data',
         columns: [
-          {data: 'job_id'},
-          {data: 'job_type'},
+          {data: 'job_key'},
           {data: 'status'},
           {data: 'progress'},
           {data: 'start_time'},

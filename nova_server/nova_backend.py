@@ -10,23 +10,8 @@ from nova_server.route.predict import predict
 from nova_server.route.complete import complete
 
 import argparse
+from utils import path_config
 
-parser = argparse.ArgumentParser(
-    description="Commandline arguments to configure the nova backend server"
-)
-parser.add_argument("--host", type=str, default="0.0.0.0", help="The host ip address")
-parser.add_argument(
-    "--port", type=int, default=8080, help="The port the server listens on"
-)
-parser.add_argument(
-    "--template_folder",
-    type=str,
-    default="./templates",
-    help="Path for the templates to load relative to this script",
-)
-
-
-args = parser.parse_args()
 
 
 def create_app(template_folder):
@@ -47,6 +32,38 @@ def create_app(template_folder):
 if __name__ == "__main__":
     from waitress import serve
 
+    parser = argparse.ArgumentParser(
+        description="Commandline arguments to configure the nova backend server"
+    )
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="The host ip address")
+    parser.add_argument(
+        "--port", type=int, default=8080, help="The port the server listens on"
+    )
+    parser.add_argument(
+        "--template_folder",
+        type=str,
+        default="./templates",
+        help="Path for the templates to load relative to this script",
+    )
+
+    parser.add_argument(
+        "--cml_dir",
+        type=str,
+        default="./cml",
+        help="Cml folder to read the training scripts from. Same as in Nova."
+    )
+
+    parser.add_argument(
+        "--data_dir",
+        type=str,
+        default="./data",
+        help="Data folder to read the training scripts from. Same as in Nova."
+    )
+
+
+    args = parser.parse_args()
+    path_config.data_dir = args.data_dir
+    path_config.cml_dir = args.cml_dir
     app = create_app(template_folder=args.template_folder)
     host = args.host
     port = args.port

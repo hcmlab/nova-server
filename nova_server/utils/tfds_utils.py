@@ -2,7 +2,7 @@ import sys
 
 sys.path.append('/Users/Marco/Documents/Uni/Masterarbeit/hcai_datasets')
 from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import HcaiNovaDynamicIterable
-
+from nova_server.utils.path_config import data_dir
 
 def dataset_from_request_form(request_form, mode="train"):
     """
@@ -18,11 +18,15 @@ def dataset_from_request_form(request_form, mode="train"):
     }
 
     if mode == "train":
-        start = request_form["startTime"] + "ms"
-        end = request_form["cmlBeginTime"] + "ms"
+        start = request_form["startTime"]
+        end = request_form["cmlBeginTime"]
     else:
-        start = request_form["cmlBeginTime"] + "ms"
-        end = request_form["cmlEndTime"] + "ms"
+        start = request_form["cmlBeginTime"]
+        end = request_form["cmlEndTime"]
+
+    # ToDo WTF?
+    if end == '-1':
+        end = None
 
     ds_iter = HcaiNovaDynamicIterable(
         # Database Config
@@ -31,7 +35,8 @@ def dataset_from_request_form(request_form, mode="train"):
 
         # Dataset Config
         dataset=request_form["database"],
-        nova_data_dir=request_form["dataPath"],
+        #nova_data_dir=request_form["dataPath"],
+        nova_data_dir=data_dir,
         sessions=request_form["sessions"].split(';'),
         roles=request_form["roles"].split(';'),
         schemes=request_form["scheme"].split(';'),
