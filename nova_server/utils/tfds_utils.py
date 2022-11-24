@@ -24,10 +24,6 @@ def dataset_from_request_form(request_form, mode="train"):
         start = request_form["cmlBeginTime"]
         end = request_form["cmlEndTime"]
 
-    # ToDo WTF?
-    if end == '-1':
-        end = None
-
     ds_iter = HcaiNovaDynamicIterable(
         # Database Config
         db_config_path=None,  # os.path.join(os.path.dirname(os.path.abspath(__file__)), 'db.cfg'),
@@ -44,12 +40,14 @@ def dataset_from_request_form(request_form, mode="train"):
         data_streams=request_form["streamName"].split(' '),
 
         # Sample Config
-        frame_size=request_form["sampleRate"],
+        frame_size=request_form["frameSize"],
         left_context=request_form["leftContext"],
         right_context=request_form["rightContext"],
         start=start,
         end=end,
-        flatten_samples=True,
+        #TODO: This does not work with pytorch bridge when set to true because the data field does not contain the role anymor.
+        # transformation cannot be applied. fix it!
+        flatten_samples=False,
         supervised_keys=[request_form["streamName"].split(' ')[0],
                          request_form["scheme"].split(';')[0]],
 

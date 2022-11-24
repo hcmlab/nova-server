@@ -1,6 +1,5 @@
 from flask import Flask
 from nova_server.route.train import train
-from nova_server.route.predict import predict
 from nova_server.route.extract import extract
 from nova_server.route.status import status
 from nova_server.route.log import log

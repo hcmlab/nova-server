@@ -9,6 +9,8 @@ from nova_server.utils import polygon_utils
 import xml.etree.ElementTree as ET
 import numpy as np
 import pandas as pd
+from pathlib import Path
+import nova_server.utils.path_config as cfg
 from flask import Blueprint, request, jsonify
 from nova_server.utils import thread_utils, status_utils, log_utils, tfds_utils
 
@@ -37,7 +39,7 @@ def predict_thread():
 
 @thread_utils.ml_thread_wrapper
 def predict_thread_function(request_form):
-    request_form = request_form.to_dict(flat=False)
+    #request_form = request_form.to_dict(flat=False)
     predict_data(request_form)
 
 
@@ -46,7 +48,8 @@ def predict_data(request_form):
     logger = log_utils.get_logger_for_thread(key)
     logger.info("Action 'Predict' started.")
 
-    trainer_file = request_form["trainerScript"]
+    trainer_file = Path(cfg.cml_dir + request_form["trainerScript"])
+
     if trainer_file is None:
         logger.error("Trainer file not available!")
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
@@ -68,11 +71,11 @@ def predict_data(request_form):
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return
 
-    data_list = list(ds_iter)
 
     logger.info("Trying to start predictions...")
 
     if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
+        data_list = list(ds_iter)
         data_list.sort(key=lambda x: int(x[request_form["scheme"]]['name']))
         amount_of_labels = len(ds_iter.label_info[list(ds_iter.label_info)[0]].labels) + 1
         output_shape = np.uint8(data_list[0][list(data_list[0])[1]])[0].shape  # 1 = width, 0 = height
@@ -94,8 +97,18 @@ def predict_data(request_form):
         # TODO Marco
         ...
     elif request_form["schemeType"] == "FREE":
-        # TODO Marco
-        ...
+        # 1. Predict
+        #ToDO request_form["weightsPath"] -> is probably wrong
+        model = trainer.load(request_form["weightsPath"])
+        ds_iter = trainer.preprocess(ds_iter)
+
+        #for sample in ds_iter:
+        result = trainer.predict(model, ds_iter, logger=logger)
+
+        print(result)
+        # 2. Write to database
+        # Dict to db
+
     elif request_form["schemeType"] == "CONTINUOUS":
         # TODO Marco
         ...

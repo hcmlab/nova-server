@@ -7,7 +7,7 @@ log = Blueprint("log", __name__)
 
 
 @log.route("/log", methods=["POST"])
-def complete_thread():
+def log_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
         log_key = get_key_from_request_form(request_form)

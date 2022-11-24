@@ -30,12 +30,12 @@
           {data: 'start_time'},
           {data: 'end_time'},
           {data: 'interactive_url'},
-          {data: 'job_id'}
+          {data: 'log_path'}
         ],
         columnDefs: [ {
           "targets": -1,
           "render": function ( data, type, row, meta ) {
-            return '<a href="/download/log/'+data+'">Download</a>';
+            return '<a href="/logs/'+data+'">Download</a>';
           }
         } ]
       });
