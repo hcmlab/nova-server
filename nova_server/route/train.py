@@ -98,30 +98,30 @@ def train_model(request_form):
     try:
         update_progress(key, 'Saving')
         logger.info("Trying to save the model weights...")
-        trainer.save(model, model_path)
-        logger.info("Model saved! Path to weights (on server): " + str(pathlib.Path(str(model_path) + ".pth")))
+        weights_path = trainer.save(model, model_path)
+        logger.info("Model saved! Path to weights (on server): " + weights_path)
     except AttributeError:
         logger.error("Not able to save the model weights! Maybe the path is denied: " + str(model_path))
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return
 
-    delete_unnecessary_files(model_path)
+    # delete_unnecessary_files(model_path)
     update_trainer_file(pathlib.Path(request_form["templatePath"]))
     trainer_file_path = pathlib.Path.joinpath(model_path.parents[0], 'models', 'trainer',
                                               request_form["schemeType"].lower(), request_form["scheme"],
                                               request_form["streamType"] + "{" + request_form["streamName"] + "}",
                                               request_form["trainerScriptName"])
-    move_files(pathlib.Path(str(model_path) + ".pth"), pathlib.Path(request_form["templatePath"]),
-               trainer_file_path, logger)
+    weights_path = move_files(weights_path, pathlib.Path(request_form["templatePath"]),
+                              trainer_file_path, logger)
     logger.info("Training done!")
     if request_form['mode'] == "TRAIN":
         status_utils.update_status(key, status_utils.JobStatus.FINISHED)
 
     # Returning the weights-path, in case we want in the next step predict with it
-    return pathlib.Path(os.path.join(trainer_file_path, os.path.basename(pathlib.Path(str(model_path) + ".pth"))))
+    return weights_path
 
 
-# Returns the
+# Returns the new weights-path
 def move_files(weights_path, trainer_path, out_path, logger):
     if os.path.exists(out_path):
         shutil.rmtree(out_path)
@@ -130,13 +130,16 @@ def move_files(weights_path, trainer_path, out_path, logger):
     logger.info("Output path (out_path) created.")
     trainer_path = trainer_path.parents[0]
     # Step 1: Move weights file
-    os.replace(weights_path, os.path.join(out_path, os.path.basename(weights_path)))
+    new_weights_path = os.path.join(out_path, os.path.basename(weights_path))
+    os.replace(weights_path, new_weights_path)
 
     # Step 2: Copy trainer files
     for filename in os.listdir(trainer_path):
         file = os.path.join(trainer_path, filename)
         if os.path.isfile(file):
             shutil.copy(file, os.path.join(out_path, filename))
+
+    return new_weights_path
 
 
 def update_trainer_file(trainer_path):
