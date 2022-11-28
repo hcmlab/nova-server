@@ -1,5 +1,4 @@
 import importlib.util
-
 import numpy as np
 from flask import Blueprint, request, jsonify
 from nova_server.utils.thread_utils import THREADS
@@ -7,7 +6,11 @@ from nova_server.utils.status_utils import update_progress
 from nova_server.utils.key_utils import get_key_from_request_form
 from nova_server.utils import status_utils, thread_utils, log_utils, tfds_utils, db_utils
 from nova_server.utils import polygon_utils
-
+import xml.etree.ElementTree as ET
+import numpy as np
+import pandas as pd
+from flask import Blueprint, request, jsonify
+from nova_server.utils import thread_utils, status_utils, log_utils, tfds_utils
 
 predict = Blueprint("predict", __name__)
 
@@ -22,6 +25,13 @@ def predict_thread():
         data = {"success": "true"}
         thread.start()
         THREADS[key] = thread
+
+        #thread = predict_model(request.form)
+        #thread_id = thread.name
+        #status_utils.add_new_job(thread_id, predict.name)
+        #data = {"job_id": thread_id}
+        #thread.start()
+
         return jsonify(data)
 
 
@@ -95,4 +105,3 @@ def predict_data(request_form):
 
     status_utils.update_status(key, status_utils.JobStatus.FINISHED)
     print()
-    ...
