@@ -23,7 +23,7 @@ def train_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
         key = get_key_from_request_form(request_form)
-        thread = train_thread_function(request_form)
+        thread = train_model(request_form)
         status_utils.add_new_job(key)
         data = {"success": "true"}
         thread.start()
@@ -32,10 +32,6 @@ def train_thread():
 
 
 @thread_utils.ml_thread_wrapper
-def train_thread_function(request_form):
-    train_model(request_form)
-
-
 def train_model(request_form):
     key = get_key_from_request_form(request_form)
     status_utils.update_status(key, status_utils.JobStatus.RUNNING)
@@ -60,9 +56,12 @@ def train_model(request_form):
     trainer = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(trainer)
 
+    template_path = Path(cfg.cml_dir + request_form["templatePath"]).parent
     model = None
-    model_path = Path(cfg.cml_dir + request_form["trainerPath"])
-    #model_path = pathlib.Path(request_form["trainerPath"])
+    if request_form['mode'] == "TRAIN":
+        model_path = template_path
+    else:
+        model_path = Path(cfg.cml_dir + request_form["trainerPath"])
 
     try:
         update_progress(key, 'Data loading')
@@ -74,25 +73,27 @@ def train_model(request_form):
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return None
 
-    data_list = list(ds_iter)
-    #TODO: WTF?
-    #if len(data_list) < 5:
-    #    logger.error("The number of available training data is too low! More than four data must be available.")
-    #    status_utils.update_status(key, status_utils.JobStatus.ERROR)
-    #    return
-
     logger.info("Trying to start training...")
     if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
+        data_list = list(ds_iter)
+        if len(data_list) < 1:
+            logger.error("The number of available training data is too low!")
+            status_utils.update_status(key, status_utils.JobStatus.ERROR)
+            return
+
         data_list.sort(key=lambda x: int(x[request_form["scheme"]]['name']))
         model = trainer.train(data_list, ds_iter.label_info[list(ds_iter.label_info)[0]].labels, logger)
         logger.info("Trained model available!")
     elif request_form["schemeType"] == "DISCRETE":
+        data_list = list(ds_iter)
         x_np, y_np = preprocess_data(request_form, data_list)
         # TODO Marco
     elif request_form["schemeType"] == "FREE":
+        data_list = list(ds_iter)
         x_np, y_np = preprocess_data(request_form, data_list)
         # TODO Marco
     elif request_form["schemeType"] == "CONTINUOUS":
+        data_list = list(ds_iter)
         x_np, y_np = preprocess_data(request_form, data_list)
         # TODO Marco
     elif request_form["schemeType"] == "POINT":
@@ -102,55 +103,60 @@ def train_model(request_form):
     try:
         update_progress(key, 'Saving')
         logger.info("Trying to save the model weights...")
-        trainer.save(model, model_path)
-        # TODO: WTF? PTH?
-        logger.info("Model saved! Path to weights (on server): " + str(pathlib.Path(str(model_path) + ".pth")))
+        weights_path = trainer.save(model, model_path)
+        files_to_move = trainer.DEPENDENCIES
+        logger.info("Model saved! Path to weights (on server): " + weights_path)
     except AttributeError:
         logger.error("Not able to save the model weights! Maybe the path is denied: " + str(model_path))
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return
 
-    delete_unnecessary_files(model_path)
-    update_trainer_file(Path(cfg.cml_dir + request_form["templatePath"]))
-    # TODO: WTF?
-    #trainer_file_path = pathlib.Path.joinpath(model_path.parents[0], 'models', 'trainer',
-    #                                          request_form["schemeType"].lower(), request_form["scheme"],
-    #                                          request_form["streamType"] + "{" + request_form["streamName"] + "}",
-    #                                          request_form["trainerScriptName"])
-    #trainer_file_path = model_path
-    move_files(weights_path=pathlib.Path(str(model_path) + ".pth"), trainer_path=pathlib.Path((cfg.cml_dir + request_form["templatePath"])),
-               out_path=model_path.parent, logger=logger)
+    trainer_name = Path(request_form['templatePath']).name
+    if request_form['mode'] == "TRAIN":
+        weights_name = Path(weights_path).name
+        files_to_move.append(trainer_name)
+        files_to_move.append(weights_name)
+
+        out_path = pathlib.Path.joinpath(pathlib.Path(cfg.cml_dir), model_path.parents[0], 'models', 'trainer',
+                                         request_form["schemeType"].lower(), request_form["scheme"],
+                                         request_form["streamType"] + "{" + request_form["streamName"] + "}",
+                                         request_form["trainerScriptName"])
+        move_files(files_to_move, template_path, out_path)
+        trainer_path = Path.joinpath(out_path, trainer_name)
+        weights_path = Path.joinpath(out_path, weights_name)
+    else:
+        move_files([Path(request_form['templatePath']).name], template_path, model_path.parent)
+        trainer_path = Path.joinpath(model_path.parent, trainer_name)
+
+    update_trainer_file(trainer_path, weights_path)
+
     logger.info("Training done!")
     if request_form['mode'] == "TRAIN":
         status_utils.update_status(key, status_utils.JobStatus.FINISHED)
 
-    # Returning the weights-path, in case we want in the next step predict with it
-    return model_path.parent / (model_path.name + '.pth')
+
+# Returns the weights path
+def move_files(files_to_move, files_path, out_path):
+    out_path.mkdir(parents=True, exist_ok=True)
+    new_weights_path = None
+
+    for file in files_to_move:
+        old_file_path = os.path.join(files_path, file)
+        new_file_path = os.path.join(out_path, file)
+        shutil.copy(old_file_path, new_file_path)
+
+    return new_weights_path
 
 
-# Returns the
-def move_files(weights_path, trainer_path, out_path, logger):
-
-    # ToDo Delete only files!
-    #if os.path.exists(out_path.parent):
-    #    shutil.rmtree(out_path.parent)
-    #out_path.mkdir(parents=True, exist_ok=True)
-    #logger.info("Output path (out_path) created.")
-    trainer_path = trainer_path.parents[0]
-    # Step 1: Move weights file
-    #os.replace(weights_path, os.path.join(out_path, os.path.basename(weights_path)))
-
-    # Step 2: Copy trainer files
-    for filename in os.listdir(trainer_path):
-        file = os.path.join(trainer_path, filename)
-        if os.path.isfile(file):
-            shutil.copy(file, os.path.join(out_path, filename))
-
-
-def update_trainer_file(trainer_path):
+def update_trainer_file(trainer_path, weights_path):
     root = ET.parse(pathlib.Path(trainer_path))
     info = root.find('info')
+    model = root.find('model')
     info.set('trained', 'true')
+    model.set('path', str(weights_path))
+    root.write(trainer_path)
+    print()
+    # path="Pfad zu Weights (mit endung) im server einfügen"
 
 
 def delete_unnecessary_files(path):

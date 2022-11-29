@@ -19,9 +19,9 @@ def write_polygons_to_db(request_form, polygons, confidences):
     session = request_form['sessions']
     annotator = request_form['annotator']
     role = request_form['roles']
-    start = int(int(request_form['cmlBeginTime']) / (float(request_form['sampleRate']) * 1000))
+    start_frame = int(int(request_form['startTime']) / int(request_form['frameSize']))
 
-    return db_handler.save_polygons(database, scheme, session, annotator, role, polygons, confidences, start)
+    return db_handler.save_polygons(database, scheme, session, annotator, role, polygons, confidences, start_frame)
 
 def write_freeform_to_db(request_form, results):
 

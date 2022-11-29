@@ -22,27 +22,15 @@ def predict_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
         key = get_key_from_request_form(request_form)
-        thread = predict_thread_function(request_form)
+        thread = predict_data(request_form)
         status_utils.add_new_job(key)
         data = {"success": "true"}
         thread.start()
         THREADS[key] = thread
-
-        #thread = predict_model(request.form)
-        #thread_id = thread.name
-        #status_utils.add_new_job(thread_id, predict.name)
-        #data = {"job_id": thread_id}
-        #thread.start()
-
         return jsonify(data)
 
 
 @thread_utils.ml_thread_wrapper
-def predict_thread_function(request_form):
-    #request_form = request_form.to_dict(flat=False)
-    predict_data(request_form)
-
-
 def predict_data(request_form):
     key = get_key_from_request_form(request_form)
     logger = log_utils.get_logger_for_thread(key)
@@ -70,7 +58,6 @@ def predict_data(request_form):
         logger.error("Not able to load the data from the database!")
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return
-
 
     logger.info("Trying to start predictions...")
     # ToDo scheme type is not necessary. we can use the label_info from the data iterator
