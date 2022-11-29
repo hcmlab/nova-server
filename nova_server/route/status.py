@@ -8,12 +8,15 @@ status = Blueprint("status", __name__)
 @status.route("/job_status", methods=["POST"])
 def job_status():
     if request.method == "POST":
-        request_form = request.form.to_dict()
+        request_form = request .form.to_dict()
         status_key = get_key_from_request_form(request_form)
+
         if status_key in JOBS.keys():
-            return jsonify({'status' : JobStatus.RUNNING.value})
+            #j = JOBS[status_key]
+            return jsonify({'status': JobStatus.RUNNING.value})
             # ToDo: WTF ?
-            #return jsonify({"status": JOBS[status_key].status.value})
+            #print('dfdfdf')
+            #return jsonify({"status": j.status.value})
         else:
             return jsonify({"status": JobStatus.WAITING.value})
 

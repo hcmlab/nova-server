@@ -73,6 +73,7 @@ def predict_data(request_form):
 
 
     logger.info("Trying to start predictions...")
+    # ToDo scheme type is not necessary. we can use the label_info from the data iterator
 
     if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
         data_list = list(ds_iter)
@@ -100,14 +101,13 @@ def predict_data(request_form):
         # 1. Predict
         #ToDO request_form["weightsPath"] -> is probably wrong
         model = trainer.load(request_form["weightsPath"])
-        ds_iter = trainer.preprocess(ds_iter)
+        ds_iter_pp = trainer.preprocess(ds_iter)
 
-        #for sample in ds_iter:
-        result = trainer.predict(model, ds_iter, logger=logger)
+        # 2. For sample in ds_iter:
+        results = trainer.predict(model, ds_iter_pp, logger=logger)
 
-        print(result)
-        # 2. Write to database
-        # Dict to db
+        # 3. Write to database
+        db_utils.write_freeform_to_db(request_form, results)
 
     elif request_form["schemeType"] == "CONTINUOUS":
         # TODO Marco
