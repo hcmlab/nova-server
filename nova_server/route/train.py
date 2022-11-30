@@ -12,6 +12,8 @@ from nova_server.utils.status_utils import update_progress
 from nova_server.utils.key_utils import get_key_from_request_form
 from nova_server.utils.thread_utils import THREADS
 from pathlib import Path
+from nova_server.utils.ssi_utils import Trainer
+
 import nova_server.utils.path_config as cfg
 
 train = Blueprint("train", __name__)
@@ -37,35 +39,36 @@ def train_model(request_form):
     status_utils.update_status(key, status_utils.JobStatus.RUNNING)
     update_progress(key, 'Initializing')
 
-    trainer_file = Path(cfg.cml_dir + request_form["trainerScript"])
-    logger = log_utils.get_logger_for_thread(key)
+    trainer_file_path = Path(cfg.cml_dir + request_form["trainerFilePath"])
+    out_dir = Path(cfg.cml_dir + request_form["trainerOutputDirectory"])
+    trainer_name = request_form["trainerName"]
 
+    logger = log_utils.get_logger_for_thread(key)
     log_conform_request = dict(request_form)
     log_conform_request['password'] = '---'
 
     logger.info("Action 'Train' started.")
+    trainer = Trainer()
 
-    if trainer_file is None:
+    if not trainer_file_path.is_file():
         logger.error("Trainer file not available!")
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return None
     else:
-        logger.info("Trainer file available...")
+        trainer.load_from_file(trainer_file_path)
+        logger.info("Trainer successfully loaded.")
 
-    spec = importlib.util.spec_from_file_location("trainer", trainer_file)
-    trainer = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(trainer)
+    model_script_path = trainer_file_path.parent / trainer.model_script_path
 
-    template_path = Path(cfg.cml_dir + request_form["templatePath"]).parent
-    model = None
-    if request_form['mode'] == "TRAIN":
-        model_path = template_path
-    else:
-        model_path = Path(cfg.cml_dir + request_form["weightsPath"])
+    # Load Trainer
+    spec = importlib.util.spec_from_file_location("model_script", model_script_path)
+    model_script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(model_script)
 
+    # Load Data
     try:
         update_progress(key, 'Data loading')
-        ds_iter = tfds_utils.dataset_from_request_form(request_form)
+        ds_iter = dataset_utils.dataset_from_request_form(request_form)
         logger.info("Train-Data successfully loaded...")
     except ValueError:
         log_utils.remove_log_from_dict(key)
@@ -73,7 +76,9 @@ def train_model(request_form):
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return None
 
-    logger.info("Trying to start training...")
+
+
+    model = None
     if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
         data_list = list(ds_iter)
         if len(data_list) < 1:
@@ -81,24 +86,41 @@ def train_model(request_form):
             status_utils.update_status(key, status_utils.JobStatus.ERROR)
             return
 
-        model = trainer.train(data_list, ds_iter.label_info[list(ds_iter.label_info)[0]].labels, logger)
-        logger.info("Trained model available!")
-    elif request_form["schemeType"] == "DISCRETE":
-        data_list = list(ds_iter)
-        x_np, y_np = preprocess_data(request_form, data_list)
-        # TODO Marco
-    elif request_form["schemeType"] == "FREE":
-        data_list = list(ds_iter)
-        x_np, y_np = preprocess_data(request_form, data_list)
-        # TODO Marco
-    elif request_form["schemeType"] == "CONTINUOUS":
-        data_list = list(ds_iter)
-        x_np, y_np = preprocess_data(request_form, data_list)
-        # TODO Marco
-    elif request_form["schemeType"] == "POINT":
-        # TODO
-        ...
+        model = model_script.train(data_list, ds_iter.label_info[list(ds_iter.label_info)[0]].labels, logger)
+    else:
+        # Preprocess
+        logger.info("Preprocessing data...")
+        # TODO: generic preprocessing interface
+        x_np, y_np = model_script.preprocess(request_form, ds_iter, logger)
+        logger.info("...done")
 
+        # Train
+        logger.info("Train model...")
+        model = model_script.train(x_np, y_np)
+        logger.info("...done")
+
+    # Save
+    logger.info('Saving...')
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    trainer.info_trained = True
+    trainer.model_weights_path = trainer_name
+    # TODO add classes and users / sessions
+    trainer.write_trainer_to_file(out_dir / trainer_name)
+    logger.info('...trainerfile')
+    model_script.save(model, out_dir / trainer_name)
+    logger.info('...weights')
+    shutil.copy(model_script_path, out_dir / trainer.model_script_path)
+    logger.info('...train script')
+    for f in model_script.DEPENDENCIES:
+        shutil.copy(trainer_file_path.parent / f, out_dir / f)
+    logger.info('...dependencies')
+    logger.info("Training completed!")
+    status_utils.update_status(key, status_utils.JobStatus.FINISHED)
+
+
+'''
     try:
         update_progress(key, 'Saving')
         logger.info("Trying to save the model weights...")
@@ -127,11 +149,8 @@ def train_model(request_form):
         copy_files([Path(request_form['templatePath']).name], template_path, model_path.parent)
         trainer_path = Path.joinpath(model_path.parent, trainer_name)
         weights_path = Path(weights_path).name
+    '''
 
-    update_trainer_file(trainer_path, weights_path)
-
-    logger.info("Training done!")
-    status_utils.update_status(key, status_utils.JobStatus.FINISHED)
 
 
 # Returns the weights path
@@ -147,7 +166,10 @@ def copy_files(files_to_move, files_path, out_path):
     return new_weights_path
 
 
-def update_trainer_file(trainer_path, weights_path):
+def update_trainer(trainer):
+    trainer.info_trained = True
+
+
     root = ET.parse(pathlib.Path(trainer_path))
     info = root.find('info')
     model = root.find('model')
@@ -164,14 +186,6 @@ def delete_unnecessary_files(path):
         file = os.path.join(path_to_files, filename)
         if os.path.isfile(file) and filename.split('.')[0] != weights_file_name:
             os.remove(file)
-
-
-def preprocess_data(request_form, data_list):
-    data_list.sort(key=lambda x: int(x["frame"].split("_")[0]))
-    x = [v[request_form["streamName"].split(" ")[0]] for v in data_list]
-    y = [v[request_form["scheme"].split(";")[0]] for v in data_list]
-
-    return np.ma.concatenate(x, axis=0), np.array(y)
 
 
 # TODO DATA BALANCING

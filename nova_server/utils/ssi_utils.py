@@ -93,6 +93,10 @@ class Trainer():
 
         tree = ET.ElementTree(root)
         ET.indent(tree, space="    ", level=0)
+
+        if not fp.suffix:
+            fp = fp.with_suffix('.trainer')
+
         tree.write(fp)
 
 

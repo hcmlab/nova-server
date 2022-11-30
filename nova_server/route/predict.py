@@ -51,7 +51,7 @@ def predict_data(request_form):
 
     try:
         update_progress(key, 'Dataloading')
-        ds_iter = tfds_utils.dataset_from_request_form(request_form, mode="predict")
+        ds_iter = dataset_utils.dataset_from_request_form(request_form, mode="predict")
         logger.info("Prediction-Data successfully loaded...")
     except ValueError:
         log_utils.remove_log_from_dict(key)
