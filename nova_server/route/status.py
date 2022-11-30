@@ -12,11 +12,12 @@ def job_status():
         status_key = get_key_from_request_form(request_form)
 
         if status_key in JOBS.keys():
-            #j = JOBS[status_key]
-            return jsonify({'status': JobStatus.RUNNING.value})
-            # ToDo: WTF ?
-            #print('dfdfdf')
-            #return jsonify({"status": j.status.value})
+            status = JOBS[status_key].status
+            # TODO WTF
+            if isinstance(status, str):
+                status = JobStatus.FINISHED
+
+            return jsonify({"status": status.value})
         else:
             return jsonify({"status": JobStatus.WAITING.value})
 
