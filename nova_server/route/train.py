@@ -61,7 +61,7 @@ def train_model(request_form):
     if request_form['mode'] == "TRAIN":
         model_path = template_path
     else:
-        model_path = Path(cfg.cml_dir + request_form["trainerPath"])
+        model_path = Path(cfg.cml_dir + request_form["weightsPath"])
 
     try:
         update_progress(key, 'Data loading')
@@ -81,7 +81,6 @@ def train_model(request_form):
             status_utils.update_status(key, status_utils.JobStatus.ERROR)
             return
 
-        data_list.sort(key=lambda x: int(x[request_form["scheme"]]['name']))
         model = trainer.train(data_list, ds_iter.label_info[list(ds_iter.label_info)[0]].labels, logger)
         logger.info("Trained model available!")
     elif request_form["schemeType"] == "DISCRETE":
@@ -121,22 +120,22 @@ def train_model(request_form):
                                          request_form["schemeType"].lower(), request_form["scheme"],
                                          request_form["streamType"] + "{" + request_form["streamName"] + "}",
                                          request_form["trainerScriptName"])
-        move_files(files_to_move, template_path, out_path)
+        copy_files(files_to_move, template_path, out_path)
         trainer_path = Path.joinpath(out_path, trainer_name)
         weights_path = Path.joinpath(out_path, weights_name)
     else:
-        move_files([Path(request_form['templatePath']).name], template_path, model_path.parent)
+        copy_files([Path(request_form['templatePath']).name], template_path, model_path.parent)
         trainer_path = Path.joinpath(model_path.parent, trainer_name)
+        weights_path = Path(weights_path).name
 
     update_trainer_file(trainer_path, weights_path)
 
     logger.info("Training done!")
-    if request_form['mode'] == "TRAIN":
-        status_utils.update_status(key, status_utils.JobStatus.FINISHED)
+    status_utils.update_status(key, status_utils.JobStatus.FINISHED)
 
 
 # Returns the weights path
-def move_files(files_to_move, files_path, out_path):
+def copy_files(files_to_move, files_path, out_path):
     out_path.mkdir(parents=True, exist_ok=True)
     new_weights_path = None
 
@@ -156,7 +155,6 @@ def update_trainer_file(trainer_path, weights_path):
     model.set('path', str(weights_path))
     root.write(trainer_path)
     print()
-    # path="Pfad zu Weights (mit endung) im server einfügen"
 
 
 def delete_unnecessary_files(path):
