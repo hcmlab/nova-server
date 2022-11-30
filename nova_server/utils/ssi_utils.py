@@ -18,6 +18,7 @@ class Trainer():
                  meta_right_ctx: int = 0,
                  meta_left_ctx: int = 0,
                  meta_balance: str = 'none',
+                 meta_backend: str = 'Python',
                  ssi_v="5",
                  xml_version="1.0"
                  ):
@@ -35,6 +36,7 @@ class Trainer():
         self.meta_right_ctx = meta_right_ctx
         self.meta_left_ctx = meta_left_ctx
         self.meta_balance = meta_balance
+        self.meta_backend = meta_backend
         self.ssi_v = ssi_v
         self.xml_version = xml_version
 
@@ -53,6 +55,8 @@ class Trainer():
         if meta is not None:
             self.meta_left_ctx = int(meta.get('leftContext', default='0'))
             self.meta_right_ctx = int(meta.get('rightContext', default='0'))
+            self.meta_balance = meta.get('balance', default='none')
+            self.meta_backend = meta.get('backend', default='Python')
         if register is not None:
             for r in register:
                 self.register.append(r.attrib)
@@ -76,7 +80,7 @@ class Trainer():
     def write_trainer_to_file(self, fp):
         root = ET.Element('trainer')
         ET.SubElement(root, 'info', trained=str(self.info_trained))
-        ET.SubElement(root, 'meta', leftContext=str(self.meta_left_ctx), rightContex=str(self.meta_right_ctx), balance=self.meta_balance)
+        ET.SubElement(root, 'meta', leftContext=str(self.meta_left_ctx), rightContex=str(self.meta_right_ctx), balance=self.meta_balance, backend=self.meta_backend)
         register = ET.SubElement(root, 'register')
         for r in self.register:
             ET.SubElement(register, 'item', **r)
@@ -96,7 +100,6 @@ class Trainer():
 
         if not fp.suffix:
             fp = fp.with_suffix('.trainer')
-
         tree.write(fp)
 
 
