@@ -71,13 +71,14 @@ def predict_data(request_form):
 
     # ToDo scheme type is not necessary. we can use the label_info from the data iterator
     if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
-        data_list = list(ds_iter)
-        data_list.sort(key=lambda x: int(x[request_form["scheme"]]['name']))
-        amount_of_labels = len(ds_iter.label_info[list(ds_iter.label_info)[0]].labels) + 1
-        output_shape = np.uint8(data_list[0][list(data_list[0])[1]])[0].shape  # 1 = width, 0 = height
-        model = trainer.load(request_form["weightsPath"], amount_of_labels)
+        data = model_script.preprocess(ds_iter, logger=logger)
+        labels = data[1]
+        data_list = data[0]
+        amount_of_labels = len(labels) + 1
+        output_shape = np.uint8(data_list[0][list(data_list[0])[1]])[0].shape
+        model = model_script.load(Path(cfg.cml_dir + "\\" + trainer.model_weights_path), amount_of_labels)
         # 1. Predict
-        confidences_layer = trainer.predict(model, data_list, logger, output_shape)
+        confidences_layer = model_script.predict(model, data_list, logger, output_shape)
         # 2. Create True/False Bitmaps
         binary_masks = polygon_utils.prediction_to_binary_mask(confidences_layer)
         # 3. Get Polygons
@@ -118,5 +119,7 @@ def predict_data(request_form):
     elif request_form["schemeType"] == "POINT":
         # TODO
         ...
+
+    # TODO tmp files loeschen!!!
 
     status_utils.update_status(key, status_utils.JobStatus.FINISHED)

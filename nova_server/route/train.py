@@ -75,28 +75,19 @@ def train_model(request_form):
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return None
 
-
-
     model = None
-    if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
-        data_list = list(ds_iter)
-        if len(data_list) < 1:
-            logger.error("The number of available training data is too low!")
-            status_utils.update_status(key, status_utils.JobStatus.ERROR)
-            return
-
-        model = model_script.train(data_list, ds_iter.label_info[list(ds_iter.label_info)[0]].labels, logger)
-    else:
-        # Preprocess
+    try:
         logger.info("Preprocessing data...")
         # TODO: generic preprocessing interface, remove request form from model interface
-        x_np, y_np = model_script.preprocess(ds_iter, request_form=request_form, logger=logger)
+        data = model_script.preprocess(ds_iter, logger=logger, request_form=request_form)
         logger.info("...done")
+    except ValueError:
+        status_utils.update_status(key, status_utils.JobStatus.ERROR)
+        return
 
-        # Train
-        logger.info("Training model...")
-        model = model_script.train(x_np, y_np)
-        logger.info("...done")
+    logger.info("Training model...")
+    model = model_script.train(data, logger)
+    logger.info("...done")
 
     # Save
     logger.info('Saving...')
@@ -117,39 +108,6 @@ def train_model(request_form):
     logger.info('...dependencies')
     logger.info("Training completed!")
     status_utils.update_status(key, status_utils.JobStatus.FINISHED)
-
-
-'''
-    try:
-        update_progress(key, 'Saving')
-        logger.info("Trying to save the model weights...")
-        weights_path = trainer.save(model, model_path)
-        files_to_move = trainer.DEPENDENCIES
-        logger.info("Model saved! Path to weights (on server): " + weights_path)
-    except AttributeError:
-        logger.error("Not able to save the model weights! Maybe the path is denied: " + str(model_path))
-        status_utils.update_status(key, status_utils.JobStatus.ERROR)
-        return
-
-    trainer_name = Path(request_form['templatePath']).name
-    if request_form['mode'] == "TRAIN":
-        weights_name = Path(weights_path).name
-        files_to_move.append(trainer_name)
-        files_to_move.append(weights_name)
-
-        out_path = pathlib.Path.joinpath(pathlib.Path(cfg.cml_dir), model_path.parents[0], 'models', 'trainer',
-                                         request_form["schemeType"].lower(), request_form["scheme"],
-                                         request_form["streamType"] + "{" + request_form["streamName"] + "}",
-                                         request_form["trainerScriptName"])
-        copy_files(files_to_move, template_path, out_path)
-        trainer_path = Path.joinpath(out_path, trainer_name)
-        weights_path = Path.joinpath(out_path, weights_name)
-    else:
-        copy_files([Path(request_form['templatePath']).name], template_path, model_path.parent)
-        trainer_path = Path.joinpath(model_path.parent, trainer_name)
-        weights_path = Path(weights_path).name
-    '''
-
 
 
 # Returns the weights path

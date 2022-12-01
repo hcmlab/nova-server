@@ -76,7 +76,6 @@ class Trainer():
             self.model_script_path = model.get('script', default='')
             self.model_weights_path = model.get('path', default='')
 
-
     def write_trainer_to_file(self, fp):
         root = ET.Element('trainer')
         ET.SubElement(root, 'info', trained=str(self.info_trained))
