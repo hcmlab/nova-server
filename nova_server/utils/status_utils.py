@@ -1,6 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from nova_server.utils.thread_utils import status_thread_wrapper
+import copy
 
 JOBS = {}
 
@@ -23,7 +24,7 @@ class Job:
         self.log_path = log_path
 
     def serializable(self):
-        s = vars(self)
+        s = copy.deepcopy(vars(self))
         for key in s.keys():
             s[key] = str(s[key])
         return s
