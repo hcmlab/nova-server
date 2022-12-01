@@ -1,18 +1,16 @@
 import importlib.util
-import numpy as np
-from flask import Blueprint, request, jsonify
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
 from nova_server.utils.key_utils import get_key_from_request_form
 from nova_server.utils import status_utils, thread_utils, log_utils, dataset_utils, db_utils
 from nova_server.utils import polygon_utils
-import xml.etree.ElementTree as ET
 import numpy as np
-import pandas as pd
 from pathlib import Path
 import nova_server.utils.path_config as cfg
 from flask import Blueprint, request, jsonify
 from nova_server.utils import thread_utils, status_utils, log_utils, dataset_utils
+from nova_server.utils.ssi_utils import Trainer
+
 
 predict = Blueprint("predict", __name__)
 
@@ -33,35 +31,45 @@ def predict_thread():
 @thread_utils.ml_thread_wrapper
 def predict_data(request_form):
     key = get_key_from_request_form(request_form)
+    status_utils.update_status(key, status_utils.JobStatus.RUNNING)
+    trainer_file_path = Path(cfg.cml_dir + request_form["trainerFilePath"])
+
     logger = log_utils.get_logger_for_thread(key)
     logger.info("Action 'Predict' started.")
 
-    trainer_file = Path(cfg.cml_dir + request_form["trainerScript"])
+    trainer = Trainer()
 
-    if trainer_file is None:
+    if not trainer_file_path.is_file():
         logger.error("Trainer file not available!")
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
-        return
+        return None
     else:
-        logger.info("Trainer file available...")
+        trainer.load_from_file(trainer_file_path)
+        logger.info("Trainer successfully loaded.")
 
-    spec = importlib.util.spec_from_file_location("trainer", trainer_file)
-    trainer = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(trainer)
+    if not trainer.model_script_path:
+        logger.error('Trainer has no attribute "script" in model tag.')
+        status_utils.update_status(key, status_utils.JobStatus.ERROR)
+        return None
 
+    # Load Trainer
+    model_script_path = trainer_file_path.parent / trainer.model_script_path
+    spec = importlib.util.spec_from_file_location("model_script", model_script_path)
+    model_script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(model_script)
+
+    # Load Data
     try:
-        update_progress(key, 'Dataloading')
-        ds_iter = dataset_utils.dataset_from_request_form(request_form, mode="predict")
-        logger.info("Prediction-Data successfully loaded...")
+        update_progress(key, 'Data loading')
+        ds_iter = dataset_utils.dataset_from_request_form(request_form)
+        logger.info("Prediction data successfully loaded...")
     except ValueError:
         log_utils.remove_log_from_dict(key)
         logger.error("Not able to load the data from the database!")
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return
 
-    logger.info("Trying to start predictions...")
     # ToDo scheme type is not necessary. we can use the label_info from the data iterator
-
     if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
         data_list = list(ds_iter)
         data_list.sort(key=lambda x: int(x[request_form["scheme"]]['name']))
@@ -80,21 +88,29 @@ def predict_data(request_form):
         success = db_utils.write_polygons_to_db(request_form, all_polygons, confidences)
         if not success.acknowledged:
             logger.error("An unknown error occurred while writing the date into the database! Try to redo the process.")
-
     elif request_form["schemeType"] == "DISCRETE":
         # TODO Marco
         ...
     elif request_form["schemeType"] == "FREE":
-        # 1. Predict
-        #ToDO request_form["weightsPath"] -> is probably wrong
-        model = trainer.load(request_form["weightsPath"])
-        ds_iter_pp = trainer.preprocess(ds_iter)
+        # 1. Load model
+        logger.info("Loading model...")
+        model = model_script.load(trainer.model_weights_path, logger=logger)
+        logger.info("...done")
 
-        # 2. For sample in ds_iter:
-        results = trainer.predict(model, ds_iter_pp, logger=logger)
+        # 2. Preprocess data
+        logger.info("Preprocessing data...")
+        ds_iter_pp = model_script.preprocess(ds_iter, logger=logger)
+        logger.info("...done")
 
-        # 3. Write to database
+        # 3. Predict data
+        logger.info("Predicting results...")
+        results = model_script.predict(model, ds_iter_pp, logger=logger)
+        logger.info("...done")
+
+        # 4. Write to database
+        logger.info("Uploading to database...")
         db_utils.write_freeform_to_db(request_form, results)
+        logger.info("...done")
 
     elif request_form["schemeType"] == "CONTINUOUS":
         # TODO Marco
@@ -104,4 +120,3 @@ def predict_data(request_form):
         ...
 
     status_utils.update_status(key, status_utils.JobStatus.FINISHED)
-    print()

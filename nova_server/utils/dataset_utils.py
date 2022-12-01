@@ -4,10 +4,9 @@ sys.path.append('/Users/Marco/Documents/Uni/Masterarbeit/hcai_datasets')
 from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import HcaiNovaDynamicIterable
 from nova_server.utils.path_config import data_dir
 
-def dataset_from_request_form(request_form, mode="train"):
+def dataset_from_request_form(request_form):
     """
     Creates a tensorflow dataset from nova dynamically
-    :param mode: train or predict
     :param request_form: the requestform that specifices the parameters of the dataset
     """
     db_config_dict = {

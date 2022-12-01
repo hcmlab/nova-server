@@ -58,9 +58,8 @@ def train_model(request_form):
         trainer.load_from_file(trainer_file_path)
         logger.info("Trainer successfully loaded.")
 
-    model_script_path = trainer_file_path.parent / trainer.model_script_path
-
     # Load Trainer
+    model_script_path = trainer_file_path.parent / trainer.model_script_path
     spec = importlib.util.spec_from_file_location("model_script", model_script_path)
     model_script = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(model_script)
@@ -90,12 +89,12 @@ def train_model(request_form):
     else:
         # Preprocess
         logger.info("Preprocessing data...")
-        # TODO: generic preprocessing interface
-        x_np, y_np = model_script.preprocess(request_form, ds_iter, logger)
+        # TODO: generic preprocessing interface, remove request form from model interface
+        x_np, y_np = model_script.preprocess(ds_iter, request_form=request_form, logger=logger)
         logger.info("...done")
 
         # Train
-        logger.info("Train model...")
+        logger.info("Training model...")
         model = model_script.train(x_np, y_np)
         logger.info("...done")
 
