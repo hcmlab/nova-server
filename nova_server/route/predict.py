@@ -51,7 +51,6 @@ def predict_data(request_form):
         logger.error('Trainer has no attribute "script" in model tag.')
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return None
-
     # Load Trainer
     model_script_path = trainer_file_path.parent / trainer.model_script_path
     spec = importlib.util.spec_from_file_location("model_script", model_script_path)
@@ -62,7 +61,7 @@ def predict_data(request_form):
     try:
         update_progress(key, 'Data loading')
         ds_iter = dataset_utils.dataset_from_request_form(request_form)
-        logger.info("Prediction data successfully loaded...")
+        logger.info("Prediction data successfully loaded.")
     except ValueError:
         log_utils.remove_log_from_dict(key)
         logger.error("Not able to load the data from the database!")
@@ -70,13 +69,16 @@ def predict_data(request_form):
         return
 
     # ToDo scheme type is not necessary. we can use the label_info from the data iterator
+    # Load model
+    model_weight_path = trainer_file_path.parent / trainer.model_weights_path
     if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
         data = model_script.preprocess(ds_iter, logger=logger)
         labels = data[1]
         data_list = data[0]
         amount_of_labels = len(labels) + 1
         output_shape = np.uint8(data_list[0][list(data_list[0])[1]])[0].shape
-        model = model_script.load(Path(cfg.cml_dir + "\\" + trainer.model_weights_path), amount_of_labels)
+        #model = model_script.load(Path(cfg.cml_dir + "\\" + trainer.model_weights_path), amount_of_labels)
+        model = model_script.load(model_weight_path, amount_of_labels)
         # 1. Predict
         confidences_layer = model_script.predict(model, data_list, logger, output_shape)
         # 2. Create True/False Bitmaps
@@ -90,8 +92,26 @@ def predict_data(request_form):
         if not success.acknowledged:
             logger.error("An unknown error occurred while writing the date into the database! Try to redo the process.")
     elif request_form["schemeType"] == "DISCRETE":
-        # TODO Marco
-        ...
+        # 1. Load model
+        logger.info("Loading model...")
+        model = model_script.load(model_weight_path, logger=logger)
+        logger.info("...done")
+
+        # 2. Preprocess data
+        logger.info("Preprocessing data...")
+        ds_iter_pp = model_script.preprocess(ds_iter, logger=logger, request_form=request_form)
+        logger.info("...done")
+
+        # 3. Predict data
+        logger.info("Predicting results...")
+        results = model_script.predict(model, ds_iter_pp, logger=logger)
+        logger.info("...done")
+
+        # 4. Write to database
+        logger.info("Uploading to database...")
+        db_utils.write_discrete_to_db(request_form, results)
+        logger.info("...done")
+
     elif request_form["schemeType"] == "FREE":
         # 1. Load model
         logger.info("Loading model...")
@@ -100,12 +120,12 @@ def predict_data(request_form):
 
         # 2. Preprocess data
         logger.info("Preprocessing data...")
-        ds_iter_pp = model_script.preprocess(ds_iter, logger=logger)
+        ds_iter_pp = model_script.preprocess(ds_iter, logger=logger, request_form=request_form)
         logger.info("...done")
 
         # 3. Predict data
         logger.info("Predicting results...")
-        results = model_script.predict(model, ds_iter_pp, logger=logger)
+        results = model_script.predict(model, ds_iter_pp, logger=logger, request_form=request_form)
         logger.info("...done")
 
         # 4. Write to database
