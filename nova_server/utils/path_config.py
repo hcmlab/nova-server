@@ -1,2 +1,2 @@
-cml_dir = r'Z:\nova\cml'
-data_dir = r'Z:\nova\data'
+cml_dir = r'W:\nova\cml'
+data_dir = r'W:\nova\data'
