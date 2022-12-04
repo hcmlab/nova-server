@@ -30,6 +30,7 @@ def predict_thread():
 
 @thread_utils.ml_thread_wrapper
 def predict_data(request_form):
+    sessions = request_form["sessions"].split(";")
     key = get_key_from_request_form(request_form)
     status_utils.update_status(key, status_utils.JobStatus.RUNNING)
     trainer_file_path = Path(cfg.cml_dir + request_form["trainerFilePath"])
@@ -51,95 +52,97 @@ def predict_data(request_form):
         logger.error('Trainer has no attribute "script" in model tag.')
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return None
-    # Load Trainer
+        # Load Trainer
     model_script_path = trainer_file_path.parent / trainer.model_script_path
     spec = importlib.util.spec_from_file_location("model_script", model_script_path)
     model_script = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(model_script)
 
-    # Load Data
-    try:
-        update_progress(key, 'Data loading')
-        ds_iter = dataset_utils.dataset_from_request_form(request_form)
-        logger.info("Prediction data successfully loaded.")
-    except ValueError:
-        log_utils.remove_log_from_dict(key)
-        logger.error("Not able to load the data from the database!")
-        status_utils.update_status(key, status_utils.JobStatus.ERROR)
-        return
-
-    # ToDo scheme type is not necessary. we can use the label_info from the data iterator
-    # Load model
+    # 1. Load Model
+    #TODO this will not work with current polygon model
     model_weight_path = trainer_file_path.parent / trainer.model_weights_path
-    if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
-        data = model_script.preprocess(ds_iter, logger=logger)
-        labels = data[1]
-        data_list = data[0]
-        amount_of_labels = len(labels) + 1
-        output_shape = np.uint8(data_list[0][list(data_list[0])[1]])[0].shape
-        #model = model_script.load(Path(cfg.cml_dir + "\\" + trainer.model_weights_path), amount_of_labels)
-        model = model_script.load(model_weight_path, amount_of_labels)
-        # 1. Predict
-        confidences_layer = model_script.predict(model, data_list, logger, output_shape)
-        # 2. Create True/False Bitmaps
-        binary_masks = polygon_utils.prediction_to_binary_mask(confidences_layer)
-        # 3. Get Polygons
-        all_polygons = polygon_utils.mask_to_polygons(binary_masks)
-        # 4. Get Confidences
-        confidences = polygon_utils.get_confidences_from_predictions(confidences_layer, all_polygons)
-        # 5. Write to database
-        success = db_utils.write_polygons_to_db(request_form, all_polygons, confidences)
-        if not success.acknowledged:
-            logger.error("An unknown error occurred while writing the date into the database! Try to redo the process.")
-    elif request_form["schemeType"] == "DISCRETE":
-        # 1. Load model
-        logger.info("Loading model...")
-        model = model_script.load(model_weight_path, logger=logger)
-        logger.info("...done")
+    logger.info("Loading model...")
+    model = model_script.load(model_weight_path, logger=logger)
+    logger.info("...done")
 
-        # 2. Preprocess data
-        logger.info("Preprocessing data...")
-        ds_iter_pp = model_script.preprocess(ds_iter, logger=logger, request_form=request_form)
-        logger.info("...done")
 
-        # 3. Predict data
-        logger.info("Predicting results...")
-        results = model_script.predict(model, ds_iter_pp, logger=logger)
-        logger.info("...done")
+    # Load Data
+    for session in sessions:
+        request_form["sessions"] = session # overwrite so we handle each session seperatly..
+        try:
+            update_progress(key, 'Data loading')
+            ds_iter = dataset_utils.dataset_from_request_form(request_form)
+            logger.info("Prediction data successfully loaded.")
+        except ValueError:
+            log_utils.remove_log_from_dict(key)
+            logger.error("Not able to load the data from the database!")
+            status_utils.update_status(key, status_utils.JobStatus.ERROR)
+            return
 
-        # 4. Write to database
-        logger.info("Uploading to database...")
-        db_utils.write_discrete_to_db(request_form, results)
-        logger.info("...done")
+        # ToDo scheme type is not necessary. we can use the label_info from the data iterator
+        # Load model
+       
+        if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
+            #TODO MARCO: rework so model can be loaded once before (get rid of amount_of_labels here)
+            data = model_script.preprocess(ds_iter, logger=logger)
+            labels = data[1]
+            data_list = data[0]
+            amount_of_labels = len(labels) + 1
+            output_shape = np.uint8(data_list[0][list(data_list[0])[1]])[0].shape
+            #model = model_script.load(Path(cfg.cml_dir + "\\" + trainer.model_weights_path), amount_of_labels)
+            model = model_script.load(model_weight_path, amount_of_labels)
+            # 1. Predict
+            confidences_layer = model_script.predict(model, data_list, logger, output_shape)
+            # 2. Create True/False Bitmaps
+            binary_masks = polygon_utils.prediction_to_binary_mask(confidences_layer)
+            # 3. Get Polygons
+            all_polygons = polygon_utils.mask_to_polygons(binary_masks)
+            # 4. Get Confidences
+            confidences = polygon_utils.get_confidences_from_predictions(confidences_layer, all_polygons)
+            # 5. Write to database
+            success = db_utils.write_polygons_to_db(request_form, all_polygons, confidences)
+            if not success.acknowledged:
+                logger.error("An unknown error occurred while writing the date into the database! Try to redo the process.")
+        elif request_form["schemeType"] == "DISCRETE":
+ 
+            # 2. Preprocess data
+            logger.info("Preprocessing data...")
+            ds_iter_pp = model_script.preprocess(ds_iter, logger=logger, request_form=request_form)
+            logger.info("...done")
 
-    elif request_form["schemeType"] == "FREE":
-        # 1. Load model
-        logger.info("Loading model...")
-        model = model_script.load(trainer.model_weights_path, logger=logger)
-        logger.info("...done")
+            # 3. Predict data
+            logger.info("Predicting results...")
+            results = model_script.predict(model, ds_iter_pp, logger=logger)
+            logger.info("...done")
 
-        # 2. Preprocess data
-        logger.info("Preprocessing data...")
-        ds_iter_pp = model_script.preprocess(ds_iter, logger=logger, request_form=request_form)
-        logger.info("...done")
+            # 4. Write to database
+            logger.info("Uploading to database...")
+            db_utils.write_discrete_to_db(request_form, results)
+            logger.info("...done")
 
-        # 3. Predict data
-        logger.info("Predicting results...")
-        results = model_script.predict(model, ds_iter_pp, logger=logger, request_form=request_form)
-        logger.info("...done")
+        elif request_form["schemeType"] == "FREE":
+            # 2. Preprocess data
+            logger.info("Preprocessing data...")
+            ds_iter_pp = model_script.preprocess(ds_iter, logger=logger, request_form=request_form)
+            logger.info("...done")
 
-        # 4. Write to database
-        logger.info("Uploading to database...")
-        db_utils.write_freeform_to_db(request_form, results)
-        logger.info("...done")
+            # 3. Predict data
+            logger.info("Predicting results...")
+            results = model_script.predict(model, ds_iter_pp, logger=logger, request_form=request_form)
+            logger.info("...done")
 
-    elif request_form["schemeType"] == "CONTINUOUS":
-        # TODO Marco
-        ...
-    elif request_form["schemeType"] == "POINT":
-        # TODO
-        ...
+            # 4. Write to database
+            logger.info("Uploading to database...")
+            db_utils.write_freeform_to_db(request_form, results)
+            logger.info("...done")
 
-    # TODO tmp files loeschen!!!
+        elif request_form["schemeType"] == "CONTINUOUS":
+            # TODO Marco
+            ...
+        elif request_form["schemeType"] == "POINT":
+            # TODO
+            ...
+
+        # TODO tmp files loeschen!!!
 
     status_utils.update_status(key, status_utils.JobStatus.FINISHED)
