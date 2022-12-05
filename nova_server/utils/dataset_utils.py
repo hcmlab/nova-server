@@ -1,6 +1,6 @@
 import sys
 
-sys.path.append('../hcai_datasets')
+sys.path.append('/Users/Marco/Documents/Uni/Masterarbeit/hcai_datasets')
 from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import HcaiNovaDynamicIterable
 from nova_server.utils.path_config import data_dir
 

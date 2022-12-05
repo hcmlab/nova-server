@@ -1,6 +1,6 @@
 import sys
 
-sys.path.append('../hcai_datasets')
+sys.path.append('/Users/Marco/Documents/Uni/Masterarbeit/hcai_datasets')
 from hcai_datasets.hcai_nova_dynamic.nova_db_handler import NovaDBHandler
 from hcai_datasets.hcai_nova_dynamic.utils import nova_data_utils
 
