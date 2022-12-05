@@ -84,16 +84,23 @@ def predict_data(request_form):
        
         if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
             #TODO MARCO: rework so model can be loaded once before (get rid of amount_of_labels here)
-            data = model_script.preprocess(ds_iter, logger=logger)
+            logger.info("Preprocessing data...")
+            data = model_script.preprocess(ds_iter, logger=logger) #this can only be done in the loop
+          
             labels = data[1]
             data_list = data[0]
             amount_of_labels = len(labels) + 1
             output_shape = np.uint8(data_list[0][list(data_list[0])[1]])[0].shape
+            model.setOutputClasses(amount_of_labels)
+            logger.info("...done")
             #model = model_script.load(Path(cfg.cml_dir + "\\" + trainer.model_weights_path), amount_of_labels)
-            model = model_script.load(model_weight_path, amount_of_labels)
+            #model = model_script.load(model_weight_path) # this should move before the
             # 1. Predict
-            confidences_layer = model_script.predict(model, data_list, logger, output_shape)
+            logger.info("Predicting results...")
+            confidences_layer = model_script.predict(model, data_list, output_shape, logger=logger)
+            logger.info("...done")
             # 2. Create True/False Bitmaps
+            logger.info("Postprocessing results...")
             binary_masks = polygon_utils.prediction_to_binary_mask(confidences_layer)
             # 3. Get Polygons
             all_polygons = polygon_utils.mask_to_polygons(binary_masks)
@@ -101,6 +108,7 @@ def predict_data(request_form):
             confidences = polygon_utils.get_confidences_from_predictions(confidences_layer, all_polygons)
             # 5. Write to database
             success = db_utils.write_polygons_to_db(request_form, all_polygons, confidences)
+            logger.info("...done")
             if not success.acknowledged:
                 logger.error("An unknown error occurred while writing the date into the database! Try to redo the process.")
         elif request_form["schemeType"] == "DISCRETE":
