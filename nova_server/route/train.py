@@ -80,6 +80,7 @@ def train_model(request_form):
         logger.info("Preprocessing data...")
         # TODO: generic preprocessing interface, remove request form from model interface
         data = model_script.preprocess(ds_iter, logger=logger, request_form=request_form)
+        #trainer.classes = enumerate(ds_iter.label_info[list(ds_iter.label_info)[0]].labels)
         logger.info("...done")
     except ValueError:
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
@@ -96,6 +97,7 @@ def train_model(request_form):
 
     trainer.info_trained = True
     trainer.model_weights_path = trainer_name
+ 
     # TODO add classes and users / sessions
     trainer.write_trainer_to_file(out_dir / trainer_name)
     logger.info('...trainerfile')
