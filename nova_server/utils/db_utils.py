@@ -4,7 +4,7 @@ import copy
 import warnings
 import numpy as np
 
-sys.path.append('../hcai_datasets')
+sys.path.append('C:\\Users\\Marco\\Documents\\Uni\\Masterarbeit\\hcai_datasets')
 from hcai_datasets.hcai_nova_dynamic.nova_db_handler import NovaDBHandler
 from hcai_datasets.hcai_nova_dynamic.utils import nova_data_utils
 
@@ -27,9 +27,9 @@ def write_polygons_to_db(request_form, polygons, confidences):
     role = request_form['roles']
 
     mongo_scheme = db_handler.get_mongo_scheme(scheme, database)
-    mongo_annotator = db_handler.get_mongo_scheme(annotator, database)
-    mongo_role = db_handler.get_mongo_scheme(role, database)
-    mongo_session = db_handler.get_mongo_scheme(session, database)
+    mongo_annotator = db_handler.get_mongo_annotator(annotator, database)
+    mongo_role = db_handler.get_mongo_role(role, database)
+    mongo_session = db_handler.get_mongo_session(session, database)
 
     mongo_annos = db_handler.get_annotation_docs(
         mongo_scheme,
@@ -122,7 +122,6 @@ def update_polygon_doc(data_doc, polygons, confidences, start_frame):
     return data_doc
 
 
-
 def write_freeform_to_db(request_form, results: dict):
 
     # TODO check if we really need to establish a new connection to the database
@@ -161,8 +160,6 @@ def write_freeform_to_db(request_form, results: dict):
                 "name": name
             })
 
-
-
     for anno_id, anno in annos.items():
         # TODO does not work with flattened roles
         role, stream = anno_id.split('.')
@@ -175,6 +172,7 @@ def write_freeform_to_db(request_form, results: dict):
             role=role,
             annos=anno,
         )
+
 
 def write_discrete_to_db(request_form, results: list):
     # TODO check if we really need to establish a new connection to the database
@@ -212,7 +210,6 @@ def write_discrete_to_db(request_form, results: list):
             })
             current_label_start = i
         last_label = x
-
 
     # TODO: We only take one role into account in this case. Fix
     role = roles.split(';')[0]
