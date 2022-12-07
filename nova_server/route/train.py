@@ -112,41 +112,6 @@ def train_model(request_form):
     status_utils.update_status(key, status_utils.JobStatus.FINISHED)
 
 
-# Returns the weights path
-def copy_files(files_to_move, files_path, out_path):
-    out_path.mkdir(parents=True, exist_ok=True)
-    new_weights_path = None
-
-    for file in files_to_move:
-        old_file_path = os.path.join(files_path, file)
-        new_file_path = os.path.join(out_path, file)
-        shutil.copy(old_file_path, new_file_path)
-
-    return new_weights_path
-
-
-def update_trainer(trainer):
-    trainer.info_trained = True
-
-
-    root = ET.parse(pathlib.Path(trainer_path))
-    info = root.find('info')
-    model = root.find('model')
-    info.set('trained', 'true')
-    model.set('path', str(weights_path))
-    root.write(trainer_path)
-    print()
-
-
-def delete_unnecessary_files(path):
-    weights_file_name = os.path.basename(path)
-    path_to_files = path.parents[0]
-    for filename in os.listdir(path_to_files):
-        file = os.path.join(path_to_files, filename)
-        if os.path.isfile(file) and filename.split('.')[0] != weights_file_name:
-            os.remove(file)
-
-
 # TODO DATA BALANCING
 def balance_data(request_form, x_np, y_np):
     # DATA BALANCING
