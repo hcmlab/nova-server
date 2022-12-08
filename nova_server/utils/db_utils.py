@@ -116,6 +116,7 @@ def separate_doc(doc) -> list:
 
 
 def update_polygon_doc(data_doc, polygons, confidences, start_frame):
+    current_frame = -1
     for frame_id, frame in enumerate(data_doc['labels']):
         if frame_id >= start_frame + len(polygons):
             return data_doc
@@ -128,8 +129,15 @@ def update_polygon_doc(data_doc, polygons, confidences, start_frame):
                     points = np.reshape(polygon, newshape=[int(polygon.shape[0] / 2), 2])
                     for point in points:
                         points_for_db.append({'x': int(point[0]), 'y': int(point[1])})
+
+                    # delete the content of the current frame, the new prediction values have to be set
+                    if current_frame != frame_id:
+                        current_frame = frame_id
+                        data_doc['labels'][frame_id]['polygons'] = []
+
                     data_doc['labels'][frame_id]['polygons'].append(
-                        {'label': label, 'confidence': confidences[frame_id - start_frame][label_id][polygon_id],
+                        {'label': label,
+                         'confidence': round(confidences[frame_id - start_frame][label_id][polygon_id], 2),
                          'points': points_for_db})
 
     return data_doc
