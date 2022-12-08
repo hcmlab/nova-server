@@ -99,18 +99,20 @@ def train_model(request_form):
     out_dir.mkdir(parents=True, exist_ok=True)
 
     trainer.info_trained = True
-    trainer.model_weights_path = trainer_name
+
  
     # TODO add classes and users / sessions
-    trainer.write_trainer_to_file(out_dir / trainer_name)
-    logger.info('...trainerfile')
-    model_script.save(model, out_dir / trainer_name)
+
+    weight_path = model_script.save(model, out_dir / trainer_name)
+    trainer.model_weights_path = weight_path
     logger.info('...weights')
     shutil.copy(model_script_path, out_dir / trainer.model_script_path)
     logger.info('...train script')
     for f in model_script.DEPENDENCIES:
         shutil.copy(trainer_file_path.parent / f, out_dir / f)
     logger.info('...dependencies')
+    trainer.write_trainer_to_file(out_dir / trainer_name)
+    logger.info('...trainerfile')
     logger.info("Training completed!")
     status_utils.update_status(key, status_utils.JobStatus.FINISHED)
 

@@ -5,6 +5,7 @@ from nova_server.utils.key_utils import get_key_from_request_form
 from nova_server.utils import status_utils, thread_utils, log_utils, dataset_utils, db_utils
 from nova_server.utils import polygon_utils
 import numpy as np
+import os
 from pathlib import Path
 import nova_server.utils.path_config as cfg
 from flask import Blueprint, request, jsonify
@@ -117,6 +118,17 @@ def predict_data(request_form):
             db_utils.write_annotation_to_db(request_form, results)
             logger.info("...done")
 
-        # TODO tmp files loeschen!!!
+        # 5. In CML case, delete temporary files..
+        if request_form["deleteFiles"] == "True":
+            logger.info('Deleting temporary CML files...')
+            out_dir = Path(cfg.cml_dir + request_form["trainerOutputDirectory"])
+            trainer_name = request_form["trainerName"]
+            os.remove(out_dir / trainer.model_weights_path)
+            os.remove(out_dir / trainer.model_script_path)
+            for f in model_script.DEPENDENCIES:
+                os.remove(trainer_file_path.parent / f)
+            trainer_fullname = trainer_name + ".trainer"
+            os.remove(out_dir / trainer_fullname)
+            logger.info('...done')
 
     status_utils.update_status(key, status_utils.JobStatus.FINISHED)
