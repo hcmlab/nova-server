@@ -62,7 +62,7 @@ def predict_data(request_form):
     # Load Model
     model_weight_path = trainer_file_path.parent / trainer.model_weights_path
     logger.info("Loading model...")
-    model = model_script.load(model_weight_path, logger=logger)
+    model = model_script.load(model_weight_path, trainer.classes, logger=logger)
     logger.info("...done")
 
 
@@ -81,13 +81,8 @@ def predict_data(request_form):
 
         if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
             logger.info("Preprocessing data...")
-            data = model_script.preprocess(ds_iter, logger=logger)
-          
-            labels = data[1]
-            data_list = data[0]
-            amount_of_labels = len(labels) + 1
+            data_list, labels = model_script.preprocess(ds_iter, logger=logger)
             output_shape = np.uint8(data_list[0][list(data_list[0])[1]])[0].shape
-            model.setOutputClasses(amount_of_labels)
             logger.info("...done")
 
             logger.info("Predicting results...")

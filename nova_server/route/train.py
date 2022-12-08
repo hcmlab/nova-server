@@ -74,8 +74,10 @@ def train_model(request_form):
         logger.error("Not able to load the data from the database!")
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return None
-
-    trainer.classes = ds_iter.annos[ds_iter.roles[0] + "." + ds_iter.schemes[0]].labels
+    tmp = ds_iter.annos[ds_iter.roles[0] + "." + ds_iter.schemes[0]].labels
+    trainer.classes = []
+    for entry in tmp:
+        trainer.classes.append({"name": tmp[entry][0]})
 
     model = None
     try:

@@ -1,6 +1,6 @@
 import sys
 
-sys.path.append('../hcai_datasets')
+sys.path.append('C:\\Users\\Admin\\Desktop\\hcai_datasets')
 from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import HcaiNovaDynamicIterable
 from nova_server.utils.path_config import data_dir
 
@@ -41,6 +41,7 @@ def dataset_from_request_form(request_form):
         right_context=request_form["rightContext"],
         start=request_form["startTime"],
         end=request_form["endTime"],
+
         #TODO: This does not work with pytorch bridge when set to true because the data field does not contain the role anymor.
         # transformation cannot be applied. fix it!
         flatten_samples=flattenSamples,

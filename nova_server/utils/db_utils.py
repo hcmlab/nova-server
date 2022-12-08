@@ -4,7 +4,7 @@ import copy
 import warnings
 import numpy as np
 
-sys.path.append('C:\\Users\\Marco\\Documents\\Uni\\Masterarbeit\\hcai_datasets')
+sys.path.append('C:\\Users\\Admin\\Desktop\\hcai_datasets')
 from hcai_datasets.hcai_nova_dynamic.nova_db_handler import NovaDBHandler
 from hcai_datasets.hcai_nova_dynamic.utils import nova_data_utils
 
@@ -188,7 +188,7 @@ def write_freeform_to_db(request_form, results: dict):
         role, stream = anno_id.split('.')
 
         db_handler.set_annos(
-            dataset=database,
+            database=database,
             scheme=scheme,
             session=session,
             annotator=annotator,
@@ -237,7 +237,7 @@ def write_discrete_to_db(request_form, results: list):
     # TODO: We only take one role into account in this case. Fix
     role = roles.split(';')[0]
     db_handler.set_annos(
-        dataset=database,
+        database=database,
         scheme=scheme,
         session=session,
         annotator=annotator,
