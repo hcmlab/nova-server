@@ -106,8 +106,7 @@ def predict_data(request_form):
             # 5. Write to database
             db_utils.write_polygons_to_db(request_form, all_polygons, confidences, logger)
             logger.info("...done")
-        elif request_form["schemeType"] == "DISCRETE":
- 
+        else:
             # 2. Preprocess data
             logger.info("Preprocessing data...")
             ds_iter_pp = model_script.preprocess(ds_iter, logger=logger, request_form=request_form)
@@ -120,31 +119,8 @@ def predict_data(request_form):
 
             # 4. Write to database
             logger.info("Uploading to database...")
-            db_utils.write_discrete_to_db(request_form, results)
+            db_utils.write_annotation_to_db(request_form, results)
             logger.info("...done")
-
-        elif request_form["schemeType"] == "FREE":
-            # 2. Preprocess data
-            logger.info("Preprocessing data...")
-            ds_iter_pp = model_script.preprocess(ds_iter, logger=logger, request_form=request_form)
-            logger.info("...done")
-
-            # 3. Predict data
-            logger.info("Predicting results...")
-            results = model_script.predict(model, ds_iter_pp, logger=logger, request_form=request_form)
-            logger.info("...done")
-
-            # 4. Write to database
-            logger.info("Uploading to database...")
-            db_utils.write_freeform_to_db(request_form, results)
-            logger.info("...done")
-
-        elif request_form["schemeType"] == "CONTINUOUS":
-            # TODO Marco
-            ...
-        elif request_form["schemeType"] == "POINT":
-            # TODO
-            ...
 
         # TODO tmp files loeschen!!!
 

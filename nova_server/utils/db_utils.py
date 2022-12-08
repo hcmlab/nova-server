@@ -10,6 +10,19 @@ from hcai_datasets.hcai_nova_dynamic.utils import nova_data_utils
 
 MAX_MONGO_DB_DOC_SIZE = 16777216
 
+def write_annotation_to_db(request_form, results: dict):
+    if request_form["schemeType"] == "DISCRETE":
+        write_discrete_to_db(request_form, results)
+    elif request_form["schemeType"] == "FREE":
+        write_freeform_to_db(request_form, results)
+    elif request_form["schemeType"] == "CONTINUOUS":
+        pass #todo
+    elif request_form["schemeType"] == "POINT":
+        pass #todo
+    elif request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
+        pass #todo
+
+
 
 def write_polygons_to_db(request_form, polygons, confidences, logger):
     db_config_dict = {
