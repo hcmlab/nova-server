@@ -2,8 +2,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
-class Trainer():
-
+class Trainer:
     def __init__(self,
                  model_script_path: str = '',
                  model_option_path: str = '',

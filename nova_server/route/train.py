@@ -75,12 +75,13 @@ def train_model(request_form):
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return None
 
+    trainer.classes = ds_iter.annos[ds_iter.roles[0] + "." + ds_iter.schemes[0]].labels
+
     model = None
     try:
         logger.info("Preprocessing data...")
         # TODO: generic preprocessing interface, remove request form from model interface
         data = model_script.preprocess(ds_iter, logger=logger, request_form=request_form)
-        #trainer.classes = enumerate(ds_iter.label_info[list(ds_iter.label_info)[0]].labels)
         logger.info("...done")
     except ValueError:
         status_utils.update_status(key, status_utils.JobStatus.ERROR)

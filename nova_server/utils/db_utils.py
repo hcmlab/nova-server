@@ -11,7 +11,7 @@ from hcai_datasets.hcai_nova_dynamic.utils import nova_data_utils
 MAX_MONGO_DB_DOC_SIZE = 16777216
 
 
-def write_polygons_to_db(request_form, polygons, confidences):
+def write_polygons_to_db(request_form, polygons, confidences, logger):
     db_config_dict = {
         'ip': request_form["server"].split(':')[0],
         'port': int(request_form["server"].split(':')[1]),
@@ -51,11 +51,11 @@ def write_polygons_to_db(request_form, polygons, confidences):
         else:
             mongo_data_id = mongo_annos[0]["data_id"]
             data_backup_id = mongo_annos[0]["data_backup_id"]
-
+    logger.info("...fetch documents...")
     # 1. Get the doc (will get merged if other docs are there are nextEntry ID's)
     main_docs = db_handler.get_data_docs_by_prop(mongo_data_id, "_id", database)
     backup_doc = db_handler.get_docs_by_prop(mongo_data_id, "_id", database, db_handler.ANNOTATION_DATA_COLLECTION)[0]
-
+    logger.info("...fill documents...")
     # 2. Fill the doc with the Predictions
     main_docs = update_polygon_doc(main_docs, polygons, confidences, start_frame)
 
@@ -66,9 +66,11 @@ def write_polygons_to_db(request_form, polygons, confidences):
         main_docs = [main_docs]
     main_docs[0]['_id'] = mongo_data_id
 
+    logger.info("...seperate docs if necessary...")
     # 4 Delete old back-up (with tail-docs)
     db_handler.delete_doc_with_tail(data_backup_id, database)
 
+    logger.info("...upload docs...")
     # 5. Update the backup ID
     backup_doc['_id'] = data_backup_id
     db_handler.insert_doc_by_prop(backup_doc, database, db_handler.ANNOTATION_DATA_COLLECTION)

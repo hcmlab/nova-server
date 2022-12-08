@@ -101,8 +101,10 @@ def predict_data(request_form):
             all_polygons = polygon_utils.mask_to_polygons(binary_masks)
             # 4. Get Confidences
             confidences = polygon_utils.get_confidences_from_predictions(confidences_layer, all_polygons)
+            logger.info("...done")
+            logger.info("Writing data to database...")
             # 5. Write to database
-            db_utils.write_polygons_to_db(request_form, all_polygons, confidences)
+            db_utils.write_polygons_to_db(request_form, all_polygons, confidences, logger)
             logger.info("...done")
         elif request_form["schemeType"] == "DISCRETE":
  
