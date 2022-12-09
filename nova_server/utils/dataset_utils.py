@@ -1,6 +1,7 @@
 import sys
+import nova_server.utils.path_config as cfg
 
-sys.path.append('C:\\Users\\Admin\\Desktop\\hcai_datasets')
+sys.path.append(cfg.hcai_datasets_dir)
 from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import HcaiNovaDynamicIterable
 from nova_server.utils.path_config import data_dir
 
