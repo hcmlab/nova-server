@@ -1,10 +1,6 @@
-import os
 import shutil
-import pathlib
 import imblearn
-import numpy as np
 import importlib.util
-import xml.etree.ElementTree as ET
 
 from flask import Blueprint, request, jsonify
 from nova_server.utils import dataset_utils, thread_utils, status_utils, log_utils
@@ -75,16 +71,6 @@ def train_model(request_form):
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return None
 
-    #TODO there might be a more elegant way to get classes...
-    tmp = ds_iter.annos[ds_iter.roles[0] + "." + ds_iter.schemes[0]].labels
-    trainer.classes = []
-    if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
-     for entry in tmp:
-         trainer.classes.append({"name": tmp[entry][0]})
-    else:
-        for entry in tmp:
-            trainer.classes.append({"name": tmp[entry]})
-
 
     model = None
     try:
@@ -108,7 +94,16 @@ def train_model(request_form):
     trainer.info_trained = True
 
  
-    # TODO add classes and users / sessions
+    # TODO add users / sessions
+    # TODO there might be a more elegant way to get classes...
+    tmp = ds_iter.annos[ds_iter.roles[0] + "." + ds_iter.schemes[0]].labels
+    trainer.classes = []
+    if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
+        for entry in tmp:
+            trainer.classes.append({"name": tmp[entry][0]})
+    else:
+        for entry in tmp:
+            trainer.classes.append({"name": tmp[entry]})
 
     weight_path = model_script.save(model, out_dir / trainer_name)
     trainer.model_weights_path = weight_path
