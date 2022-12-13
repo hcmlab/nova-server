@@ -7,6 +7,12 @@ from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import HcaiNovaD
 class ModelInterface:
     """Includes all the necessary files to run this script"""
     DEPENDENCIES = []
+    OPTIONS = {}
+
+    def set_options(self, options: dict):
+        """Overwrite/Append Options. No Return value"""
+        for key, value in options.items():
+            self.OPTIONS[key] = value
 
     def preprocess(self, ds_iter:  HcaiNovaDynamicIterable, logger: logging) -> list:
         """Possible pre-processing of the data. Returns a list with the pre-processed data."""
@@ -20,6 +26,10 @@ class ModelInterface:
         """Predicts the given data with the given model. Returns a list with the predicted values."""
         pass
 
+    def postprocess(self, ds_iter: HcaiNovaDynamicIterable, logger: logging) -> list:
+        """Possible pre-processing of the data. Returns a list with the pre-processed data."""
+        pass
+
     def save(self, model, path: str, logger: logging) -> str:
         """Stores the weights of the given model at the given path. Returns the path of the weights."""
         pass
@@ -27,3 +37,4 @@ class ModelInterface:
     def load(self, path: str, logger: logging) -> object:
         """Loads a model with the given path. Returns this model."""
         pass
+

@@ -62,7 +62,11 @@ def train_model(request_form):
 
     # Load Data
     try:
+        logger.info("Setting options...")
+        model_script.set_options(dict(option.split("=") for option in request_form["OptStr"].split(";")))
+        logger.info("...done.")
         update_progress(key, 'Data loading')
+        logger.info("Loading data...")
         ds_iter = dataset_utils.dataset_from_request_form(request_form)
         logger.info("Train-Data successfully loaded...")
     except ValueError:
@@ -82,13 +86,13 @@ def train_model(request_form):
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return
 
+
     logger.info("Training model...")
     model = model_script.train(data, logger)
     logger.info("...done")
 
     # Save
     logger.info('Saving...')
-
     out_dir.mkdir(parents=True, exist_ok=True)
 
     trainer.info_trained = True
