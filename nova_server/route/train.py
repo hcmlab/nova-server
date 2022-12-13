@@ -63,7 +63,8 @@ def train_model(request_form):
     # Load Data
     try:
         logger.info("Setting options...")
-        model_script.set_options(dict(option.split("=") for option in request_form["OptStr"].split(";")))
+        for key, value in dict(option.split("=") for option in request_form["OptStr"].split(";")).items():
+            model_script.OPTIONS[key] = value
         logger.info("...done.")
         update_progress(key, 'Data loading')
         logger.info("Loading data...")

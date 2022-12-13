@@ -63,8 +63,8 @@ def predict_data(request_form):
     # Load Model
     model_weight_path = trainer_file_path.parent / trainer.model_weights_path
     logger.info("Setting options...")
-    model_script.set_options(dict(option.split("=") for option in request_form["OptStr"].split(";")))
-
+    for key, value in dict(option.split("=") for option in request_form["OptStr"].split(";")).items():
+        model_script.OPTIONS[key] = value
     logger.info("Loading model...")
     model = model_script.load(model_weight_path, trainer.classes, logger=logger)
     logger.info("...done")

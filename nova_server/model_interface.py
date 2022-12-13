@@ -9,11 +9,6 @@ class ModelInterface:
     DEPENDENCIES = []
     OPTIONS = {}
 
-    def set_options(self, options: dict):
-        """Overwrite/Append Options. No Return value"""
-        for key, value in options.items():
-            self.OPTIONS[key] = value
-
     def preprocess(self, ds_iter:  HcaiNovaDynamicIterable, logger: logging) -> list:
         """Possible pre-processing of the data. Returns a list with the pre-processed data."""
         pass
