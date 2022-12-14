@@ -135,5 +135,5 @@ def predict_data(request_form):
         status_utils.update_status(key, status_utils.JobStatus.FINISHED)
 
     except Exception as e:
-        logger.error(str(e))
+        logger.error('Error:' + str(e))
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
