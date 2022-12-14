@@ -63,9 +63,10 @@ def train_model(request_form):
     # Load Data
     try:
         logger.info("Setting options...")
-        for key, value in dict(option.split("=") for option in request_form["OptStr"].split(";")).items():
-            model_script.OPTIONS[key] = value
-            logger.info('...Option: ' + key + '=' + value)
+        if not request_form["OptStr"] == '':
+            for key, value in dict(option.split("=") for option in request_form["OptStr"].split(";")).items():
+                model_script.OPTIONS[key] = value
+                logger.info('...Option: ' + key + '=' + value)
         logger.info("...done.")
         update_progress(key, 'Data loading')
         logger.info("Loading data...")
@@ -100,10 +101,11 @@ def train_model(request_form):
     trainer.info_trained = True
 
  
-    # TODO add users / sessions
+    # TODO add sessions
     # TODO there might be a more elegant way to get classes...
     tmp = ds_iter.annos[ds_iter.roles[0] + "." + ds_iter.schemes[0]].labels
     trainer.classes = []
+
     if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
         for entry in tmp:
             trainer.classes.append({"name": tmp[entry][0]})

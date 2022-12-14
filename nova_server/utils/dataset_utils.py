@@ -43,7 +43,7 @@ def dataset_from_request_form(request_form):
         start=request_form["startTime"],
         end=request_form["endTime"],
 
-        #TODO: This does not work with pytorch bridge when set to true because the data field does not contain the role anymor.
+        #TODO: This does not work with pytorch bridge when set to true because the data field does not contain the role anymore<.
         # transformation cannot be applied. fix it!
         flatten_samples=flattenSamples,
         supervised_keys=[request_form["streamName"].split(' ')[0],

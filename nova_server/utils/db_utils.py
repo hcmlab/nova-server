@@ -216,6 +216,7 @@ def write_discrete_to_db(request_form, results: list):
     roles = request_form['roles']
 
     frame_size = nova_data_utils.parse_time_string_to_ms(request_form['frameSize'])
+    mongo_scheme = db_handler.get_mongo_scheme(scheme, database)
 
     annos = []
     last_label = None
@@ -225,13 +226,13 @@ def write_discrete_to_db(request_form, results: list):
         if not x == last_label and last_label is not None:
             frame_from = str((current_label_start * frame_size) / 1000.0)
             frame_to = str((i * frame_size) / 1000.0)
-
-            annos.append({
-                'from': frame_from,
-                'to': frame_to,
-                'conf': 1.0,
-                'id': int(last_label)
-            })
+            if x < len(mongo_scheme[0]['labels']):
+                annos.append({
+                    'from': frame_from,
+                    'to': frame_to,
+                    'conf': 1.0,
+                    'id': int(last_label)
+                })
             current_label_start = i
         last_label = x
 
