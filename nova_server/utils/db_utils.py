@@ -214,30 +214,46 @@ def write_discrete_to_db(request_form, results: list):
     session = request_form['sessions']
     annotator = request_form['annotator']
     roles = request_form['roles']
+    # TODO: We only take one role into account in this case. Fix
+    role = roles.split(';')[0]
 
     frame_size = nova_data_utils.parse_time_string_to_ms(request_form['frameSize'])
     mongo_scheme = db_handler.get_mongo_scheme(scheme, database)
-
     annos = []
+    start_frame = 0
+
+    #
+    if not request_form['startTime'] == '0':
+        annosdb = db_handler.get_annos(dataset=database,
+            scheme=scheme,
+            session=session,
+            annotator=annotator,
+            roles=roles
+           )
+
+        start_frame = float(request_form['startTime']) / 1000
+        annos = list(filter(lambda x: float(x['from']) < start_frame, annosdb))
+
+
     last_label = None
     current_label_start = 1
+
     for i, x in enumerate(results):
         # current label is different from the one before
         if not x == last_label and last_label is not None:
-            frame_from = str((current_label_start * frame_size) / 1000.0)
-            frame_to = str((i * frame_size) / 1000.0)
+            frame_from = str(start_frame + ((current_label_start * frame_size) / 1000.0))
+            frame_to = str(start_frame + ((i * frame_size) / 1000.0))
             if last_label < len(mongo_scheme[0]['labels']):
                 annos.append({
                     'from': frame_from,
-                    'to': frame_to,
+                    'to':   frame_to,
                     'conf': 1.0,
                     'id': int(last_label)
                 })
             current_label_start = i
         last_label = x
 
-    # TODO: We only take one role into account in this case. Fix
-    role = roles.split(';')[0]
+
     db_handler.set_annos(
         database=database,
         scheme=scheme,
