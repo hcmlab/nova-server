@@ -1,6 +1,7 @@
 import shutil
 import imblearn
 import importlib.util
+import os
 
 from flask import Blueprint, request, jsonify
 from nova_server.utils import dataset_utils, thread_utils, status_utils, log_utils
@@ -109,7 +110,7 @@ def train_model(request_form):
                 trainer.classes.append({"name": tmp[entry]})
 
         weight_path = model_script.save(model, out_dir / trainer_name)
-        trainer.model_weights_path = weight_path
+        trainer.model_weights_path = os.path.basename(weight_path)
         logger.info('...weights')
         shutil.copy(model_script_path, out_dir / trainer.model_script_path)
         logger.info('...train script')

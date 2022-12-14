@@ -226,7 +226,7 @@ def write_discrete_to_db(request_form, results: list):
         if not x == last_label and last_label is not None:
             frame_from = str((current_label_start * frame_size) / 1000.0)
             frame_to = str((i * frame_size) / 1000.0)
-            if x < len(mongo_scheme[0]['labels']):
+            if last_label < len(mongo_scheme[0]['labels']):
                 annos.append({
                     'from': frame_from,
                     'to': frame_to,
