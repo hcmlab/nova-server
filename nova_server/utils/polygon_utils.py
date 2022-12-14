@@ -34,7 +34,7 @@ def mask_to_polygons(masks, min_pixel_amount=30):
             polygons_in_layer = []
             polygons_for_layer = Mask(layer).polygons()
             for polygon in polygons_for_layer:
-                if len(polygon) >= 6 and PolyArea(polygon[0::2], polygon[1::2]) >= min_pixel_amount:
+                if len(polygon) >= 6 * 5 and PolyArea(polygon[0::2], polygon[1::2]) >= min_pixel_amount:
                     # The polygons have too many points, so remove some (the user can add some afterwards, if necessary)
                     x = polygon[0::2][0::5]
                     y = polygon[1::2][0::5]
