@@ -6,6 +6,7 @@ class Trainer:
     def __init__(self,
                  model_script_path: str = '',
                  model_option_path: str = '',
+                 model_option_string: str = '',
                  model_weights_path: str = '',
                  model_stream: int = 0,
                  model_create: str = "PythonModel",
@@ -24,6 +25,7 @@ class Trainer:
 
         self.model_script_path = model_script_path
         self.model_option_path = model_option_path
+        self.model_optstr = model_option_string
         self.model_weights_path = model_weights_path
         self.model_stream = model_stream
         self.model_create = model_create
@@ -74,6 +76,7 @@ class Trainer:
             self.model_option_path = model.get('option', default='')
             self.model_script_path = model.get('script', default='')
             self.model_weights_path = model.get('path', default='')
+            self.model_optstr = model.get('optstr', default='')
 
     def write_trainer_to_file(self, fp):
         root = ET.Element('trainer')
@@ -91,7 +94,7 @@ class Trainer:
         users = ET.SubElement(root, 'users')
         for u in self.users:
             ET.SubElement(users, 'item', **u)
-        ET.SubElement(root, 'model', create=self.model_create, stream=str(self.model_stream), path=self.model_weights_path, script=self.model_script_path, option=self.model_option_path)
+        ET.SubElement(root, 'model', create=self.model_create, stream=str(self.model_stream), path=self.model_weights_path, script=self.model_script_path, optstr=self.model_optstr, option=self.model_option_path)
 
         tree = ET.ElementTree(root)
         ET.indent(tree, space="    ", level=0)
