@@ -239,19 +239,23 @@ def write_discrete_to_db(request_form, results: list):
     current_label_start = 1
 
     for i, x in enumerate(results):
+        conf = 1.0
+        if len(x) > 1:  # we get list of indices, instead of id TODO need to find common format
+            conf = max(x.tolist())
+            x = x.tolist().index(conf)
         # current label is different from the one before
-        if not x == last_label and last_label is not None:
-            frame_from = str(start_frame + ((current_label_start * frame_size) / 1000.0))
-            frame_to = str(start_frame + ((i * frame_size) / 1000.0))
-            if last_label < len(mongo_scheme[0]['labels']):
-                annos.append({
-                    'from': frame_from,
-                    'to':   frame_to,
-                    'conf': 1.0,
-                    'id': int(last_label)
-                })
-            current_label_start = i
-        last_label = x
+            if not x == last_label and last_label is not None:
+                frame_from = str(start_frame + ((current_label_start * frame_size) / 1000.0))
+                frame_to = str(start_frame + ((i * frame_size) / 1000.0))
+                if last_label < len(mongo_scheme[0]['labels']):
+                    annos.append({
+                        'from': frame_from,
+                        'to':   frame_to,
+                        'conf': conf,
+                        'id': int(last_label)
+                    })
+                current_label_start = i
+            last_label = x
 
 
     db_handler.set_annos(
