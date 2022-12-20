@@ -60,6 +60,14 @@ def predict_data(request_form):
         model_script = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(model_script)
 
+        # Set Options 
+        logger.info("Setting options...")
+        if not request_form["OptStr"] == '':
+            for k, v in dict(option.split("=") for option in request_form["OptStr"].split(";")).items():
+            model_script.OPTIONS[k] = v
+            logger.info('...Option: ' + k + '=' + v)
+        logger.info("...done.")
+
         # Load Model
         model_weight_path = trainer_file_path.parent / trainer.model_weights_path
         logger.info("Loading model...")
