@@ -223,7 +223,7 @@ def write_discrete_to_db(request_form, results: list):
     start_frame = 0
 
     #
-    if not request_form['startTime'] == '0':
+    if request_form['startTime'] != '0':
         annosdb = db_handler.get_annos(dataset=database,
             scheme=scheme,
             session=session,

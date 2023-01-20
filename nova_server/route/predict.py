@@ -1,4 +1,7 @@
 import importlib.util
+
+import torch.cuda
+
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
 from nova_server.utils.key_utils import get_key_from_request_form
@@ -145,3 +148,6 @@ def predict_data(request_form):
     except Exception as e:
         logger.error('Error:' + str(e))
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
+    #finally:
+    #    del results, ds_iter, ds_iter_pp, model, model_script, model_script_path, model_weight_path, spec
+

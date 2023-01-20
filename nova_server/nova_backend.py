@@ -57,6 +57,7 @@ if __name__ == "__main__":
         help="Data folder to read the training scripts from. Same as in Nova."
     )
 
+    # TODO: support multiple (data) directories
     args = parser.parse_args()
     path_config.data_dir = args.data_dir
     path_config.cml_dir = args.cml_dir
