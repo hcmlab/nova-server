@@ -53,6 +53,8 @@ def predict_data(request_form):
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return None
 
+    
+
     model_script = None
 
     # Load Data
@@ -74,6 +76,13 @@ def predict_data(request_form):
             model_script_path = trainer_file_path.parent / trainer.model_script_path
             source = SourceFileLoader("model_script", str(model_script_path)).load_module()
             model_script = source.TrainerClass(ds_iter, logger)
+            # Set Options 
+            logger.info("Setting options...")
+            if not request_form["OptStr"] == '':
+                for k, v in dict(option.split("=") for option in request_form["OptStr"].split(";")).items():
+                    model_script.OPTIONS[k] = v
+                    logger.info('...Option: ' + k + '=' + v)
+            logger.info("...done.")
 
         logger.info("Execute preprocessing.")
         model_script.preprocess()
@@ -93,6 +102,7 @@ def predict_data(request_form):
         results = model_script.postprocess()
         logger.info("Uploading to database...")
         db_utils.write_annotation_to_db(request_form, results)
+
         logger.info("...done")
 
         # logger.info("Writing data to database...")

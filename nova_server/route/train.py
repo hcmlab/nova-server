@@ -58,6 +58,12 @@ def train_model(request_form):
             trainer.load_from_file(trainer_file_path)
             logger.info("Trainer successfully loaded.")
 
+        # Load Trainer
+        model_script_path = trainer_file_path.parent / trainer.model_script_path
+        spec = importlib.util.spec_from_file_location("model_script", model_script_path)
+        model_script = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(model_script)
+        
         # Load Data
         try:
             update_progress(key, 'Data loading')
@@ -73,6 +79,14 @@ def train_model(request_form):
         model_script_path = trainer_file_path.parent / trainer.model_script_path
         source = SourceFileLoader("model_script", str(model_script_path)).load_module()
         model_script = source.TrainerClass(ds_iter, logger)
+
+        # Set Options 
+        logger.info("Setting options...")
+        if not request_form["OptStr"] == '':
+            for k, v in dict(option.split("=") for option in request_form["OptStr"].split(";")).items():
+                model_script.OPTIONS[k] = v
+                logger.info('...Option: ' + k + '=' + v)
+        logger.info("...done.")
 
         logger.info("Preprocessing data...")
         # TODO: generic preprocessing interface, remove request form from model interface
