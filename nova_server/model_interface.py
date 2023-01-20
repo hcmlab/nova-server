@@ -1,35 +1,35 @@
-import logging
 
-from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import HcaiNovaDynamicIterable
-
-
-# TODO Check parameter types and correct them if necessary
 class ModelInterface:
     """Includes all the necessary files to run this script"""
-    DEPENDENCIES = []
-    OPTIONS = {}
 
-    def preprocess(self, ds_iter:  HcaiNovaDynamicIterable, logger: logging) -> list:
+    def __init__(self, ds_iter, logger):
+        self.model = None
+        self.ds_iter = None
+        self.logger = None
+        self.predictions = None
+        self.DEPENDENCIES = []
+        self.OPTIONS = {}
+
+    def preprocess(self):
         """Possible pre-processing of the data. Returns a list with the pre-processed data."""
         pass
 
-    def train(self, data_list: list, logger: logging) -> object:
+    def train(self):
         """Trains a model with the given data. Returns this model."""
         pass
 
-    def predict(self, model, data_list: list, logger: logging) -> list:
+    def predict(self):
         """Predicts the given data with the given model. Returns a list with the predicted values."""
         pass
 
-    def postprocess(self, ds_iter: HcaiNovaDynamicIterable, logger: logging) -> list:
-        """Possible pre-processing of the data. Returns a list with the pre-processed data."""
+    def postprocess(self) -> list:
+        """Possible pro-processing of the data. Returns a list with the pro-processed data."""
         pass
 
-    def save(self, model, path: str, logger: logging) -> str:
+    def save(self, path) -> str:
         """Stores the weights of the given model at the given path. Returns the path of the weights."""
         pass
 
-    def load(self, path: str, logger: logging) -> object:
+    def load(self, path):
         """Loads a model with the given path. Returns this model."""
         pass
-
