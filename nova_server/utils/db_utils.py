@@ -25,7 +25,7 @@ def write_annotation_to_db(request_form, results: dict):
         pass #todo
 
 
-def write_polygons_to_db(request_form, polygons, confidences, logger):
+def write_polygons_to_db(request_form, polygons, confidences, logger, start_frame):
     db_config_dict = {
         'ip': request_form["server"].split(':')[0],
         'port': int(request_form["server"].split(':')[1]),
@@ -54,7 +54,7 @@ def write_polygons_to_db(request_form, polygons, confidences, logger):
         db_handler.ANNOTATION_COLLECTION,
     )
 
-    start_frame = int(int(request_form['startTime']) / int(request_form['frameSize']))
+    start_frame = int(float(start_frame)) - 1
 
     mongo_data_id = None
     data_backup_id = None

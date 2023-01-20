@@ -1,7 +1,8 @@
+import os
 import shutil
 import imblearn
-import importlib.util
-import os
+import traceback
+from importlib.machinery import SourceFileLoader
 
 from flask import Blueprint, request, jsonify
 from nova_server.utils import dataset_utils, thread_utils, status_utils, log_utils
@@ -36,7 +37,6 @@ def train_model(request_form):
     logger = log_utils.get_logger_for_thread(key)
 
     try:
-
         status_utils.update_status(key, status_utils.JobStatus.RUNNING)
         update_progress(key, 'Initializing')
 
@@ -63,14 +63,6 @@ def train_model(request_form):
         spec = importlib.util.spec_from_file_location("model_script", model_script_path)
         model_script = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(model_script)
-
-        # Set Options 
-        logger.info("Setting options...")
-        if not request_form["OptStr"] == '':
-            for k, v in dict(option.split("=") for option in request_form["OptStr"].split(";")).items():
-                model_script.OPTIONS[k] = v
-                logger.info('...Option: ' + k + '=' + v)
-        logger.info("...done.")
         
         # Load Data
         try:
@@ -83,28 +75,32 @@ def train_model(request_form):
             status_utils.update_status(key, status_utils.JobStatus.ERROR)
             return None
 
+        # Load Trainer
+        model_script_path = trainer_file_path.parent / trainer.model_script_path
+        source = SourceFileLoader("model_script", str(model_script_path)).load_module()
+        model_script = source.TrainerClass(ds_iter, logger)
 
-        model = None
-        try:
-            logger.info("Preprocessing data...")
-            # TODO: generic preprocessing interface, remove request form from model interface
-            data = model_script.preprocess(ds_iter, logger=logger, request_form=request_form)
-            logger.info("...done")
-        except ValueError:
-            status_utils.update_status(key, status_utils.JobStatus.ERROR)
-            return
+        # Set Options 
+        logger.info("Setting options...")
+        if not request_form["OptStr"] == '':
+            for k, v in dict(option.split("=") for option in request_form["OptStr"].split(";")).items():
+                model_script.OPTIONS[k] = v
+                logger.info('...Option: ' + k + '=' + v)
+        logger.info("...done.")
+
+        logger.info("Preprocessing data...")
+        # TODO: generic preprocessing interface, remove request form from model interface
+        model_script.preprocess()
+        logger.info("...done")
 
         logger.info("Training model...")
-        model = model_script.train(data, logger)
+        model_script.train()
         logger.info("...done")
 
         # Save
         logger.info('Saving...')
-
         out_dir.mkdir(parents=True, exist_ok=True)
-
         trainer.info_trained = True
-
 
         # TODO add users / sessions
         # TODO there might be a more elegant way to get classes...
@@ -117,7 +113,7 @@ def train_model(request_form):
             for entry in tmp:
                 trainer.classes.append({"name": tmp[entry]})
 
-        weight_path = model_script.save(model, out_dir / trainer_name)
+        weight_path = model_script.save(out_dir / trainer_name)
         trainer.model_weights_path = os.path.basename(weight_path)
         logger.info('...weights')
         shutil.copy(model_script_path, out_dir / trainer.model_script_path)
@@ -131,7 +127,7 @@ def train_model(request_form):
         status_utils.update_status(key, status_utils.JobStatus.FINISHED)
 
     except Exception as e:
-        logger.error('Error:' + str(e))
+        logger.error('Error:' + traceback.format_exc())
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
 
 
