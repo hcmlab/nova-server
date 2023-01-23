@@ -78,7 +78,7 @@ def predict_data(request_form):
             # Load Trainer
             model_script_path = trainer_file_path.parent / trainer.model_script_path
             source = SourceFileLoader("model_script", str(model_script_path)).load_module()
-            model_script = source.TrainerClass(ds_iter, logger)
+            model_script = source.TrainerClass(ds_iter, logger, request_form)
             # Set Options 
             logger.info("Setting options...")
             if not request_form["OptStr"] == '':
@@ -108,9 +108,9 @@ def predict_data(request_form):
 
         logger.info("...done")
 
-        # logger.info("Writing data to database...")
-        # db_utils.write_polygons_to_db(request_form, all_polygons, confidences, logger, start_frame)
-        # logger.info("...done")
+        logger.info("Writing data to database...")
+        db_utils.write_annotation_to_db(request_form, results)
+        logger.info("...done")
 
         # 5. In CML case, delete temporary files..
         if request_form["deleteFiles"] == "True":

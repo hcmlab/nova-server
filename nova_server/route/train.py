@@ -13,6 +13,7 @@ from pathlib import Path
 from nova_server.utils.ssi_utils import Trainer
 
 import nova_server.utils.path_config as cfg
+import importlib
 
 train = Blueprint("train", __name__)
 thread = Blueprint("thread", __name__)
@@ -69,7 +70,8 @@ def train_model(request_form):
             update_progress(key, 'Data loading')
             ds_iter = dataset_utils.dataset_from_request_form(request_form)
             logger.info("Train-Data successfully loaded...")
-        except ValueError:
+        except ValueError as e:
+            print(e)
             log_utils.remove_log_from_dict(key)
             logger.error("Not able to load the data from the database!")
             status_utils.update_status(key, status_utils.JobStatus.ERROR)
@@ -78,7 +80,7 @@ def train_model(request_form):
         # Load Trainer
         model_script_path = trainer_file_path.parent / trainer.model_script_path
         source = SourceFileLoader("model_script", str(model_script_path)).load_module()
-        model_script = source.TrainerClass(ds_iter, logger)
+        model_script = source.TrainerClass(ds_iter, logger, request_form)
 
         # Set Options 
         logger.info("Setting options...")
