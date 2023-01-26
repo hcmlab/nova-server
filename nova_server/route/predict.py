@@ -56,8 +56,6 @@ def predict_data(request_form):
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return None
 
-    
-
     model_script = None
 
     # Load Data
@@ -87,30 +85,31 @@ def predict_data(request_form):
                     logger.info('...Option: ' + k + '=' + v)
             logger.info("...done.")
 
-        logger.info("Execute preprocessing.")
-        model_script.preprocess()
-        logger.info("Preprocessing done.")
-
+        # Load the model only one time as well
         if model_script.model is None:
             # Load Model
             model_weight_path = trainer_file_path.parent / trainer.model_weights_path
-            logger.info("Loading model...")
+            logger.info("Loading model.")
             model_script.load(model_weight_path)
-            logger.info("...done")
+            logger.info("Model loaded.")
         else:
             model_script.ds_iter = ds_iter
 
         logger.info("Execute preprocessing.")
+        model_script.preprocess()
+        logger.info("Preprocessing done.")
+
+        logger.info("Execute prediction.")
         model_script.predict()
+        logger.info("Prediction done.")
+
+        logger.info("Execute postprocessing.")
         results = model_script.postprocess()
-        logger.info("Uploading to database...")
-        db_utils.write_annotation_to_db(request_form, results)
+        logger.info("Postprocessing done.")
 
-        logger.info("...done")
-
-        logger.info("Writing data to database...")
+        logger.info("Execute saving process.")
         db_utils.write_annotation_to_db(request_form, results)
-        logger.info("...done")
+        logger.info("Saving process done.")
 
         # 5. In CML case, delete temporary files..
         if request_form["deleteFiles"] == "True":
