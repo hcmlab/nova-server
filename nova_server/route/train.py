@@ -86,8 +86,11 @@ def train_model(request_form):
         logger.info("Setting options...")
         if not request_form["OptStr"] == '':
             for k, v in dict(option.split("=") for option in request_form["OptStr"].split(";")).items():
-                model_script.OPTIONS[k] = v
-                logger.info('...Option: ' + k + '=' + v)
+                if v in ('True', 'False'):
+                    model_script.OPTIONS[k] = True if v == 'True' else False
+                else:
+                    model_script.OPTIONS[k] = v
+                logger.info(k + '=' + v)
         logger.info("...done.")
 
         logger.info("Preprocessing data...")

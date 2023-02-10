@@ -13,15 +13,15 @@ class TrainerClass:
         self.request_form = request_form
 
     def preprocess(self):
-        """Possible pre-processing of the data. Returns a list with the pre-processed data."""
+        """Possible pre-processing of the data."""
         pass
 
     def train(self):
-        """Trains a model with the given data. Returns this model."""
+        """Trains a model with the given data."""
         pass
 
     def predict(self):
-        """Predicts the given data with the given model. Returns a list with the predicted values."""
+        """Predicts the given data with the given model. Stores a list with the predicted values to self.predictions."""
         pass
 
     def postprocess(self) -> list:
@@ -30,7 +30,8 @@ class TrainerClass:
 
     def save(self, path) -> str:
         """Stores the weights of the given model at the given path. Returns the path of the weights."""
-        return path
+        modelpath = "pathtofile"
+        return modelpath
 
     def load(self, path):
         """Loads a model with the given path. Returns this model."""
