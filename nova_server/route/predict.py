@@ -108,7 +108,7 @@ def predict_data(request_form):
         logger.info("Postprocessing done.")
 
         logger.info("Execute saving process.")
-        db_utils.write_annotation_to_db(request_form, results)
+        db_utils.write_annotation_to_db(request_form, results, logger)
         logger.info("Saving process done.")
 
         # 5. In CML case, delete temporary files..
