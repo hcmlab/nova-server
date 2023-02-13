@@ -40,6 +40,7 @@ def predict_data(request_form):
     logger.info("Action 'Predict' started.")
     status_utils.update_status(key, status_utils.JobStatus.RUNNING)
     sessions = request_form["sessions"].split(";")
+    roles = request_form["roles"].split(";")
     trainer_file_path = Path(cfg.cml_dir + request_form["trainerFilePath"])
     trainer = Trainer()
 
@@ -61,61 +62,67 @@ def predict_data(request_form):
     # Load Data
     for session in sessions:
         request_form["sessions"] = session  # overwrite so we handle each session seperatly..
-        try:
-            update_progress(key, 'Data loading')
-            ds_iter = dataset_utils.dataset_from_request_form(request_form)
-            logger.info("Prediction data successfully loaded.")
-        except ValueError:
-            log_utils.remove_log_from_dict(key)
-            logger.error("Not able to load the data from the database!")
-            status_utils.update_status(key, status_utils.JobStatus.ERROR)
-            return
+        for role in roles:
+            try:
+                update_progress(key, 'Data loading')
+                request_form["roles"] = role
+                ds_iter = dataset_utils.dataset_from_request_form(request_form)
+                logger.info("Prediction data successfully loaded.")
+            except ValueError:
+                log_utils.remove_log_from_dict(key)
+                logger.error("Not able to load the data from the database!")
+                status_utils.update_status(key, status_utils.JobStatus.ERROR)
+                return
 
-        # Load the model_script only once
-        if model_script is None:
-            # Load Trainer
-            model_script_path = trainer_file_path.parent / trainer.model_script_path
-            source = SourceFileLoader("model_script", str(model_script_path)).load_module()
-            model_script = source.TrainerClass(ds_iter, logger, request_form)
-            # Set Options 
-            logger.info("Setting options...")
-            if not request_form["OptStr"] == '':
-                for k, v in dict(option.split("=") for option in request_form["OptStr"].split(";")).items():
-                    if v in ('True', 'False'):
-                        model_script.OPTIONS[k] = True if v == 'True' else False
-                    else:
-                        model_script.OPTIONS[k] = v
-                    logger.info(k + '=' + v)
-            logger.info("...done.")
+            # Load the model_script only once
+            if model_script is None:
+                # Load Trainer
+                model_script_path = trainer_file_path.parent / trainer.model_script_path
+                source = SourceFileLoader("model_script", str(model_script_path)).load_module()
+                model_script = source.TrainerClass(ds_iter, logger, request_form)
+                # Set Options
+                logger.info("Setting options...")
+                if not request_form["OptStr"] == '':
+                    for k, v in dict(option.split("=") for option in request_form["OptStr"].split(";")).items():
+                        if v in ('True', 'False'):
+                            model_script.OPTIONS[k] = True if v == 'True' else False
+                        elif v == 'None':
+                            model_script.OPTIONS[k] = True if v == 'True' else False
+                        else:
+                            model_script.OPTIONS[k] = v
+                        logger.info(k + '=' + v)
+                logger.info("...done.")
 
-        # Load the model only one time as well
-        if model_script.model is None:
-            # Load Model
-            model_weight_path = trainer_file_path.parent / trainer.model_weights_path
-            logger.info("Loading model.")
-            model_script.load(model_weight_path)
-            logger.info("Model loaded.")
-        else:
+                # Load Model
+                model_weight_path = trainer_file_path.parent / trainer.model_weights_path
+                logger.info("Loading model.")
+                model_script.load(model_weight_path)
+                logger.info("Model loaded.")
+
+            # Load the model only one time as well
+
             model_script.ds_iter = ds_iter
             model_script.request_form["sessions"] = session
+            model_script.request_form["roles"] = role
 
-        logger.info("Execute preprocessing.")
-        model_script.preprocess()
-        logger.info("Preprocessing done.")
 
-        logger.info("Execute prediction.")
-        model_script.predict()
-        logger.info("Prediction done.")
+            logger.info("Execute preprocessing.")
+            model_script.preprocess()
+            logger.info("Preprocessing done.")
 
-        logger.info("Execute postprocessing.")
-        results = model_script.postprocess()
-        logger.info("Postprocessing done.")
+            logger.info("Execute prediction.")
+            model_script.predict()
+            logger.info("Prediction done.")
 
-        logger.info("Execute saving process.")
-        db_utils.write_annotation_to_db(request_form, results, logger)
-        logger.info("Saving process done.")
+            logger.info("Execute postprocessing.")
+            results = model_script.postprocess()
+            logger.info("Postprocessing done.")
 
-        # 5. In CML case, delete temporary files..
+            logger.info("Execute saving process.")
+            db_utils.write_annotation_to_db(request_form, results, logger)
+            logger.info("Saving process done.")
+
+            # 5. In CML case, delete temporary files..
         if request_form["deleteFiles"] == "True":
             logger.info('Deleting temporary CML files...')
             out_dir = Path(cfg.cml_dir + request_form["trainerOutputDirectory"])

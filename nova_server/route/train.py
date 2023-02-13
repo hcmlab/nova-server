@@ -88,6 +88,8 @@ def train_model(request_form):
             for k, v in dict(option.split("=") for option in request_form["OptStr"].split(";")).items():
                 if v in ('True', 'False'):
                     model_script.OPTIONS[k] = True if v == 'True' else False
+                elif v == 'None':
+                    model_script.OPTIONS[k] = None
                 else:
                     model_script.OPTIONS[k] = v
                 logger.info(k + '=' + v)

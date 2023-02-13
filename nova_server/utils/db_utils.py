@@ -65,6 +65,10 @@ def write_annotation_to_db(request_form, results: dict, logger):
 
 def write_freeform_to_db(request_form, results: dict, db_handler, logger):
     annotations = {}
+    """Temp fix"""
+    results.pop('values', None)
+    results.pop('confidences', None)
+
     for frame, results in results.items():
         frame_info = frame.split('_')
         frame_from = float(frame_info[-2])
@@ -100,8 +104,8 @@ def write_freeform_to_db(request_form, results: dict, db_handler, logger):
 
 def write_discrete_to_db(request_form, results: dict, db_handler, logger):
     # TODO: We only take one role into account in this case. Fix
-    role = roles.split(';')[0]
-
+    #role = roles.split(';')[0]
+    role = results['roles']
     frame_size = nova_data_utils.parse_time_string_to_ms(request_form['frameSize'])
     mongo_scheme = db_handler.get_mongo_scheme(scheme, database)
     annos = []
@@ -109,7 +113,7 @@ def write_discrete_to_db(request_form, results: dict, db_handler, logger):
 
     if request_form['startTime'] != '0':
         annos_db = db_handler.get_annos(dataset=database, scheme=scheme, session=session, annotator=annotator,
-                                        roles=roles)
+                                        roles=role)
 
         start_frame = float(request_form['startTime']) / 1000
         annos = list(filter(lambda x: float(x['from']) < start_frame, annos_db))
@@ -128,7 +132,7 @@ def write_discrete_to_db(request_form, results: dict, db_handler, logger):
                 annos.append({
                     'from': frame_from,
                     'to': frame_to,
-                    'conf': results["confidence"][id],
+                    'conf': results["confidences"][id],
                     'id': int(last_label)
                 })
             current_label_start = id
@@ -145,7 +149,8 @@ def write_discrete_to_db(request_form, results: dict, db_handler, logger):
 
 
 def write_continuous_to_db(request_form, results: dict, db_handler, logger):
-    role = roles.split(';')[0]
+    role = results['roles']
+    #role = roles.split(';')[0]
     annos = []
 
     if request_form['startTime'] != '0':
@@ -154,6 +159,8 @@ def write_continuous_to_db(request_form, results: dict, db_handler, logger):
 
         start_frame = int(int(request_form['startTime']) / int(request_form['frameSize'][:-2]) + 1)
         annos = annos_db[:start_frame]
+
+    #normalized = (results["values"] - min(results["values"])) / (max(results["values"]) - min(results["values"]))
 
     for value, confidence in zip(results["values"], results["confidences"]):
         annos.append({
