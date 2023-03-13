@@ -10,10 +10,10 @@ def job_status():
     if request.method == "POST":
         request_form = request.form.to_dict()
         status_key = get_key_from_request_form(request_form)
+
         if status_key in JOBS.keys():
-            return jsonify({'status' : JobStatus.RUNNING.value})
-            # ToDo: WTF ?
-            #return jsonify({"status": JOBS[status_key].status.value})
+            status = JOBS[status_key].status
+            return jsonify({"status": status.value})
         else:
             return jsonify({"status": JobStatus.WAITING.value})
 

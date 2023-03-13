@@ -1,16 +1,19 @@
+import os
 import importlib.util
-import numpy as np
+
+#import torch.cuda
+
+import nova_server.utils.path_config as cfg
+
+from pathlib import Path
+from nova_server.utils import db_utils
 from flask import Blueprint, request, jsonify
+from nova_server.utils.ssi_utils import Trainer
+from importlib.machinery import SourceFileLoader
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
 from nova_server.utils.key_utils import get_key_from_request_form
-from nova_server.utils import status_utils, thread_utils, log_utils, tfds_utils, db_utils
-from nova_server.utils import polygon_utils
-import xml.etree.ElementTree as ET
-import numpy as np
-import pandas as pd
-from flask import Blueprint, request, jsonify
-from nova_server.utils import thread_utils, status_utils, log_utils, tfds_utils
+from nova_server.utils import thread_utils, status_utils, log_utils, dataset_utils
 
 predict = Blueprint("predict", __name__)
 
@@ -20,88 +23,124 @@ def predict_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
         key = get_key_from_request_form(request_form)
-        thread = predict_thread_function(request_form)
+        thread = predict_data(request_form)
         status_utils.add_new_job(key)
         data = {"success": "true"}
         thread.start()
         THREADS[key] = thread
-
-        #thread = predict_model(request.form)
-        #thread_id = thread.name
-        #status_utils.add_new_job(thread_id, predict.name)
-        #data = {"job_id": thread_id}
-        #thread.start()
-
         return jsonify(data)
 
 
 @thread_utils.ml_thread_wrapper
-def predict_thread_function(request_form):
-    request_form = request_form.to_dict(flat=False)
-    predict_data(request_form)
-
-
 def predict_data(request_form):
     key = get_key_from_request_form(request_form)
     logger = log_utils.get_logger_for_thread(key)
-    logger.info("Action 'Predict' started.")
 
-    trainer_file = request_form["trainerScript"]
-    if trainer_file is None:
+    # try:
+    logger.info("Action 'Predict' started.")
+    status_utils.update_status(key, status_utils.JobStatus.RUNNING)
+    sessions = request_form["sessions"].split(";")
+    roles = request_form["roles"].split(";")
+    trainer_file_path = Path(cfg.cml_dir + request_form["trainerFilePath"])
+    trainer = Trainer()
+
+    if not trainer_file_path.is_file():
         logger.error("Trainer file not available!")
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
-        return
+        return None
     else:
-        logger.info("Trainer file available...")
+        trainer.load_from_file(trainer_file_path)
+        logger.info("Trainer successfully loaded.")
 
-    spec = importlib.util.spec_from_file_location("trainer", trainer_file)
-    trainer = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(trainer)
-
-    try:
-        update_progress(key, 'Dataloading')
-        ds_iter = tfds_utils.dataset_from_request_form(request_form, mode="predict")
-        logger.info("Prediction-Data successfully loaded...")
-    except ValueError:
-        log_utils.remove_log_from_dict(key)
-        logger.error("Not able to load the data from the database!")
+    if not trainer.model_script_path:
+        logger.error('Trainer has no attribute "script" in model tag.')
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
-        return
+        return None
 
-    data_list = list(ds_iter)
+    model_script = None
 
-    logger.info("Trying to start predictions...")
+    # Load Data
+    for session in sessions:
+        request_form["sessions"] = session  # overwrite so we handle each session seperatly..
+        for role in roles:
+            try:
+                update_progress(key, 'Data loading')
+                request_form["roles"] = role
+                ds_iter = dataset_utils.dataset_from_request_form(request_form)
+                logger.info("Prediction data successfully loaded.")
+            except ValueError:
+                log_utils.remove_log_from_dict(key)
+                logger.error("Not able to load the data from the database!")
+                status_utils.update_status(key, status_utils.JobStatus.ERROR)
+                return
 
-    if request_form["schemeType"] == "DISCRETE_POLYGON" or request_form["schemeType"] == "POLYGON":
-        data_list.sort(key=lambda x: int(x[request_form["scheme"]]['name']))
-        amount_of_labels = len(ds_iter.label_info[list(ds_iter.label_info)[0]].labels) + 1
-        output_shape = np.uint8(data_list[0][list(data_list[0])[1]])[0].shape  # 1 = width, 0 = height
-        model = trainer.load(request_form["weightsPath"], amount_of_labels)
-        # 1. Predict
-        confidences_layer = trainer.predict(model, data_list, logger, output_shape)
-        # 2. Create True/False Bitmaps
-        binary_masks = polygon_utils.prediction_to_binary_mask(confidences_layer)
-        # 3. Get Polygons
-        all_polygons = polygon_utils.mask_to_polygons(binary_masks)
-        # 4. Get Confidences
-        confidences = polygon_utils.get_confidences_from_predictions(confidences_layer, all_polygons)
-        # 5. Write to database
-        success = db_utils.write_polygons_to_db(request_form, all_polygons, confidences)
-        if not success.acknowledged:
-            logger.error("An unknown error occurred while writing the date into the database! Try to redo the process.")
+            # Load the model_script only once
+            if model_script is None:
+                # Load Trainer
+                model_script_path = trainer_file_path.parent / trainer.model_script_path
+                source = SourceFileLoader("model_script", str(model_script_path)).load_module()
+                model_script = source.TrainerClass(ds_iter, logger, request_form)
+                # Set Options
+                logger.info("Setting options...")
+                if not request_form["OptStr"] == '':
+                    for k, v in dict(option.split("=") for option in request_form["OptStr"].split(";")).items():
+                        if v in ('True', 'False'):
+                            model_script.OPTIONS[k] = True if v == 'True' else False
+                        elif v == 'None':
+                            model_script.OPTIONS[k] = True if v == 'True' else False
+                        else:
+                            model_script.OPTIONS[k] = v
+                        logger.info(k + '=' + v)
+                logger.info("...done.")
 
-    elif request_form["schemeType"] == "DISCRETE":
-        # TODO Marco
-        ...
-    elif request_form["schemeType"] == "FREE":
-        # TODO Marco
-        ...
-    elif request_form["schemeType"] == "CONTINUOUS":
-        # TODO Marco
-        ...
-    elif request_form["schemeType"] == "POINT":
-        # TODO
-        ...
+                # Load Model
+                model_weight_path = trainer_file_path.parent / trainer.model_weights_path
+                logger.info("Loading model.")
+                model_script.load(model_weight_path)
+                logger.info("Model loaded.")
 
-    status_utils.update_status(key, status_utils.JobStatus.FINISHED)
-    print()
+            # Load the model only one time as well
+
+            model_script.ds_iter = ds_iter
+            model_script.request_form["sessions"] = session
+            model_script.request_form["roles"] = role
+
+
+            logger.info("Execute preprocessing.")
+            model_script.preprocess()
+            logger.info("Preprocessing done.")
+
+            logger.info("Execute prediction.")
+            model_script.predict()
+            logger.info("Prediction done.")
+
+            logger.info("Execute postprocessing.")
+            results = model_script.postprocess()
+            logger.info("Postprocessing done.")
+
+            logger.info("Execute saving process.")
+            db_utils.write_annotation_to_db(request_form, results, logger)
+            logger.info("Saving process done.")
+
+            # 5. In CML case, delete temporary files..
+        if request_form["deleteFiles"] == "True":
+            logger.info('Deleting temporary CML files...')
+            out_dir = Path(cfg.cml_dir + request_form["trainerOutputDirectory"])
+            trainer_name = request_form["trainerName"]
+            os.remove(out_dir / trainer.model_weights_path)
+            os.remove(out_dir / trainer.model_script_path)
+            for f in model_script.DEPENDENCIES:
+                os.remove(trainer_file_path.parent / f)
+            trainer_fullname = trainer_name + ".trainer"
+            os.remove(out_dir / trainer_fullname)
+            logger.info('...done')
+
+        logger.info('Prediction completed!')
+        status_utils.update_status(key, status_utils.JobStatus.FINISHED)
+
+
+   # except Exception as e:
+    #logger.error('Error:' + str(e))
+     #   status_utils.update_status(key, status_utils.JobStatus.ERROR)
+    #finally:
+    #    del results, ds_iter, ds_iter_pp, model, model_script, model_script_path, model_weight_path, spec

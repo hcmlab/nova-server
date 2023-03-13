@@ -208,3 +208,5 @@ nova_server/tests/hcai_nova_dynamic/1.0.0/dataset_info.json
 nova_server/tests/hcai_nova_dynamic/1.0.0/features.json
 nova_server/tests/hcai_nova_dynamic/1.0.0/hcai_nova_dynamic-dynamic_split.tfrecord-00000-of-00001
 nova_server/tests/hcai_nova_dynamic/1.0.0/smile.labels.txt
+nova_server/utils/path_config.py
+nova_server/utils/path_config.py
