@@ -57,7 +57,7 @@ setup(
     packages=find_packages(exclude=["*tests*"]),
     python_requires=">=3.6, <4",
     install_requires=[
-        "hcai-datasets-nightly",
+        "hcai-datasets",
         "Flask == 2.0.2",
         "imbalanced-learn==0.8.1",
         "waitress==2.0.0",
