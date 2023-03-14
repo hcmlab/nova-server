@@ -93,3 +93,4 @@ imantics~=0.1.12
 shapely~=1.7.1
 rasterio
 git+https://github.com/openai/whisper.git
+lhotse

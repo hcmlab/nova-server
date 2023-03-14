@@ -24,6 +24,12 @@ project_name = "hcai-nova-server"
 here = pathlib.Path(__file__).parent.resolve()
 long_description = (here / "README.md").read_text(encoding="utf-8")
 
+install_requires=[
+    "hcai-datasets",
+    "Flask == 2.0.2",
+    "imbalanced-learn==0.8.1",
+    "waitress==2.0.0",
+]
 
 # Adjustment for nightly build
 if nightly:
@@ -31,6 +37,12 @@ if nightly:
     datestring = datetime.datetime.now().strftime("%Y%m%d%H%M")
     curr_version = pkg_resources.parse_version(__version__)
     __version__ = f"{curr_version.base_version}.dev{datestring}"
+    install_requires=[
+        "hcai-datasets-nightly",
+        "Flask == 2.0.2",
+        "imbalanced-learn==0.8.1",
+        "waitress==2.0.0",
+    ]
 
 # Setup
 setup(
@@ -56,13 +68,7 @@ setup(
     ],
     packages=find_packages(exclude=["*tests*"]),
     python_requires=">=3.6, <4",
-    install_requires=[
-        "hcai-datasets",
-        "Flask == 2.0.2",
-        "imbalanced-learn==0.8.1",
-        "waitress==2.0.0",
-
-    ],
+    install_requires = install_requires
     include_package_data=True,
     package_data={"": ["*.csv"]}
 )
