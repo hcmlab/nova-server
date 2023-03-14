@@ -68,7 +68,7 @@ setup(
     ],
     packages=find_packages(exclude=["*tests*"]),
     python_requires=">=3.6, <4",
-    install_requires = install_requires
+    install_requires = install_requires,
     include_package_data=True,
     package_data={"": ["*.csv"]}
 )
