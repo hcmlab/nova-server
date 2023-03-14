@@ -3,9 +3,7 @@ import bson
 import copy
 import warnings
 import numpy as np
-import nova_server.utils.path_config as cfg
 
-sys.path.append(cfg.hcai_datasets_dir)
 from hcai_datasets.hcai_nova_dynamic.nova_db_handler import NovaDBHandler
 from hcai_datasets.hcai_nova_dynamic.utils import nova_data_utils
 

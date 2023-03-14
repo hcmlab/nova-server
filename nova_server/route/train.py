@@ -11,8 +11,8 @@ from nova_server.utils.key_utils import get_key_from_request_form
 from nova_server.utils.thread_utils import THREADS
 from pathlib import Path
 from nova_server.utils.ssi_utils import Trainer
+from flask import current_app
 
-import nova_server.utils.path_config as cfg
 import importlib
 
 train = Blueprint("train", __name__)
@@ -24,7 +24,7 @@ def train_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
         key = get_key_from_request_form(request_form)
-        thread = train_model(request_form)
+        thread = train_model(request_form, current_app._get_current_object())
         status_utils.add_new_job(key)
         data = {"success": "true"}
         thread.start()
@@ -33,16 +33,18 @@ def train_thread():
 
 
 @thread_utils.ml_thread_wrapper
-def train_model(request_form):
+def train_model(request_form, app_context):
     key = get_key_from_request_form(request_form)
     logger = log_utils.get_logger_for_thread(key)
+    cml_dir = app_context.config['CML_DIR']
+    data_dir = app_context.config['DATA_DIR']
 
     try:
         status_utils.update_status(key, status_utils.JobStatus.RUNNING)
         update_progress(key, 'Initializing')
 
-        trainer_file_path = Path(cfg.cml_dir + request_form["trainerFilePath"])
-        out_dir = Path(cfg.cml_dir + request_form["trainerOutputDirectory"])
+        trainer_file_path = Path(cml_dir + request_form["trainerFilePath"])
+        out_dir = Path(cml_dir + request_form["trainerOutputDirectory"])
         trainer_name = request_form["trainerName"]
 
         log_conform_request = dict(request_form)
@@ -68,7 +70,7 @@ def train_model(request_form):
         # Load Data
         try:
             update_progress(key, 'Data loading')
-            ds_iter = dataset_utils.dataset_from_request_form(request_form)
+            ds_iter = dataset_utils.dataset_from_request_form(request_form, data_dir)
             logger.info("Train-Data successfully loaded...")
         except ValueError as e:
             print(e)

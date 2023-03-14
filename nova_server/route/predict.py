@@ -3,7 +3,6 @@ import importlib.util
 
 #import torch.cuda
 
-import nova_server.utils.path_config as cfg
 
 from pathlib import Path
 from nova_server.utils import db_utils
@@ -14,7 +13,7 @@ from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
 from nova_server.utils.key_utils import get_key_from_request_form
 from nova_server.utils import thread_utils, status_utils, log_utils, dataset_utils
-
+from flask import current_app
 predict = Blueprint("predict", __name__)
 
 
@@ -23,7 +22,7 @@ def predict_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
         key = get_key_from_request_form(request_form)
-        thread = predict_data(request_form)
+        thread = predict_data(request_form, current_app._get_current_object())
         status_utils.add_new_job(key)
         data = {"success": "true"}
         thread.start()
@@ -32,16 +31,18 @@ def predict_thread():
 
 
 @thread_utils.ml_thread_wrapper
-def predict_data(request_form):
+def predict_data(request_form, app_context):
     key = get_key_from_request_form(request_form)
     logger = log_utils.get_logger_for_thread(key)
+    cml_dir = app_context.config["CML_DIR"]
+    data_dir = app_context.config["DATA_DIR"]
 
     # try:
     logger.info("Action 'Predict' started.")
     status_utils.update_status(key, status_utils.JobStatus.RUNNING)
     sessions = request_form["sessions"].split(";")
     roles = request_form["roles"].split(";")
-    trainer_file_path = Path(cfg.cml_dir + request_form["trainerFilePath"])
+    trainer_file_path = Path(cml_dir + request_form["trainerFilePath"])
     trainer = Trainer()
 
     if not trainer_file_path.is_file():
@@ -66,7 +67,7 @@ def predict_data(request_form):
             try:
                 update_progress(key, 'Data loading')
                 request_form["roles"] = role
-                ds_iter = dataset_utils.dataset_from_request_form(request_form)
+                ds_iter = dataset_utils.dataset_from_request_form(request_form, data_dir)
                 logger.info("Prediction data successfully loaded.")
             except ValueError:
                 log_utils.remove_log_from_dict(key)
@@ -125,7 +126,7 @@ def predict_data(request_form):
             # 5. In CML case, delete temporary files..
         if request_form["deleteFiles"] == "True":
             logger.info('Deleting temporary CML files...')
-            out_dir = Path(cfg.cml_dir + request_form["trainerOutputDirectory"])
+            out_dir = Path(cml_dir + request_form["trainerOutputDirectory"])
             trainer_name = request_form["trainerName"]
             os.remove(out_dir / trainer.model_weights_path)
             os.remove(out_dir / trainer.model_script_path)

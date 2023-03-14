@@ -1,11 +1,6 @@
-import sys
-import nova_server.utils.path_config as cfg
-
-sys.path.append(cfg.hcai_datasets_dir)
 from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import HcaiNovaDynamicIterable
-from nova_server.utils.path_config import data_dir
 
-def dataset_from_request_form(request_form):
+def dataset_from_request_form(request_form, data_dir):
     """
     Creates a tensorflow dataset from nova dynamically
     :param request_form: the requestform that specifices the parameters of the dataset
@@ -28,7 +23,6 @@ def dataset_from_request_form(request_form):
 
         # Dataset Config
         dataset=request_form["database"],
-        #nova_data_dir=request_form["dataPath"],
         nova_data_dir=data_dir,
         sessions=request_form["sessions"].split(';'),
         roles=request_form["roles"].split(';'),
