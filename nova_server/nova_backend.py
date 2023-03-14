@@ -8,6 +8,7 @@ from nova_server.route.cancel import cancel
 from nova_server.route.predict import predict
 from nova_server.utils import path_config
 
+
 import argparse
 
 
@@ -31,7 +32,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Commandline arguments to configure the nova backend server"
     )
-    parser.add_argument("--host", type=str, default="0.0.0.0", help="The host ip address")
+    parser.add_argument(
+        "--host", type=str, default="0.0.0.0", help="The host ip address"
+    )
     parser.add_argument(
         "--port", type=int, default=8080, help="The port the server listens on"
     )
@@ -47,21 +50,24 @@ if __name__ == "__main__":
         "--cml_dir",
         type=str,
         default="./cml",
-        help="Cml folder to read the training scripts from. Same as in Nova."
+        help="Cml folder to read the training scripts from. Same as in Nova.",
     )
 
     parser.add_argument(
         "--data_dir",
         type=str,
         default="./data",
-        help="Data folder to read the training scripts from. Same as in Nova."
+        help="Data folder to read the training scripts from. Same as in Nova.",
     )
 
     # TODO: support multiple (data) directories
     args = parser.parse_args()
-    path_config.data_dir = args.data_dir
-    path_config.cml_dir = args.cml_dir
+    #path_config.data_dir = args.data_dir
+    #path_config.cml_dir = args.cml_dir
     app = create_app(template_folder=args.template_folder)
+    app.config['CML_DIR'] = args.cml_dir
+    app.config['DATA_DIR'] = args.data_dir
+
     host = args.host
     port = args.port
     serve(app, host=host, port=port)
