@@ -12,7 +12,7 @@ from importlib.machinery import SourceFileLoader
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
 from nova_server.utils.key_utils import get_key_from_request_form
-from nova_server.utils import thread_utils, status_utils, log_utils, dataset_utils
+from nova_server.utils import thread_utils, status_utils, log_utils, dataset_utils, import_utils
 from flask import current_app
 predict = Blueprint("predict", __name__)
 
@@ -80,7 +80,10 @@ def predict_data(request_form, app_context):
                 # Load Trainer
                 model_script_path = trainer_file_path.parent / trainer.model_script_path
                 source = SourceFileLoader("model_script", str(model_script_path)).load_module()
+                import_utils.assert_or_install_dependencies(source.packages)
                 model_script = source.TrainerClass(ds_iter, logger, request_form)
+
+
                 # Set Options
                 logger.info("Setting options...")
                 if not request_form["OptStr"] == '':

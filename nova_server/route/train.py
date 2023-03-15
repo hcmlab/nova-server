@@ -5,7 +5,7 @@ import traceback
 from importlib.machinery import SourceFileLoader
 
 from flask import Blueprint, request, jsonify
-from nova_server.utils import dataset_utils, thread_utils, status_utils, log_utils
+from nova_server.utils import dataset_utils, thread_utils, status_utils, log_utils, import_utils
 from nova_server.utils.status_utils import update_progress
 from nova_server.utils.key_utils import get_key_from_request_form
 from nova_server.utils.thread_utils import THREADS
@@ -61,12 +61,7 @@ def train_model(request_form, app_context):
             trainer.load_from_file(trainer_file_path)
             logger.info("Trainer successfully loaded.")
 
-        # Load Trainer
-        model_script_path = trainer_file_path.parent / trainer.model_script_path
-        spec = importlib.util.spec_from_file_location("model_script", model_script_path)
-        model_script = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(model_script)
-        
+
         # Load Data
         try:
             update_progress(key, 'Data loading')
@@ -82,6 +77,7 @@ def train_model(request_form, app_context):
         # Load Trainer
         model_script_path = trainer_file_path.parent / trainer.model_script_path
         source = SourceFileLoader("model_script", str(model_script_path)).load_module()
+        import_utils.assert_or_install_dependencies(source.packages)
         model_script = source.TrainerClass(ds_iter, logger, request_form)
 
         # Set Options 
