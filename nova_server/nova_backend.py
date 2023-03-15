@@ -6,7 +6,6 @@ from nova_server.route.log import log
 from nova_server.route.ui import ui
 from nova_server.route.cancel import cancel
 from nova_server.route.predict import predict
-from flask import g
 import argparse
 
 
