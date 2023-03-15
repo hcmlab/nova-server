@@ -1,4 +1,4 @@
-packages = []
+REQUIREMENTS = []
 
 class TrainerClass:
     """Includes all the necessary files to run this script"""

@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 import subprocess
 
-def assert_or_install_dependencies(packages):
+def assert_or_install_dependencies(packages, trainer_name):
     exec_path = Path(sys.executable)
     site_package_path = exec_path / '..' / ".." / 'Lib' / 'nova-server-site-packages'
     site_package_path.mkdir(parents=True, exist_ok=True)
@@ -16,7 +16,7 @@ def assert_or_install_dependencies(packages):
         ver = 'latest'
         if len(name) == 2:
             ver = name[1]
-        path = site_package_path / name[0] / ver
+        path = site_package_path / trainer_name / name[0]
 
         print(path)
         params.append("--target={}".format(path))
