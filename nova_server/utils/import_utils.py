@@ -16,7 +16,7 @@ def assert_or_install_dependencies(packages, trainer_name):
         ver = 'latest'
         if len(name) == 2:
             ver = name[1]
-        path = site_package_path / trainer_name / name[0]
+        path = site_package_path / trainer_name
 
         print(path)
         params.append("--target={}".format(path))

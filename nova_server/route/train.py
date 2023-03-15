@@ -77,7 +77,7 @@ def train_model(request_form, app_context):
         # Load Trainer
         model_script_path = trainer_file_path.parent / trainer.model_script_path
         source = SourceFileLoader("model_script", str(model_script_path)).load_module()
-        import_utils.assert_or_install_dependencies(source.REQUIREMENTS, trainer_name)
+        import_utils.assert_or_install_dependencies(source.REQUIREMENTS, Path(model_script_path).stem)
         model_script = source.TrainerClass(ds_iter, logger, request_form)
 
         # Set Options 
