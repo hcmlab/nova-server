@@ -43,6 +43,7 @@ def predict_data(request_form, app_context):
     sessions = request_form["sessions"].split(";")
     roles = request_form["roles"].split(";")
     trainer_file_path = Path(cml_dir + request_form["trainerFilePath"])
+    trainer_name = request_form["trainerName"]
     trainer = Trainer()
 
     if not trainer_file_path.is_file():
@@ -130,7 +131,6 @@ def predict_data(request_form, app_context):
         if request_form["deleteFiles"] == "True":
             logger.info('Deleting temporary CML files...')
             out_dir = Path(cml_dir + request_form["trainerOutputDirectory"])
-            trainer_name = request_form["trainerName"]
             os.remove(out_dir / trainer.model_weights_path)
             os.remove(out_dir / trainer.model_script_path)
             for f in model_script.DEPENDENCIES:
