@@ -4,7 +4,7 @@ import subprocess
 
 def assert_or_install_dependencies(packages, trainer_name):
     exec_path = Path(sys.executable)
-    site_package_path = exec_path / '..' / ".." / 'Lib' / 'nova-server-site-packages'
+    site_package_path = exec_path / '..' / ".." / 'Lib' / 'nova-server-site-packages' / trainer_name
     site_package_path.mkdir(parents=True, exist_ok=True)
 
     path = site_package_path / trainer_name
