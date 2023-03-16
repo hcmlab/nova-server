@@ -128,6 +128,7 @@ def predict_data(request_form, app_context):
 
             # 5. In CML case, delete temporary files..
         if request_form["deleteFiles"] == "True":
+            trainer_name = request_form["trainerName"]
             logger.info('Deleting temporary CML files...')
             out_dir = Path(cml_dir + request_form["trainerOutputDirectory"])
             os.remove(out_dir / trainer.model_weights_path)
