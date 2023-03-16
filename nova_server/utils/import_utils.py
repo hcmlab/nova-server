@@ -14,13 +14,15 @@ def assert_or_install_dependencies(packages, trainer_name):
         if len(pk) > 1:
             params.extend(pk[1:])
         name = pk[0].split('==')
-           # ver = 'latest'
-           # if len(name) == 2:
-           #     ver = name[1]
 
         params.append("--target={}".format(path))
-        package_path = site_package_path / trainer_name / name[0]
-        if package_path.exists():
+
+        package_path = site_package_path / trainer_name
+
+        adjusted_name = str(name[0]).replace('-', '_')
+        dirs = [1 if x.name.startswith(adjusted_name) else 0 for x in package_path.iterdir() if x.is_dir()]
+
+        if sum(dirs) > 0:
             print(f'skip installation of {package_path}. Package already installed')
             pass
         else:
