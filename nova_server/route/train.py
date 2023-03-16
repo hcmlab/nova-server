@@ -9,7 +9,7 @@ from nova_server.utils import dataset_utils, thread_utils, status_utils, log_uti
 from nova_server.utils.status_utils import update_progress
 from nova_server.utils.key_utils import get_key_from_request_form
 from nova_server.utils.thread_utils import THREADS
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from nova_server.utils.ssi_utils import Trainer
 from flask import current_app
 
@@ -43,7 +43,7 @@ def train_model(request_form, app_context):
         status_utils.update_status(key, status_utils.JobStatus.RUNNING)
         update_progress(key, 'Initializing')
 
-        trainer_file_path = Path(cml_dir + request_form["trainerFilePath"])
+        trainer_file_path = Path(cml_dir).joinpath(PureWindowsPath(request_form["trainerFilePath"]))
         out_dir = Path(cml_dir + request_form["trainerOutputDirectory"])
         trainer_name = request_form["trainerName"]
 
