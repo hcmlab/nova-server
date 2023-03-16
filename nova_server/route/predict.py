@@ -148,7 +148,9 @@ def predict_data(request_form, app_context):
         if request_form["deleteFiles"] == "True":
             trainer_name = request_form["trainerName"]
             logger.info("Deleting temporary CML files...")
-            out_dir = Path(cml_dir + request_form["trainerOutputDirectory"])
+            out_dir = Path(cml_dir).joinpath(
+                PureWindowsPath(request_form["trainerOutputDirectory"])
+            )
             os.remove(out_dir / trainer.model_weights_path)
             os.remove(out_dir / trainer.model_script_path)
             for f in model_script.DEPENDENCIES:

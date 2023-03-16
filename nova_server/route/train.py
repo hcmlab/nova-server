@@ -44,7 +44,9 @@ def train_model(request_form, app_context):
         update_progress(key, 'Initializing')
 
         trainer_file_path = Path(cml_dir).joinpath(PureWindowsPath(request_form["trainerFilePath"]))
-        out_dir = Path(cml_dir + request_form["trainerOutputDirectory"])
+        out_dir = Path(cml_dir).joinpath(
+            PureWindowsPath(request_form["trainerOutputDirectory"])
+        )
         trainer_name = request_form["trainerName"]
 
         log_conform_request = dict(request_form)
