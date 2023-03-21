@@ -7,7 +7,7 @@ from nova_server.route.ui import ui
 from nova_server.route.cancel import cancel
 from nova_server.route.predict import predict
 import argparse
-
+from pathlib import Path
 
 def create_app(template_folder):
     print("Starting nova-backend server")
@@ -57,13 +57,30 @@ if __name__ == "__main__":
         help="Data folder to read the training scripts from. Same as in Nova.",
     )
 
+    parser.add_argument(
+        "--cache_dir",
+        type=str,
+        default="./cache",
+        help="Cache folder where all large files (e.g. model weights) are cached.",
+    )
+
+    parser.add_argument(
+        "--tmp_dir",
+        type=str,
+        default="./tmp",
+        help="Folder for temporary data storage.",
+    )
+
     # TODO: support multiple (data) directories
     args = parser.parse_args()
-    #path_config.data_dir = args.data_dir
-    #path_config.cml_dir = args.cml_dir
     app = create_app(template_folder=args.template_folder)
     app.config['CML_DIR'] = args.cml_dir
     app.config['DATA_DIR'] = args.data_dir
+    app.config['CACHE_DIR'] = args.cache_dir
+    app.config['TMP_DIR'] = args.tmp_dir
+
+    Path(app.config['CACHE_DIR']).mkdir(parents=False, exist_ok=True)
+    Path(app.config['TMP_DIR']).mkdir(parents=False, exist_ok=True)
 
     host = args.host
     port = args.port
