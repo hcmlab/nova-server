@@ -46,7 +46,6 @@ def predict_data(request_form, app_context):
     status_utils.update_status(key, status_utils.JobStatus.RUNNING)
     sessions = request_form["sessions"].split(";")
     roles = request_form["roles"].split(";")
-    # TODO Adapt pathes between windows and posix path
     trainer_file_path = Path(cml_dir).joinpath(
         PureWindowsPath(request_form["trainerFilePath"])
     )
