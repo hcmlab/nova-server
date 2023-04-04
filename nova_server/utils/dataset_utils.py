@@ -22,20 +22,20 @@ def dataset_from_request_form(request_form, data_dir):
         db_config_dict=db_config_dict,
 
         # Dataset Config
-        dataset=request_form["database"],
+        dataset=request_form.get("database"),
         nova_data_dir=data_dir,
-        sessions=request_form["sessions"].split(';'),
-        roles=request_form["roles"].split(';'),
-        schemes=request_form["scheme"].split(';'),
-        annotator=request_form["annotator"],
-        data_streams=request_form["streamName"].split(' '),
+        sessions=request_form.get("sessions").split(';') if request_form.get("sessions") else None,
+        roles=request_form.get("roles", '').split(';') if request_form.get("roles") else None,
+        schemes=request_form.get("scheme", '').split(';') if request_form.get("scheme") else None,
+        annotator=request_form.get("annotator"),
+        data_streams=request_form.get("streamName", '').split(' ') if request_form.get("streamName") else None,
 
         # Sample Config
-        frame_size=request_form["frameSize"],
-        left_context=request_form["leftContext"],
-        right_context=request_form["rightContext"],
-        start=request_form["startTime"],
-        end=request_form["endTime"],
+        frame_size=request_form.get("frameSize"),
+        left_context=request_form.get("leftContext"),
+        right_context=request_form.get("rightContext"),
+        start=request_form.get("startTime"),
+        end=request_form.get("endTime"),
 
         #TODO: This does not work with pytorch bridge when set to true because the data field does not contain the role anymore<.
         # transformation cannot be applied. fix it!
