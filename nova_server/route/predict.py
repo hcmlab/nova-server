@@ -1,10 +1,10 @@
+"""This file contains the general logic for predicting annotations to the nova database"""
+
 import os
-
-
 from pathlib import Path, PureWindowsPath
 from nova_server.utils import db_utils
 from flask import Blueprint, request, jsonify
-from nova_server.utils.ssi_utils import Trainer
+from nova_utils.ssi_utils.ssi_xml_utils import Trainer
 from importlib.machinery import SourceFileLoader
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress

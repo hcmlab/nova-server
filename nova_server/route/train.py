@@ -10,7 +10,7 @@ from nova_server.utils.status_utils import update_progress
 from nova_server.utils.key_utils import get_key_from_request_form
 from nova_server.utils.thread_utils import THREADS
 from pathlib import Path, PureWindowsPath
-from nova_server.utils.ssi_utils import Trainer
+from nova_utils.ssi_utils.ssi_xml_utils import Trainer
 from flask import current_app
 
 import importlib
