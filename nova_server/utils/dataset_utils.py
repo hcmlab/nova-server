@@ -32,6 +32,7 @@ def dataset_from_request_form(request_form, data_dir):
 
         # Sample Config
         frame_size=request_form.get("frameSize"),
+        stride=request_form.get("stride"),
         left_context=request_form.get("leftContext"),
         right_context=request_form.get("rightContext"),
         start=request_form.get("startTime"),
