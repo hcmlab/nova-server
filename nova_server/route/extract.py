@@ -177,6 +177,7 @@ def extract_data(request_form, app_context):
                                 ftype=ftype,
                                 sr=sr,
                                 dim=dim,
+                                byte=data.dtype.itemsize,
                                 dtype=dtype,
                                 data=data,
                                 chunks=chunks,
@@ -196,13 +197,4 @@ def extract_data(request_form, app_context):
                         elif data_type in AnnoTypes:
                             raise NotImplementedError()
 
-        stream = Stream()
-
-        # TODO: Read python module path from xml-chain
         # TODO: Start legacy ssi chain support
-        breakpoint()
-        # Execute python chain
-        # if chain.me
-        # Execute SSI chain
-
-        return
