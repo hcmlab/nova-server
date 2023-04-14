@@ -163,6 +163,7 @@ def extract_data(request_form, app_context):
                 if not stream_dict:
                     raise ValueError("Stream data is none")
                 else:
+                    logger.info("Write data to disk...")
                     for stream_id, (data_type, sr, data) in stream_dict.items():
                         # SSI-Stream
                         if data_type == DataTypes.FEATURE:
@@ -196,5 +197,9 @@ def extract_data(request_form, app_context):
                         # Annotations
                         elif data_type in AnnoTypes:
                             raise NotImplementedError()
+                    logger.info("...done")
+
+        logger.info("Extraction completed!")
+        status_utils.update_status(key, status_utils.JobStatus.FINISHED)
 
         # TODO: Start legacy ssi chain support
