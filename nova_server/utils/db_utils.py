@@ -62,6 +62,22 @@ def write_annotation_to_db(request_form, results: dict, logger):
 
 
 def write_freeform_to_db(request_form, results: dict, db_handler, logger):
+    '''
+    Args:
+        request_form ():
+        results (dict): {
+            'from_to' : {
+                <role>.<stream>: {
+                    'name': <text>, 'conf': <confidence>
+                }
+            }
+        }
+        db_handler ():
+        logger ():
+
+    Returns:
+
+    '''
     annotations = {}
     """Temp fix"""
     results.pop('values', None)

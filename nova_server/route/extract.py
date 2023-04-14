@@ -151,13 +151,17 @@ def extract_data(request_form, app_context):
 
                 # TODO implement nova data types in the server module
                 # TODO process data and write tmp session files to disk if necessary
+                logger.info("Extract data...")
                 data = extractor.process_data(ds_iter)
                 ds_iter = extractor.to_ds_iterable(data)
+                logger.info("...done")
 
             # Last element of chain
             else:
+                logger.info("Extract data...")
                 data = extractor.process_data(ds_iter)
                 stream_dict = extractor.to_stream(data)
+                logger.info("...done")
 
                 # Write to disk
                 if not stream_dict:
