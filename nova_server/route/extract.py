@@ -20,6 +20,7 @@ from importlib.machinery import SourceFileLoader
 from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
     HcaiNovaDynamicIterable,
 )
+from soundfile import write
 
 
 extract = Blueprint("extract", __name__)
@@ -77,6 +78,7 @@ def extract_data(request_form, app_context):
     multi_role_input = chain.links[0].multi_role_input
 
     # Load data
+    logger.info("Initializing data iterators...")
     try:
         update_progress(key, "Data loading")
         sessions = request_form.pop("sessions").split(";")
@@ -96,11 +98,17 @@ def extract_data(request_form, app_context):
                         dataset_utils.dataset_from_request_form(request_form, data_dir)
                     )
 
-        logger.info("Data iterators initialized.")
+        logger.info("...done")
     except ValueError as e:
         print(e)
         log_utils.remove_log_from_dict(key)
-        logger.error("Not able to load the data from the database!")
+        logger.error(e)
+        status_utils.update_status(key, status_utils.JobStatus.ERROR)
+        return None
+    except FileNotFoundError as e:
+        print(e)
+        log_utils.remove_log_from_dict(key)
+        logger.error(e)
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return None
 
@@ -169,6 +177,9 @@ def extract_data(request_form, app_context):
                 else:
                     logger.info("Write data to disk...")
                     for stream_id, (data_type, sr, data) in stream_dict.items():
+
+                        out_path = Path(ds_iter.nova_data_dir) / ds_iter.dataset / ds_iter.sessions[0] / stream_id
+
                         # SSI-Stream
                         if data_type == DataTypes.FEATURE:
                             ftype = FileTypes.BINARY
@@ -188,12 +199,12 @@ def extract_data(request_form, app_context):
                                 chunks=chunks,
                             )
 
-                            out_path = Path(ds_iter.nova_data_dir) / ds_iter.dataset / ds_iter.sessions[0] / stream_id
                             ssi_stream.save(out_path)
 
                         # Audio Data
                         elif data_type == DataTypes.AUDIO:
-                            raise NotImplementedError()
+                            out_path = out_path.parent / (out_path.name + '.wav')
+                            write(file=out_path, data=data, samplerate=sr)
                         # Video Data
                         elif data_type == DataTypes.VIDEO:
                             raise NotImplementedError()
@@ -206,4 +217,5 @@ def extract_data(request_form, app_context):
         logger.info("Extraction completed!")
         status_utils.update_status(key, status_utils.JobStatus.FINISHED)
 
+        logger.info("Action 'Extract' finished.")
         # TODO: Start legacy ssi chain support
