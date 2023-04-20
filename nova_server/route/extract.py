@@ -180,6 +180,8 @@ def extract_data(request_form, app_context):
 
                         out_path = Path(ds_iter.nova_data_dir) / ds_iter.dataset / ds_iter.sessions[0] / stream_id
 
+                        logger.info(f"- {out_path}")
+
                         # SSI-Stream
                         if data_type == DataTypes.FEATURE:
                             ftype = FileTypes.BINARY
