@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>hcai_datasets.hcai_nova_dynamic package &mdash; Nova Server 0.1.3 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="hcai_datasets.hcai_nova_dynamic.utils package" href="hcai_datasets.hcai_nova_dynamic.utils.html" />
+    <link rel="prev" title="hcai_datasets.hcai_librispeech package" href="hcai_datasets.hcai_librispeech.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Nova Server
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../nova-server/modules.html">nova_server</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">hcai_datasets</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="hcai_datasets.html">hcai_datasets package</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="hcai_datasets.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.examples.html">hcai_datasets.examples package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_affectnet.html">hcai_datasets.hcai_affectnet package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_audioset.html">hcai_datasets.hcai_audioset package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_ckplus.html">hcai_datasets.hcai_ckplus package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_faces.html">hcai_datasets.hcai_faces package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_is2021_ess.html">hcai_datasets.hcai_is2021_ess package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_librispeech.html">hcai_datasets.hcai_librispeech package</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">hcai_datasets.hcai_nova_dynamic package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.tests.html">hcai_datasets.tests package</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.html#module-hcai_datasets">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../nova-utils/modules.html">nova_utils</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Nova Server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">hcai_datasets</a></li>
+          <li class="breadcrumb-item"><a href="hcai_datasets.html">hcai_datasets package</a></li>
+      <li class="breadcrumb-item active">hcai_datasets.hcai_nova_dynamic package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/hcai-datasets/hcai_datasets.hcai_nova_dynamic.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="hcai-datasets-hcai-nova-dynamic-package">
+<h1>hcai_datasets.hcai_nova_dynamic package<a class="headerlink" href="#hcai-datasets-hcai-nova-dynamic-package" title="Permalink to this heading"></a></h1>
+<section id="subpackages">
+<h2>Subpackages<a class="headerlink" href="#subpackages" title="Permalink to this heading"></a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html">hcai_datasets.hcai_nova_dynamic.utils package</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#submodules">Submodules</a></li>
+<li class="toctree-l2"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#module-hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils">hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.Annotation"><code class="docutils literal notranslate"><span class="pre">Annotation</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.Annotation.GARBAGE_LABEL_ID"><code class="docutils literal notranslate"><span class="pre">Annotation.GARBAGE_LABEL_ID</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.Annotation.get_info"><code class="docutils literal notranslate"><span class="pre">Annotation.get_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.Annotation.get_label_for_frame"><code class="docutils literal notranslate"><span class="pre">Annotation.get_label_for_frame()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.Annotation.postprocess"><code class="docutils literal notranslate"><span class="pre">Annotation.postprocess()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.Annotation.set_annotation_from_mongo_doc"><code class="docutils literal notranslate"><span class="pre">Annotation.set_annotation_from_mongo_doc()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.ContinuousAnnotation"><code class="docutils literal notranslate"><span class="pre">ContinuousAnnotation</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.ContinuousAnnotation.NOVA_GARBAGE_LABEL_ID"><code class="docutils literal notranslate"><span class="pre">ContinuousAnnotation.NOVA_GARBAGE_LABEL_ID</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.ContinuousAnnotation.get_info"><code class="docutils literal notranslate"><span class="pre">ContinuousAnnotation.get_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.ContinuousAnnotation.get_label_for_frame"><code class="docutils literal notranslate"><span class="pre">ContinuousAnnotation.get_label_for_frame()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.ContinuousAnnotation.postprocess"><code class="docutils literal notranslate"><span class="pre">ContinuousAnnotation.postprocess()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.ContinuousAnnotation.set_annotation_from_mongo_doc"><code class="docutils literal notranslate"><span class="pre">ContinuousAnnotation.set_annotation_from_mongo_doc()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscreteAnnotation"><code class="docutils literal notranslate"><span class="pre">DiscreteAnnotation</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscreteAnnotation.NOVA_GARBAGE_LABEL_ID"><code class="docutils literal notranslate"><span class="pre">DiscreteAnnotation.NOVA_GARBAGE_LABEL_ID</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscreteAnnotation.NOVA_REST_CLASS_NAME"><code class="docutils literal notranslate"><span class="pre">DiscreteAnnotation.NOVA_REST_CLASS_NAME</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscreteAnnotation.REST_LABEL_ID"><code class="docutils literal notranslate"><span class="pre">DiscreteAnnotation.REST_LABEL_ID</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscreteAnnotation.get_info"><code class="docutils literal notranslate"><span class="pre">DiscreteAnnotation.get_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscreteAnnotation.get_label_for_frame"><code class="docutils literal notranslate"><span class="pre">DiscreteAnnotation.get_label_for_frame()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscreteAnnotation.get_label_for_frame_legacy"><code class="docutils literal notranslate"><span class="pre">DiscreteAnnotation.get_label_for_frame_legacy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscreteAnnotation.get_label_for_frame_np"><code class="docutils literal notranslate"><span class="pre">DiscreteAnnotation.get_label_for_frame_np()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscreteAnnotation.postprocess"><code class="docutils literal notranslate"><span class="pre">DiscreteAnnotation.postprocess()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscreteAnnotation.set_annotation_from_mongo_doc"><code class="docutils literal notranslate"><span class="pre">DiscreteAnnotation.set_annotation_from_mongo_doc()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscretePolygonAnnotation"><code class="docutils literal notranslate"><span class="pre">DiscretePolygonAnnotation</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscretePolygonAnnotation.get_info"><code class="docutils literal notranslate"><span class="pre">DiscretePolygonAnnotation.get_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscretePolygonAnnotation.get_label_for_frame"><code class="docutils literal notranslate"><span class="pre">DiscretePolygonAnnotation.get_label_for_frame()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscretePolygonAnnotation.postprocess"><code class="docutils literal notranslate"><span class="pre">DiscretePolygonAnnotation.postprocess()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.DiscretePolygonAnnotation.set_annotation_from_mongo_doc"><code class="docutils literal notranslate"><span class="pre">DiscretePolygonAnnotation.set_annotation_from_mongo_doc()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.FreeAnnotation"><code class="docutils literal notranslate"><span class="pre">FreeAnnotation</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.FreeAnnotation.get_info"><code class="docutils literal notranslate"><span class="pre">FreeAnnotation.get_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.FreeAnnotation.get_label_for_frame"><code class="docutils literal notranslate"><span class="pre">FreeAnnotation.get_label_for_frame()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.FreeAnnotation.get_label_for_frame_legacy"><code class="docutils literal notranslate"><span class="pre">FreeAnnotation.get_label_for_frame_legacy()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.FreeAnnotation.get_label_for_frame_np"><code class="docutils literal notranslate"><span class="pre">FreeAnnotation.get_label_for_frame_np()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.FreeAnnotation.postprocess"><code class="docutils literal notranslate"><span class="pre">FreeAnnotation.postprocess()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils.FreeAnnotation.set_annotation_from_mongo_doc"><code class="docutils literal notranslate"><span class="pre">FreeAnnotation.set_annotation_from_mongo_doc()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#module-hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils">hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData"><code class="docutils literal notranslate"><span class="pre">AudioData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.close_file_reader"><code class="docutils literal notranslate"><span class="pre">AudioData.close_file_reader()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.get_info_hook"><code class="docutils literal notranslate"><span class="pre">AudioData.get_info_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.get_sample_hook"><code class="docutils literal notranslate"><span class="pre">AudioData.get_sample_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.open_file_reader_hook"><code class="docutils literal notranslate"><span class="pre">AudioData.open_file_reader_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.populate_meta_info"><code class="docutils literal notranslate"><span class="pre">AudioData.populate_meta_info()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data"><code class="docutils literal notranslate"><span class="pre">Data</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.close_file_reader"><code class="docutils literal notranslate"><span class="pre">Data.close_file_reader()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.data_stream_opend"><code class="docutils literal notranslate"><span class="pre">Data.data_stream_opend()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.get_info"><code class="docutils literal notranslate"><span class="pre">Data.get_info()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.get_info_hook"><code class="docutils literal notranslate"><span class="pre">Data.get_info_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.get_sample"><code class="docutils literal notranslate"><span class="pre">Data.get_sample()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.get_sample_hook"><code class="docutils literal notranslate"><span class="pre">Data.get_sample_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.open_file_reader"><code class="docutils literal notranslate"><span class="pre">Data.open_file_reader()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.open_file_reader_hook"><code class="docutils literal notranslate"><span class="pre">Data.open_file_reader_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.populate_meta_info"><code class="docutils literal notranslate"><span class="pre">Data.populate_meta_info()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData"><code class="docutils literal notranslate"><span class="pre">StreamData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.close_file_reader"><code class="docutils literal notranslate"><span class="pre">StreamData.close_file_reader()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.get_info_hook"><code class="docutils literal notranslate"><span class="pre">StreamData.get_info_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.get_sample_hook"><code class="docutils literal notranslate"><span class="pre">StreamData.get_sample_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.open_file_reader_hook"><code class="docutils literal notranslate"><span class="pre">StreamData.open_file_reader_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.populate_meta_info"><code class="docutils literal notranslate"><span class="pre">StreamData.populate_meta_info()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData"><code class="docutils literal notranslate"><span class="pre">VideoData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.close_file_reader"><code class="docutils literal notranslate"><span class="pre">VideoData.close_file_reader()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.get_info_hook"><code class="docutils literal notranslate"><span class="pre">VideoData.get_info_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.get_sample_hook"><code class="docutils literal notranslate"><span class="pre">VideoData.get_sample_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.open_file_reader_hook"><code class="docutils literal notranslate"><span class="pre">VideoData.open_file_reader_hook()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.populate_meta_info"><code class="docutils literal notranslate"><span class="pre">VideoData.populate_meta_info()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.frame_to_seconds"><code class="docutils literal notranslate"><span class="pre">frame_to_seconds()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.milli_seconds_to_frame"><code class="docutils literal notranslate"><span class="pre">milli_seconds_to_frame()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.parse_time_string_to_ms"><code class="docutils literal notranslate"><span class="pre">parse_time_string_to_ms()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.seconds_to_frame"><code class="docutils literal notranslate"><span class="pre">seconds_to_frame()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#module-hcai_datasets.hcai_nova_dynamic.utils.nova_string_utils">hcai_datasets.hcai_nova_dynamic.utils.nova_string_utils module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_string_utils.merge_role_key"><code class="docutils literal notranslate"><span class="pre">merge_role_key()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_string_utils.split_role_key"><code class="docutils literal notranslate"><span class="pre">split_role_key()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="hcai_datasets.hcai_nova_dynamic.utils.html#module-hcai_datasets.hcai_nova_dynamic.utils">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading"></a></h2>
+</section>
+<section id="module-hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable">
+<span id="hcai-datasets-hcai-nova-dynamic-hcai-nova-dynamic-iterable-module"></span><h2>hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable module<a class="headerlink" href="#module-hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable.HcaiNovaDynamicIterable">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable.</span></span><span class="sig-name descname"><span class="pre">HcaiNovaDynamicIterable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">db_config_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">db_config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nova_data_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sessions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">annotator</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">schemes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">roles</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_streams</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">left_context</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'0s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right_context</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'0s'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stride</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">add_rest_class</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flatten_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">supervised_keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lazy_loading</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fake_missing_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/hcai_nova_dynamic_iterable.html#HcaiNovaDynamicIterable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable.HcaiNovaDynamicIterable" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="../nova-utils/nova_utils.interfaces.html#nova_utils.interfaces.dataset_iterable.DatasetIterable" title="nova_utils.interfaces.dataset_iterable.DatasetIterable"><code class="xref py py-class docutils literal notranslate"><span class="pre">DatasetIterable</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable.HcaiNovaDynamicIterable.get_output_info">
+<span class="sig-name descname"><span class="pre">get_output_info</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/hcai_nova_dynamic_iterable.html#HcaiNovaDynamicIterable.get_output_info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable.HcaiNovaDynamicIterable.get_output_info" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable.HcaiNovaDynamicIterable.to_single_session_iterator">
+<span class="sig-name descname"><span class="pre">to_single_session_iterator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/hcai_nova_dynamic_iterable.html#HcaiNovaDynamicIterable.to_single_session_iterator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable.HcaiNovaDynamicIterable.to_single_session_iterator" title="Permalink to this definition"></a></dt>
+<dd><p>Returns a copy of the iterator for a single session. All data objects and annotation objects will be initialized.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="hcai-datasets-hcai-nova-dynamic-hcai-nova-dynamic-tfds-module">
+<h2>hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_tfds module<a class="headerlink" href="#hcai-datasets-hcai-nova-dynamic-hcai-nova-dynamic-tfds-module" title="Permalink to this heading"></a></h2>
+</section>
+<section id="module-hcai_datasets.hcai_nova_dynamic.nova_db_handler">
+<span id="hcai-datasets-hcai-nova-dynamic-nova-db-handler-module"></span><h2>hcai_datasets.hcai_nova_dynamic.nova_db_handler module<a class="headerlink" href="#module-hcai_datasets.hcai_nova_dynamic.nova_db_handler" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">hcai_datasets.hcai_nova_dynamic.nova_db_handler.</span></span><span class="sig-name descname"><span class="pre">NovaDBHandler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">db_config_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">db_config_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.ANNOTATION_COLLECTION">
+<span class="sig-name descname"><span class="pre">ANNOTATION_COLLECTION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Annotations'</span></em><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.ANNOTATION_COLLECTION" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.ANNOTATION_DATA_COLLECTION">
+<span class="sig-name descname"><span class="pre">ANNOTATION_DATA_COLLECTION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'AnnotationData'</span></em><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.ANNOTATION_DATA_COLLECTION" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.ANNOTATOR_COLLECTION">
+<span class="sig-name descname"><span class="pre">ANNOTATOR_COLLECTION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Annotators'</span></em><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.ANNOTATOR_COLLECTION" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.ROLE_COLLECTION">
+<span class="sig-name descname"><span class="pre">ROLE_COLLECTION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Roles'</span></em><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.ROLE_COLLECTION" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.SCHEME_COLLECTION">
+<span class="sig-name descname"><span class="pre">SCHEME_COLLECTION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Schemes'</span></em><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.SCHEME_COLLECTION" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.SESSION_COLLECTION">
+<span class="sig-name descname"><span class="pre">SESSION_COLLECTION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Sessions'</span></em><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.SESSION_COLLECTION" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.STREAM_COLLECTION">
+<span class="sig-name descname"><span class="pre">STREAM_COLLECTION</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'Streams'</span></em><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.STREAM_COLLECTION" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.delete_doc_by_prop">
+<span class="sig-name descname"><span class="pre">delete_doc_by_prop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vals</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">property</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.delete_doc_by_prop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.delete_doc_by_prop" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.delete_doc_with_tail">
+<span class="sig-name descname"><span class="pre">delete_doc_with_tail</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">doc_id_to_remove</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.delete_doc_with_tail"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.delete_doc_with_tail" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_annos">
+<span class="sig-name descname"><span class="pre">get_annos</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scheme</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">annotator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">roles</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.get_annos"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_annos" title="Permalink to this definition"></a></dt>
+<dd><p>Fetches all annotations that matches the specified criteria from the nova database and returns them as a list of python readable dictionaries.
+:param dataset:
+:param scheme:
+:param session:
+:param annotator:
+:param roles:</p>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_annotation_docs">
+<span class="sig-name descname"><span class="pre">get_annotation_docs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mongo_schemes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mongo_sessions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mongo_annotators</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mongo_roles</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.get_annotation_docs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_annotation_docs" title="Permalink to this definition"></a></dt>
+<dd><p>Fetches all annotationobjects that match the specified criteria from the nova database
+:param mongo_schemes:
+:param mongo_sessions:
+:param mongo_annotators:
+:param mongo_roles:
+:param database:
+:param collection:
+:param client:</p>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_data_docs_by_prop">
+<span class="sig-name descname"><span class="pre">get_data_docs_by_prop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vals</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">property</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.get_data_docs_by_prop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_data_docs_by_prop" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_data_streams">
+<span class="sig-name descname"><span class="pre">get_data_streams</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_streams</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.get_data_streams"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_data_streams" title="Permalink to this definition"></a></dt>
+<dd><p>Fetches the stream objects that matches the specified criteria from the nova database and returns them as a python readable dictionary.
+:param dataset:
+:param session:
+:param role_list:
+:param data_stream_list:</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_docs_by_prop">
+<span class="sig-name descname"><span class="pre">get_docs_by_prop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vals</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">property</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.get_docs_by_prop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_docs_by_prop" title="Permalink to this definition"></a></dt>
+<dd><p>Fetching a document from the mongo db collection in the respective database where the passed values are matching a specific property in the collection.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>vals</strong> – The specific value of a property in the document</p></li>
+<li><p><strong>property</strong> – The property to look for the passed values</p></li>
+<li><p><strong>database</strong> – The name of the database to search</p></li>
+<li><p><strong>collection</strong> – The name of the collection within the database to search</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of documents that match the specified criteria</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_fields_by_properties">
+<span class="sig-name descname"><span class="pre">get_fields_by_properties</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vals</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">property</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fields</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.get_fields_by_properties"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_fields_by_properties" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_mongo_annotator">
+<span class="sig-name descname"><span class="pre">get_mongo_annotator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">annotator</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.get_mongo_annotator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_mongo_annotator" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_mongo_role">
+<span class="sig-name descname"><span class="pre">get_mongo_role</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">role</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.get_mongo_role"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_mongo_role" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_mongo_scheme">
+<span class="sig-name descname"><span class="pre">get_mongo_scheme</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">scheme</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.get_mongo_scheme"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_mongo_scheme" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_mongo_session">
+<span class="sig-name descname"><span class="pre">get_mongo_session</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.get_mongo_session"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_mongo_session" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_schemes">
+<span class="sig-name descname"><span class="pre">get_schemes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">schemes</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.get_schemes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_schemes" title="Permalink to this definition"></a></dt>
+<dd><p>Fetches the scheme object that matches the specified criteria from the nova database and returns them as a python readable dictionary.
+:param ip:
+:param port:
+:param user:
+:param password:
+:param dataset:
+:param scheme:</p>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_session_info">
+<span class="sig-name descname"><span class="pre">get_session_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.get_session_info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_session_info" title="Permalink to this definition"></a></dt>
+<dd><p>Fetches the session object that matches the specified criteria from the nova database and returns them as a python readable dictionary.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dataset</strong> – </p></li>
+<li><p><strong>session</strong> – </p></li>
+</ul>
+</dd>
+</dl>
+<p>Returns:</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.insert_doc_by_prop">
+<span class="sig-name descname"><span class="pre">insert_doc_by_prop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">doc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">InsertOneResult</span></span></span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.insert_doc_by_prop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.insert_doc_by_prop" title="Permalink to this definition"></a></dt>
+<dd><p>Uploading a document to the database using the specificed parameters
+:param docs: List of dictionaries with objects to upload to the database
+:param database: The name of the database to search
+:param collection: The name of the collection within the database to search</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ObjectID of the inserted objects or an empty list in case of failure</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.merge_collections">
+<span class="sig-name descname"><span class="pre">merge_collections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">doc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.merge_collections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.merge_collections" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.print_config">
+<span class="sig-name descname"><span class="pre">print_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cfg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cfg_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.print_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.print_config" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.read_config">
+<span class="sig-name descname"><span class="pre">read_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cfg_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.read_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.read_config" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.set_annos">
+<span class="sig-name descname"><span class="pre">set_annos</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">database</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scheme</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">annotator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">role</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">annos</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_finished</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_locked</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.set_annos"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.set_annos" title="Permalink to this definition"></a></dt>
+<dd><p>Uploading annotations to the database
+:param database:
+:param scheme:
+:param session:
+:param annotator:
+:param role:
+:param annos:</p>
+<p>Returns: Object ID of the inserted annotations. Empty string in case of failure</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.update_doc_by_id">
+<span class="sig-name descname"><span class="pre">update_doc_by_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">doc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">UpdateResult</span></span></span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.update_doc_by_id"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.update_doc_by_id" title="Permalink to this definition"></a></dt>
+<dd><p>Uploading a document to the database using the specificed parameters
+:param _id: ID of doc, which has to be updated
+:param docs: List of dictionaries with objects to upload to the database
+:param database: The name of the database to search
+:param collection: The name of the collection within the database to search</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ObjectID of the inserted objects or an empty list in case of failure</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.update_doc_by_prop">
+<span class="sig-name descname"><span class="pre">update_doc_by_prop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">doc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">database</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">UpdateResult</span></span></span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/nova_db_handler.html#NovaDBHandler.update_doc_by_prop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.update_doc_by_prop" title="Permalink to this definition"></a></dt>
+<dd><p>Uploading a document to the database using the specificed parameters
+:param docs: List of dictionaries with objects to upload to the database
+:param database: The name of the database to search
+:param collection: The name of the collection within the database to search</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ObjectID of the inserted objects or an empty list in case of failure</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-hcai_datasets.hcai_nova_dynamic">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-hcai_datasets.hcai_nova_dynamic" title="Permalink to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="hcai_datasets.hcai_librispeech.html" class="btn btn-neutral float-left" title="hcai_datasets.hcai_librispeech package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="hcai_datasets.hcai_nova_dynamic.utils.html" class="btn btn-neutral float-right" title="hcai_datasets.hcai_nova_dynamic.utils package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Dominik Schiller.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

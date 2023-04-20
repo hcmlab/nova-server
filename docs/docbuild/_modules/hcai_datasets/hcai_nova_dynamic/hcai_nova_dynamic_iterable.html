@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable &mdash; Nova Server 0.1.3 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Nova Server
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../nova-server/modules.html">nova_server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../hcai-datasets/modules.html">hcai_datasets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../nova-utils/modules.html">nova_utils</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Nova Server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+
+<span class="kn">import</span> <span class="nn">nova_utils.db_utils.nova_types</span> <span class="k">as</span> <span class="nn">nt</span>
+<span class="kn">import</span> <span class="nn">hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils</span> <span class="k">as</span> <span class="nn">ndu</span>
+<span class="kn">import</span> <span class="nn">hcai_datasets.hcai_nova_dynamic.utils.nova_anno_utils</span> <span class="k">as</span> <span class="nn">nau</span>
+<span class="kn">from</span> <span class="nn">nova_utils.interfaces.dataset_iterable</span> <span class="kn">import</span> <span class="n">DatasetIterable</span>
+
+<span class="kn">from</span> <span class="nn">hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AudioData</span><span class="p">,</span>
+    <span class="n">VideoData</span><span class="p">,</span>
+    <span class="n">StreamData</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">hcai_datasets.hcai_nova_dynamic.nova_db_handler</span> <span class="kn">import</span> <span class="n">NovaDBHandler</span>
+<span class="kn">from</span> <span class="nn">hcai_datasets.hcai_nova_dynamic.utils.nova_string_utils</span> <span class="kn">import</span> <span class="o">*</span>
+
+
+<div class="viewcode-block" id="HcaiNovaDynamicIterable"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable.HcaiNovaDynamicIterable">[docs]</a><span class="k">class</span> <span class="nc">HcaiNovaDynamicIterable</span><span class="p">(</span><span class="n">DatasetIterable</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+        <span class="n">db_config_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">db_config_dict</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">dataset</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">nova_data_dir</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">sessions</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">annotator</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">schemes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">roles</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">data_streams</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">end</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">left_context</span><span class="o">=</span><span class="s2">&quot;0s&quot;</span><span class="p">,</span>
+        <span class="n">right_context</span><span class="o">=</span><span class="s2">&quot;0s&quot;</span><span class="p">,</span>
+        <span class="n">frame_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">stride</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">add_rest_class</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">flatten_samples</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">supervised_keys</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">lazy_loading</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">fake_missing_data</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initialize the HcaiNovaDynamic dataset builder</span>
+<span class="sd">        Args:</span>
+<span class="sd">          nova_data_dir: the directory to look for data. same as the directory specified in the nova gui.</span>
+<span class="sd">          frame_size: the framesize to look at. the matching annotation will be calculated as majority vote from all annotations that are overlapping with the timeframe.</span>
+<span class="sd">          left_context: additional data to pass to the classifier on the left side of the frame.</span>
+<span class="sd">          right_context: additional data to pass to the classifier on the left side of the frame.</span>
+<span class="sd">          stride: how much a frame is moved to calculate the next sample. equals framesize by default.</span>
+<span class="sd">          flatten_samples: if set to True samples with the same annotation scheme but from different roles will be treated as separate samples. only &lt;scheme&gt; is used for the keys.</span>
+<span class="sd">          supervised_keys: if specified the dataset can be used with &quot;as_supervised&quot; set to True. Should be in the format &lt;role&gt;.&lt;scheme&gt;. if flatten_samples is true &lt;role&gt; will be ignored.</span>
+<span class="sd">          add_rest_class: when set to True an additional restclass will be added to the end the label list</span>
+<span class="sd">          db_config_path: path to a configfile whith the nova database config.</span>
+<span class="sd">          db_config_dict: dictionary with the nova database config. can be used instead of db_config_path. if both are specified db_config_dict is used.</span>
+<span class="sd">          dataset: the name of the dataset. must match the dataset name in the nova database.</span>
+<span class="sd">          sessions: list of sessions that should be loaded. must match the session names in nova.</span>
+<span class="sd">          annotator: the name of the annotator that labeld the session. must match annotator names in nova.</span>
+<span class="sd">          schemes: list of the annotation schemes to fetch</span>
+<span class="sd">          roles: list of roles for which the annotation should be loaded.</span>
+<span class="sd">          data_streams: list datastreams for which the annotation should be loaded. must match stream names in nova.</span>
+<span class="sd">          start: optional start time_ms. use if only a specific chunk of a session should be retreived.</span>
+<span class="sd">          end: optional end time_ms. use if only a specifc chunk of a session should be retreived.</span>
+<span class="sd">          fake_missing_data: If set to true missing datastreams will provide zero data and missing annotations will be empty. If set to false a session will be skipped if an expected data stream or annotation are not found.</span>
+<span class="sd">          **kwargs: arguments that will be passed through to the dataset builder</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataset</span> <span class="o">=</span> <span class="n">dataset</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nova_data_dir</span> <span class="o">=</span> <span class="n">nova_data_dir</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sessions</span> <span class="o">=</span> <span class="n">sessions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">roles</span> <span class="o">=</span> <span class="n">roles</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">schemes</span> <span class="o">=</span> <span class="n">schemes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_streams</span> <span class="o">=</span> <span class="n">data_streams</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">annotator</span> <span class="o">=</span> <span class="n">annotator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">left_context_ms</span> <span class="o">=</span> <span class="n">ndu</span><span class="o">.</span><span class="n">parse_time_string_to_ms</span><span class="p">(</span><span class="n">left_context</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">right_context_ms</span> <span class="o">=</span> <span class="n">ndu</span><span class="o">.</span><span class="n">parse_time_string_to_ms</span><span class="p">(</span><span class="n">right_context</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">frame_size_ms</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">ndu</span><span class="o">.</span><span class="n">parse_time_string_to_ms</span><span class="p">(</span><span class="n">frame_size</span><span class="p">)</span> <span class="k">if</span> <span class="n">frame_size</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stride_ms</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">ndu</span><span class="o">.</span><span class="n">parse_time_string_to_ms</span><span class="p">(</span><span class="n">stride</span><span class="p">)</span> <span class="k">if</span> <span class="n">stride</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_size_ms</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start_ms</span> <span class="o">=</span> <span class="n">ndu</span><span class="o">.</span><span class="n">parse_time_string_to_ms</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_ms</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">start_ms</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">end_ms</span> <span class="o">=</span> <span class="n">ndu</span><span class="o">.</span><span class="n">parse_time_string_to_ms</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">end_ms</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">end_ms</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">flatten_samples</span> <span class="o">=</span> <span class="n">flatten_samples</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">add_rest_class</span> <span class="o">=</span> <span class="n">add_rest_class</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lazy_loading</span> <span class="o">=</span> <span class="n">lazy_loading</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fake_missing_data</span> <span class="o">=</span> <span class="n">fake_missing_data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">nova_db_handler</span> <span class="o">=</span> <span class="n">NovaDBHandler</span><span class="p">(</span><span class="n">db_config_path</span><span class="p">,</span> <span class="n">db_config_dict</span><span class="p">)</span>
+
+        <span class="c1"># Retrieving meta information from the database</span>
+        <span class="n">mongo_schemes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nova_db_handler</span><span class="o">.</span><span class="n">get_schemes</span><span class="p">(</span>
+            <span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="p">,</span> <span class="n">schemes</span><span class="o">=</span><span class="n">schemes</span>
+        <span class="p">)</span>
+        <span class="n">mongo_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nova_db_handler</span><span class="o">.</span><span class="n">get_data_streams</span><span class="p">(</span>
+            <span class="n">dataset</span><span class="o">=</span><span class="n">dataset</span><span class="p">,</span> <span class="n">data_streams</span><span class="o">=</span><span class="n">data_streams</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">annos</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">anno_schemes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_populate_label_info_from_mongo_doc</span><span class="p">(</span>
+            <span class="n">mongo_schemes</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_info</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_schemes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_populate_data_info_from_mongo_doc</span><span class="p">(</span>
+            <span class="n">mongo_data</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">session_info</span> <span class="o">=</span> <span class="p">{</span><span class="n">s</span><span class="p">:</span> <span class="p">{}</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sessions</span><span class="p">}</span>
+
+        <span class="c1"># setting supervised keys</span>
+        <span class="k">if</span> <span class="n">supervised_keys</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">flatten_samples</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">supervised_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_streams</span><span class="p">:</span>
+                <span class="c1"># remove &lt;role&gt; of supervised keys</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">data_stream</span> <span class="o">=</span> <span class="n">split_role_key</span><span class="p">(</span><span class="n">supervised_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">data_stream</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_streams</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span>
+                        <span class="s2">&quot;Warning: Cannot find supervised key &#39;</span><span class="si">{}</span><span class="s2">&#39; in datastreams&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                            <span class="n">data_stream</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">Warning</span><span class="p">(</span><span class="s2">&quot;Unknown data_stream&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">supervised_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_stream</span>
+            <span class="k">if</span> <span class="n">supervised_keys</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">schemes</span><span class="p">:</span>
+                <span class="c1"># remove &lt;role&gt; of supervised keys</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">scheme</span> <span class="o">=</span> <span class="n">split_role_key</span><span class="p">(</span><span class="n">supervised_keys</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">scheme</span> <span class="ow">in</span> <span class="n">schemes</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span>
+                        <span class="s2">&quot;Warning: Cannot find supervised key &#39;</span><span class="si">{}</span><span class="s2">&#39; in schemes&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                            <span class="n">scheme</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">Warning</span><span class="p">(</span><span class="s2">&quot;Unknown scheme&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">supervised_keys</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">scheme</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">supervised_keys</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">supervised_keys</span><span class="p">)</span> <span class="k">if</span> <span class="n">supervised_keys</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_iterable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_yield_sample</span><span class="p">()</span>
+
+<div class="viewcode-block" id="HcaiNovaDynamicIterable.to_single_session_iterator"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable.HcaiNovaDynamicIterable.to_single_session_iterator">[docs]</a>    <span class="k">def</span> <span class="nf">to_single_session_iterator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_id</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a copy of the iterator for a single session. All data objects and annotation objects will be initialized.&quot;&quot;&quot;</span>
+        <span class="n">ds_iter_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">session_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sessions</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;WARNING: Session </span><span class="si">{</span><span class="n">session_id</span><span class="si">}</span><span class="s2"> not found in iterator session list. Using first session instead: </span><span class="si">{</span><span class="n">ds_iter_copy</span><span class="o">.</span><span class="n">sessions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="n">session_id</span> <span class="o">=</span> <span class="n">ds_iter_copy</span><span class="o">.</span><span class="n">sessions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">session_id</span><span class="p">:</span>
+            <span class="n">session_id</span> <span class="o">=</span> <span class="n">ds_iter_copy</span><span class="o">.</span><span class="n">sessions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">ds_iter_copy</span><span class="o">.</span><span class="n">_init_session</span><span class="p">(</span><span class="n">session_id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ds_iter_copy</span></div>
+
+    <span class="k">def</span> <span class="nf">_init_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Opens all annotations and data readers&quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">session_info</span><span class="p">[</span><span class="n">session</span><span class="p">]</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">session_info</span><span class="p">[</span><span class="n">session</span><span class="p">][</span><span class="s2">&quot;is_active&quot;</span><span class="p">]</span>
+        <span class="p">):</span>
+
+            <span class="c1"># Gather all data we need for this session</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_load_annotation_for_session</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">time_to_ms</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_open_data_reader_for_session</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+
+            <span class="n">session_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nova_db_handler</span><span class="o">.</span><span class="n">get_session_info</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="p">,</span> <span class="n">session</span><span class="p">)[</span>
+                <span class="mi">0</span>
+            <span class="p">]</span>
+
+            <span class="c1"># Depricate other sessions</span>
+            <span class="k">for</span> <span class="nb">id</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">session_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">s</span><span class="p">[</span><span class="s2">&quot;is_active&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+
+            <span class="n">session_info</span><span class="p">[</span><span class="s2">&quot;is_active&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session_info</span><span class="p">[</span><span class="n">session</span><span class="p">]</span> <span class="o">=</span> <span class="n">session_info</span>
+
+    <span class="k">def</span> <span class="nf">_populate_label_info_from_mongo_doc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mongo_schemes</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Setting self.annos</span>
+<span class="sd">        Args:</span>
+<span class="sd">          mongo_schemes:</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">annos</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">anno_schemes</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># List of all combinations from roles and schemes that occur in the retrieved data.</span>
+        <span class="k">for</span> <span class="n">scheme</span> <span class="ow">in</span> <span class="n">mongo_schemes</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">role</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">roles</span><span class="p">:</span>
+                <span class="n">label_id</span> <span class="o">=</span> <span class="n">merge_role_key</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">scheme</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">])</span>
+                <span class="n">scheme_type</span> <span class="o">=</span> <span class="n">nt</span><span class="o">.</span><span class="n">string_to_enum</span><span class="p">(</span><span class="n">nt</span><span class="o">.</span><span class="n">AnnoTypes</span><span class="p">,</span> <span class="n">scheme</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">])</span>
+                <span class="n">scheme_name</span> <span class="o">=</span> <span class="n">scheme</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+                <span class="n">scheme_valid</span> <span class="o">=</span> <span class="n">scheme</span><span class="p">[</span><span class="s2">&quot;isValid&quot;</span><span class="p">]</span>
+                <span class="n">anno_schemes</span><span class="p">[</span><span class="n">label_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">scheme_type</span>
+
+                <span class="k">if</span> <span class="n">scheme_type</span> <span class="o">==</span> <span class="n">nt</span><span class="o">.</span><span class="n">AnnoTypes</span><span class="o">.</span><span class="n">DISCRETE</span><span class="p">:</span>
+                    <span class="n">labels</span> <span class="o">=</span> <span class="n">scheme</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">]</span>
+                    <span class="n">annos</span><span class="p">[</span><span class="n">label_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">nau</span><span class="o">.</span><span class="n">DiscreteAnnotation</span><span class="p">(</span>
+                        <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span>
+                        <span class="n">add_rest_class</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">add_rest_class</span><span class="p">,</span>
+                        <span class="n">scheme</span><span class="o">=</span><span class="n">scheme_name</span><span class="p">,</span>
+                        <span class="n">is_valid</span><span class="o">=</span><span class="n">scheme_valid</span><span class="p">,</span>
+                        <span class="n">labels</span><span class="o">=</span><span class="n">labels</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                <span class="k">elif</span> <span class="n">scheme_type</span> <span class="o">==</span> <span class="n">nt</span><span class="o">.</span><span class="n">AnnoTypes</span><span class="o">.</span><span class="n">CONTINUOUS</span><span class="p">:</span>
+                    <span class="n">min_val</span> <span class="o">=</span> <span class="n">scheme</span><span class="p">[</span><span class="s2">&quot;min&quot;</span><span class="p">]</span>
+                    <span class="n">max_val</span> <span class="o">=</span> <span class="n">scheme</span><span class="p">[</span><span class="s2">&quot;max&quot;</span><span class="p">]</span>
+                    <span class="n">sr</span> <span class="o">=</span> <span class="n">scheme</span><span class="p">[</span><span class="s2">&quot;sr&quot;</span><span class="p">]</span>
+                    <span class="n">annos</span><span class="p">[</span><span class="n">label_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">nau</span><span class="o">.</span><span class="n">ContinuousAnnotation</span><span class="p">(</span>
+                        <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span>
+                        <span class="n">scheme</span><span class="o">=</span><span class="n">scheme_name</span><span class="p">,</span>
+                        <span class="n">is_valid</span><span class="o">=</span><span class="n">scheme_valid</span><span class="p">,</span>
+                        <span class="n">min_val</span><span class="o">=</span><span class="n">min_val</span><span class="p">,</span>
+                        <span class="n">max_val</span><span class="o">=</span><span class="n">max_val</span><span class="p">,</span>
+                        <span class="n">sr</span><span class="o">=</span><span class="n">sr</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                <span class="k">elif</span> <span class="n">scheme_type</span> <span class="o">==</span> <span class="n">nt</span><span class="o">.</span><span class="n">AnnoTypes</span><span class="o">.</span><span class="n">DISCRETE_POLYGON</span><span class="p">:</span>
+                    <span class="n">labels</span> <span class="o">=</span> <span class="n">scheme</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">]</span>
+                    <span class="n">sr</span> <span class="o">=</span> <span class="n">scheme</span><span class="p">[</span><span class="s2">&quot;sr&quot;</span><span class="p">]</span>
+                    <span class="n">annos</span><span class="p">[</span><span class="n">label_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">nau</span><span class="o">.</span><span class="n">DiscretePolygonAnnotation</span><span class="p">(</span>
+                        <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span>
+                        <span class="n">scheme</span><span class="o">=</span><span class="n">scheme_name</span><span class="p">,</span>
+                        <span class="n">is_valid</span><span class="o">=</span><span class="n">scheme_valid</span><span class="p">,</span>
+                        <span class="n">labels</span><span class="o">=</span><span class="n">labels</span><span class="p">,</span>
+                        <span class="n">sr</span><span class="o">=</span><span class="n">sr</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                <span class="k">elif</span> <span class="n">scheme_type</span> <span class="o">==</span> <span class="n">nt</span><span class="o">.</span><span class="n">AnnoTypes</span><span class="o">.</span><span class="n">FREE</span><span class="p">:</span>
+                    <span class="n">annos</span><span class="p">[</span><span class="n">label_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">nau</span><span class="o">.</span><span class="n">FreeAnnotation</span><span class="p">(</span>
+                        <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span> <span class="n">scheme</span><span class="o">=</span><span class="n">scheme_name</span><span class="p">,</span> <span class="n">is_valid</span><span class="o">=</span><span class="n">scheme_valid</span>
+                    <span class="p">)</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid label type </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">scheme</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]))</span>
+
+        <span class="k">return</span> <span class="n">annos</span><span class="p">,</span> <span class="n">anno_schemes</span>
+
+    <span class="k">def</span> <span class="nf">_populate_data_info_from_mongo_doc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mongo_data_streams</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Setting self.data</span>
+<span class="sd">        Args:</span>
+<span class="sd">          mongo_schemes:</span>
+
+<span class="sd">        Returns:</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data_info</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">data_schemes</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">data_stream</span> <span class="ow">in</span> <span class="n">mongo_data_streams</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">role</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">roles</span><span class="p">:</span>
+                <span class="n">sample_stream_name</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">role</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;fileExt&quot;</span><span class="p">]</span>
+                <span class="p">)</span>
+                <span class="n">sample_data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">nova_data_dir</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">sessions</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="n">sample_stream_name</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">dtype</span> <span class="o">=</span> <span class="n">nt</span><span class="o">.</span><span class="n">string_to_enum</span><span class="p">(</span><span class="n">nt</span><span class="o">.</span><span class="n">DataTypes</span><span class="p">,</span> <span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">])</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">nt</span><span class="o">.</span><span class="n">DataTypes</span><span class="o">.</span><span class="n">VIDEO</span><span class="p">:</span>
+                        <span class="n">data</span> <span class="o">=</span> <span class="n">VideoData</span><span class="p">(</span>
+                            <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span>
+                            <span class="n">name</span><span class="o">=</span><span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">],</span>
+                            <span class="n">file_ext</span><span class="o">=</span><span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;fileExt&quot;</span><span class="p">],</span>
+                            <span class="n">sr</span><span class="o">=</span><span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;sr&quot;</span><span class="p">],</span>
+                            <span class="n">is_valid</span><span class="o">=</span><span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;isValid&quot;</span><span class="p">],</span>
+                            <span class="n">sample_data_path</span><span class="o">=</span><span class="n">sample_data_path</span><span class="p">,</span>
+                            <span class="n">lazy_loading</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lazy_loading</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">nt</span><span class="o">.</span><span class="n">DataTypes</span><span class="o">.</span><span class="n">AUDIO</span><span class="p">:</span>
+                        <span class="n">data</span> <span class="o">=</span> <span class="n">AudioData</span><span class="p">(</span>
+                            <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span>
+                            <span class="n">name</span><span class="o">=</span><span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">],</span>
+                            <span class="n">file_ext</span><span class="o">=</span><span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;fileExt&quot;</span><span class="p">],</span>
+                            <span class="n">sr</span><span class="o">=</span><span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;sr&quot;</span><span class="p">],</span>
+                            <span class="n">is_valid</span><span class="o">=</span><span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;isValid&quot;</span><span class="p">],</span>
+                            <span class="n">sample_data_path</span><span class="o">=</span><span class="n">sample_data_path</span><span class="p">,</span>
+                            <span class="n">lazy_loading</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lazy_loading</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">nt</span><span class="o">.</span><span class="n">DataTypes</span><span class="o">.</span><span class="n">FEATURE</span><span class="p">:</span>
+                        <span class="n">data</span> <span class="o">=</span> <span class="n">StreamData</span><span class="p">(</span>
+                            <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span>
+                            <span class="n">name</span><span class="o">=</span><span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">],</span>
+                            <span class="n">sr</span><span class="o">=</span><span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;sr&quot;</span><span class="p">],</span>
+                            <span class="n">data_type</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+                            <span class="n">is_valid</span><span class="o">=</span><span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;isValid&quot;</span><span class="p">],</span>
+                            <span class="n">sample_data_path</span><span class="o">=</span><span class="n">sample_data_path</span><span class="p">,</span>
+                            <span class="n">lazy_loading</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">lazy_loading</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="s2">&quot;Invalid data type&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">])</span>
+                        <span class="p">)</span>
+
+                <span class="k">except</span> <span class="ne">FileNotFoundError</span> <span class="k">as</span> <span class="n">fnf</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fake_missing_data</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">FileNotFoundError</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;WARNING: Ignoring exception - </span><span class="si">{</span><span class="n">fnf</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                        <span class="k">continue</span>
+
+                <span class="n">data_id</span> <span class="o">=</span> <span class="n">merge_role_key</span><span class="p">(</span><span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">])</span>
+                <span class="n">data_info</span><span class="p">[</span><span class="n">data_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span>
+                <span class="n">data_schemes</span><span class="p">[</span><span class="n">data_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">dtype</span>
+
+        <span class="k">return</span> <span class="n">data_info</span><span class="p">,</span> <span class="n">data_schemes</span>
+
+    <span class="k">def</span> <span class="nf">_load_annotation_for_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">time_to_ms</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">label_id</span><span class="p">,</span> <span class="n">anno</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">annos</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">mongo_anno</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nova_db_handler</span><span class="o">.</span><span class="n">get_annos</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="p">,</span> <span class="n">anno</span><span class="o">.</span><span class="n">scheme</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotator</span><span class="p">,</span> <span class="n">anno</span><span class="o">.</span><span class="n">role</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">FileNotFoundError</span> <span class="k">as</span> <span class="n">fnf</span><span class="p">:</span>
+                <span class="n">mongo_anno</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fake_missing_data</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;WARNING: </span><span class="si">{</span><span class="n">fnf</span><span class="si">}</span><span class="s2"> - Providing dummy data&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">fnf</span>
+            <span class="k">finally</span><span class="p">:</span>
+                <span class="n">anno</span><span class="o">.</span><span class="n">set_annotation_from_mongo_doc</span><span class="p">(</span><span class="n">mongo_anno</span><span class="p">,</span> <span class="n">time_to_ms</span><span class="o">=</span><span class="n">time_to_ms</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_open_data_reader_for_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">data_id</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">data_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">nova_data_dir</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="p">,</span>
+                    <span class="n">session</span><span class="p">,</span>
+                    <span class="n">data_id</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">data</span><span class="o">.</span><span class="n">file_ext</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">data</span><span class="o">.</span><span class="n">open_file_reader</span><span class="p">(</span><span class="n">data_path</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">FileNotFoundError</span> <span class="k">as</span> <span class="n">fnf</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fake_missing_data</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;WARNING: </span><span class="si">{</span><span class="n">fnf</span><span class="si">}</span><span class="s2"> - Providing dummy data&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">fnf</span>
+
+    <span class="k">def</span> <span class="nf">_yield_sample</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Yields examples.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Needed to sort the samples later and assure that the order is the same as in nova. Necessary for CML till the tfds can be returned in order.</span>
+        <span class="n">sample_counter</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="k">for</span> <span class="n">session</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">sessions</span><span class="p">:</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_init_session</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+
+            <span class="n">session_info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session_info</span><span class="p">[</span><span class="n">session</span><span class="p">]</span>
+            <span class="n">dur</span> <span class="o">=</span> <span class="n">session_info</span><span class="p">[</span><span class="s2">&quot;duration&quot;</span><span class="p">]</span>
+            <span class="n">_frame_size_ms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_size_ms</span>
+            <span class="n">_stride_ms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">stride_ms</span>
+
+            <span class="c1"># If we are loading any datastreams we check if any datastream is shorter than the duration stored in the database suggests</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_info</span><span class="p">:</span>
+                <span class="n">dur</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">v</span><span class="o">.</span><span class="n">dur</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_info</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span> <span class="n">dur</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">dur</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Session </span><span class="si">{}</span><span class="s2"> has no duration.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">session</span><span class="p">))</span>
+
+            <span class="n">dur_ms</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">dur</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span>
+
+            <span class="c1"># If framesize is not specified we return the whole session as one junk</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_size_ms</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">_frame_size_ms</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">dur_ms</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">end_ms</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_ms</span><span class="p">)</span>
+                <span class="n">_stride_ms</span> <span class="o">=</span> <span class="n">_frame_size_ms</span>
+
+            <span class="c1"># Starting position of the first frame in seconds</span>
+            <span class="c1"># c_pos_ms = self.left_context_ms + self.start_ms</span>
+            <span class="n">c_pos_ms</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">left_context_ms</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_ms</span><span class="p">)</span>
+
+            <span class="c1"># Generate samples for this session</span>
+            <span class="k">while</span> <span class="n">c_pos_ms</span> <span class="o">+</span> <span class="n">_stride_ms</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_context_ms</span> <span class="o">&lt;=</span> <span class="nb">min</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">end_ms</span><span class="p">,</span> <span class="n">dur_ms</span>
+            <span class="p">):</span>
+                <span class="n">frame_start_ms</span> <span class="o">=</span> <span class="n">c_pos_ms</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">left_context_ms</span>
+                <span class="n">frame_end_ms</span> <span class="o">=</span> <span class="n">c_pos_ms</span> <span class="o">+</span> <span class="n">_frame_size_ms</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_context_ms</span>
+
+                <span class="n">key</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">session</span>
+                    <span class="o">+</span> <span class="s2">&quot;_&quot;</span>
+                    <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">frame_start_ms</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span>
+                    <span class="o">+</span> <span class="s2">&quot;_&quot;</span>
+                    <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">frame_end_ms</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span>
+                <span class="p">)</span>
+
+                <span class="n">labels_for_frame</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="o">.</span><span class="n">get_label_for_frame</span><span class="p">(</span><span class="n">frame_start_ms</span><span class="p">,</span> <span class="n">frame_end_ms</span><span class="p">))</span>
+                    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">annos</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="p">]</span>
+
+                <span class="n">data_for_frame</span> <span class="o">=</span> <span class="p">[]</span>
+
+                <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="n">sample</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">get_sample</span><span class="p">(</span><span class="n">frame_start_ms</span><span class="p">,</span> <span class="n">frame_end_ms</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">sample</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sample</span><span class="si">{</span><span class="n">frame_start_ms</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">frame_end_ms</span><span class="si">}</span><span class="s2"> is empty&quot;</span><span class="p">)</span>
+                        <span class="n">c_pos_ms</span> <span class="o">+=</span> <span class="n">_stride_ms</span>
+                        <span class="k">continue</span>
+                    <span class="n">data_for_frame</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="n">k</span><span class="p">:</span> <span class="n">sample</span><span class="p">})</span>
+
+                <span class="n">sample_dict</span> <span class="o">=</span> <span class="p">{}</span>
+
+                <span class="n">garbage_detected</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">for</span> <span class="n">label_id</span><span class="p">,</span> <span class="n">label_value</span> <span class="ow">in</span> <span class="n">labels_for_frame</span><span class="p">:</span>
+                    <span class="c1"># check for nan</span>
+                    <span class="k">if</span> <span class="p">(</span>
+                        <span class="nb">type</span><span class="p">(</span><span class="n">label_value</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">list</span>
+                        <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">label_value</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">str</span>
+                        <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">label_value</span><span class="p">)</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+                    <span class="p">):</span>
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="n">label_value</span> <span class="o">!=</span> <span class="n">label_value</span><span class="p">:</span>
+                                <span class="n">garbage_detected</span> <span class="o">=</span> <span class="kc">True</span>
+                        <span class="k">except</span><span class="p">:</span>
+                            <span class="nb">breakpoint</span><span class="p">()</span>
+                    <span class="n">sample_dict</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">label_id</span><span class="p">:</span> <span class="n">label_value</span><span class="p">})</span>
+
+                <span class="c1"># If at least one label is a garbage label we skip this iteration</span>
+                <span class="k">if</span> <span class="n">garbage_detected</span><span class="p">:</span>
+                    <span class="n">c_pos_ms</span> <span class="o">+=</span> <span class="n">_stride_ms</span>
+                    <span class="n">sample_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">continue</span>
+
+                <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data_for_frame</span><span class="p">:</span>
+                    <span class="n">sample_dict</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flatten_samples</span><span class="p">:</span>
+
+                    <span class="c1"># grouping labels and data according to roles</span>
+                    <span class="k">for</span> <span class="n">role</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">roles</span><span class="p">:</span>
+                        <span class="c1"># filter dictionary to contain values for role</span>
+                        <span class="n">sample_dict_for_role</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+                            <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">elem</span><span class="p">:</span> <span class="n">role</span> <span class="ow">in</span> <span class="n">elem</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sample_dict</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+                        <span class="p">)</span>
+
+                        <span class="c1"># remove role from dictionary keys</span>
+                        <span class="n">sample_dict_for_role</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+                            <span class="nb">map</span><span class="p">(</span>
+                                <span class="k">lambda</span> <span class="n">elem</span><span class="p">:</span> <span class="p">(</span><span class="n">elem</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">role</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span> <span class="n">elem</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+                                <span class="n">sample_dict_for_role</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span>
+                            <span class="p">)</span>
+                        <span class="p">)</span>
+
+                        <span class="n">sample_dict_for_role</span><span class="p">[</span><span class="s2">&quot;frame&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="nb">str</span><span class="p">(</span><span class="n">sample_counter</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">key</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">role</span>
+                        <span class="p">)</span>
+                        <span class="c1"># yield key + &#39;_&#39; + role, sample_dict_for_role</span>
+                        <span class="k">yield</span> <span class="n">sample_dict_for_role</span>
+                        <span class="n">sample_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">c_pos_ms</span> <span class="o">+=</span> <span class="n">_stride_ms</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">sample_dict</span><span class="p">[</span><span class="s2">&quot;frame&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">sample_counter</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">key</span>
+                    <span class="k">yield</span> <span class="n">sample_dict</span>
+                    <span class="n">c_pos_ms</span> <span class="o">+=</span> <span class="n">_stride_ms</span>
+                    <span class="n">sample_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="c1"># closing file readers for this session</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_info</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">v</span><span class="o">.</span><span class="n">close_file_reader</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iterable</span>
+
+    <span class="k">def</span> <span class="fm">__next__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iterable</span><span class="o">.</span><span class="fm">__next__</span><span class="p">()</span>
+
+<div class="viewcode-block" id="HcaiNovaDynamicIterable.get_output_info"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable.HcaiNovaDynamicIterable.get_output_info">[docs]</a>    <span class="k">def</span> <span class="nf">get_output_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">def</span> <span class="nf">map_label_id</span><span class="p">(</span><span class="n">lid</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">flatten_samples</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">lid</span> <span class="o">==</span> <span class="s2">&quot;frame&quot;</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">split_role_key</span><span class="p">(</span><span class="n">lid</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">lid</span>
+
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="c1"># Adding fake framenumber label for sorting</span>
+            <span class="s2">&quot;frame&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;dtype&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">str</span><span class="p">,</span> <span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)},</span>
+            <span class="o">**</span><span class="p">{</span><span class="n">map_label_id</span><span class="p">(</span><span class="n">k</span><span class="p">):</span> <span class="n">v</span><span class="o">.</span><span class="n">get_info</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">annos</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+            <span class="o">**</span><span class="p">{</span><span class="n">map_label_id</span><span class="p">(</span><span class="n">k</span><span class="p">):</span> <span class="n">v</span><span class="o">.</span><span class="n">get_info</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_info</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+        <span class="p">}</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Dominik Schiller.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

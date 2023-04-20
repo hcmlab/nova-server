@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>nova_server.utils.db_utils &mdash; Nova Server 0.1.3 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Nova Server
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../nova-server/modules.html">nova_server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../hcai-datasets/modules.html">hcai_datasets</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../nova-utils/modules.html">nova_utils</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Nova Server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">nova_server.utils.db_utils</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for nova_server.utils.db_utils</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">bson</span>
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">hcai_datasets.hcai_nova_dynamic.nova_db_handler</span> <span class="kn">import</span> <span class="n">NovaDBHandler</span>
+<span class="kn">from</span> <span class="nn">hcai_datasets.hcai_nova_dynamic.utils</span> <span class="kn">import</span> <span class="n">nova_data_utils</span>
+
+<span class="n">MAX_MONGO_DB_DOC_SIZE</span> <span class="o">=</span> <span class="mi">16777216</span>
+<span class="n">database</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="n">scheme</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="n">session</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="n">annotator</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="n">roles</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="c1"># Format of results must be: {values: [value1, value2, value3, ...], confidences: [conf1, conf2, conf3, ...], start_frame: x, ...}</span>
+<div class="viewcode-block" id="check_format"><a class="viewcode-back" href="../../../nova-server/nova_server.utils.html#nova_server.utils.db_utils.check_format">[docs]</a><span class="k">def</span> <span class="nf">check_format</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">variable</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">dict</span><span class="p">:</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="s1">&#39;Result type must be a dictionary!&#39;</span>
+    <span class="k">if</span> <span class="s2">&quot;values&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">variable</span> <span class="ow">or</span> <span class="s2">&quot;confidences&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">variable</span><span class="p">:</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="s1">&#39;Result type must contain &quot;values&quot; and &quot;confidences&quot; as keys.&#39;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">type</span><span class="p">(</span><span class="n">variable</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">])</span> <span class="ow">is</span> <span class="nb">list</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">type</span><span class="p">(</span><span class="n">variable</span><span class="p">[</span><span class="s2">&quot;confidences&quot;</span><span class="p">]):</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="s1">&#39;Results[&quot;values&quot;] and Results[&quot;confidences&quot;] must respectively be a list.&#39;</span>
+
+    <span class="k">if</span> <span class="n">text</span> <span class="o">!=</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">text</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="write_annotation_to_db"><a class="viewcode-back" href="../../../nova-server/nova_server.utils.html#nova_server.utils.db_utils.write_annotation_to_db">[docs]</a><span class="k">def</span> <span class="nf">write_annotation_to_db</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">database</span><span class="p">,</span> <span class="n">scheme</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">roles</span>
+    <span class="n">check_format</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+
+    <span class="c1"># TODO check if we really need to establish a new connection to the database</span>
+    <span class="n">db_config_dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;ip&#39;</span><span class="p">:</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;server&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="s1">&#39;port&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;server&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]),</span>
+        <span class="s1">&#39;user&#39;</span><span class="p">:</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;username&quot;</span><span class="p">],</span>
+        <span class="s1">&#39;password&#39;</span><span class="p">:</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;password&quot;</span><span class="p">]</span>
+    <span class="p">}</span>
+
+    <span class="n">db_handler</span> <span class="o">=</span> <span class="n">NovaDBHandler</span><span class="p">(</span><span class="n">db_config_dict</span><span class="o">=</span><span class="n">db_config_dict</span><span class="p">)</span>
+    <span class="n">database</span> <span class="o">=</span> <span class="n">request_form</span><span class="p">[</span><span class="s1">&#39;database&#39;</span><span class="p">]</span>
+    <span class="n">scheme</span> <span class="o">=</span> <span class="n">request_form</span><span class="p">[</span><span class="s1">&#39;scheme&#39;</span><span class="p">]</span>
+    <span class="n">session</span> <span class="o">=</span> <span class="n">request_form</span><span class="p">[</span><span class="s1">&#39;sessions&#39;</span><span class="p">]</span>
+    <span class="n">annotator</span> <span class="o">=</span> <span class="n">request_form</span><span class="p">[</span><span class="s1">&#39;annotator&#39;</span><span class="p">]</span>
+    <span class="n">roles</span> <span class="o">=</span> <span class="n">request_form</span><span class="p">[</span><span class="s1">&#39;roles&#39;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;schemeType&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;DISCRETE&quot;</span><span class="p">:</span>
+        <span class="n">write_discrete_to_db</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">db_handler</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;schemeType&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;FREE&quot;</span><span class="p">:</span>
+        <span class="n">write_freeform_to_db</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">db_handler</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;schemeType&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;CONTINUOUS&quot;</span><span class="p">:</span>
+        <span class="n">write_continuous_to_db</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">db_handler</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;schemeType&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;POINT&quot;</span><span class="p">:</span>
+        <span class="k">pass</span>  <span class="c1"># todo</span>
+    <span class="k">elif</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;schemeType&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;DISCRETE_POLYGON&quot;</span> <span class="ow">or</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;schemeType&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;POLYGON&quot;</span><span class="p">:</span>
+        <span class="n">write_polygons_to_db</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">results</span><span class="p">,</span> <span class="n">db_handler</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="write_freeform_to_db"><a class="viewcode-back" href="../../../nova-server/nova_server.utils.html#nova_server.utils.db_utils.write_freeform_to_db">[docs]</a><span class="k">def</span> <span class="nf">write_freeform_to_db</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">db_handler</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Args:</span>
+<span class="sd">        request_form ():</span>
+<span class="sd">        results (dict): {</span>
+<span class="sd">            &#39;from_to&#39; : {</span>
+<span class="sd">                &lt;role&gt;.&lt;stream&gt;: {</span>
+<span class="sd">                    &#39;name&#39;: &lt;text&gt;, &#39;conf&#39;: &lt;confidence&gt;</span>
+<span class="sd">                }</span>
+<span class="sd">            }</span>
+<span class="sd">        }</span>
+<span class="sd">        db_handler ():</span>
+<span class="sd">        logger ():</span>
+
+<span class="sd">    Returns:</span>
+
+<span class="sd">    &#39;&#39;&#39;</span>
+    <span class="n">annotations</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Temp fix&quot;&quot;&quot;</span>
+    <span class="n">results</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;values&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">results</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;confidences&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">frame</span><span class="p">,</span> <span class="n">results</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">frame_info</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)</span>
+        <span class="n">frame_from</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">frame_info</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">frame_to</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">frame_info</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">stream_id</span><span class="p">,</span> <span class="n">anno</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+
+            <span class="n">conf</span> <span class="o">=</span> <span class="n">anno</span><span class="p">[</span><span class="s1">&#39;conf&#39;</span><span class="p">]</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">anno</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">stream_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">annotations</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">annotations</span><span class="p">[</span><span class="n">stream_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="n">annotations</span><span class="p">[</span><span class="n">stream_id</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s2">&quot;from&quot;</span><span class="p">:</span> <span class="n">frame_from</span><span class="p">,</span>
+                <span class="s2">&quot;to&quot;</span><span class="p">:</span> <span class="n">frame_to</span><span class="p">,</span>
+                <span class="s2">&quot;conf&quot;</span><span class="p">:</span> <span class="n">conf</span><span class="p">,</span>
+                <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">name</span>
+            <span class="p">})</span>
+
+    <span class="k">for</span> <span class="n">anno_id</span><span class="p">,</span> <span class="n">anno</span> <span class="ow">in</span> <span class="n">annotations</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="c1"># TODO does not work with flattened roles</span>
+        <span class="n">role</span><span class="p">,</span> <span class="n">stream</span> <span class="o">=</span> <span class="n">anno_id</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
+
+        <span class="n">db_handler</span><span class="o">.</span><span class="n">set_annos</span><span class="p">(</span>
+            <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="p">,</span>
+            <span class="n">scheme</span><span class="o">=</span><span class="n">scheme</span><span class="p">,</span>
+            <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">,</span>
+            <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
+            <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span>
+            <span class="n">annos</span><span class="o">=</span><span class="n">anno</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="write_discrete_to_db"><a class="viewcode-back" href="../../../nova-server/nova_server.utils.html#nova_server.utils.db_utils.write_discrete_to_db">[docs]</a><span class="k">def</span> <span class="nf">write_discrete_to_db</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">db_handler</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+    <span class="c1"># TODO: We only take one role into account in this case. Fix</span>
+    <span class="c1">#role = roles.split(&#39;;&#39;)[0]</span>
+    <span class="n">role</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;roles&#39;</span><span class="p">]</span>
+    <span class="n">frame_size</span> <span class="o">=</span> <span class="n">nova_data_utils</span><span class="o">.</span><span class="n">parse_time_string_to_ms</span><span class="p">(</span><span class="n">request_form</span><span class="p">[</span><span class="s1">&#39;frameSize&#39;</span><span class="p">])</span>
+    <span class="n">mongo_scheme</span> <span class="o">=</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">get_mongo_scheme</span><span class="p">(</span><span class="n">scheme</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+    <span class="n">annos</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">start_frame</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">if</span> <span class="n">request_form</span><span class="p">[</span><span class="s1">&#39;startTime&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;0&#39;</span><span class="p">:</span>
+        <span class="n">annos_db</span> <span class="o">=</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">get_annos</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="n">database</span><span class="p">,</span> <span class="n">scheme</span><span class="o">=</span><span class="n">scheme</span><span class="p">,</span> <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
+                                        <span class="n">roles</span><span class="o">=</span><span class="n">role</span><span class="p">)</span>
+
+        <span class="n">start_frame</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">request_form</span><span class="p">[</span><span class="s1">&#39;startTime&#39;</span><span class="p">])</span> <span class="o">/</span> <span class="mi">1000</span>
+        <span class="n">annos</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="s1">&#39;from&#39;</span><span class="p">])</span> <span class="o">&lt;</span> <span class="n">start_frame</span><span class="p">,</span> <span class="n">annos_db</span><span class="p">))</span>
+
+    <span class="n">last_label</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">current_label_start</span> <span class="o">=</span> <span class="mi">1</span>
+
+    <span class="n">values</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="nb">id</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
+        <span class="c1"># current label is different from the one before</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span> <span class="o">==</span> <span class="n">last_label</span> <span class="ow">and</span> <span class="n">last_label</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">frame_from</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">start_frame</span> <span class="o">+</span> <span class="p">((</span><span class="n">current_label_start</span> <span class="o">*</span> <span class="n">frame_size</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">))</span>
+            <span class="n">frame_to</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">start_frame</span> <span class="o">+</span> <span class="p">((</span><span class="nb">id</span> <span class="o">*</span> <span class="n">frame_size</span><span class="p">)</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">last_label</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">mongo_scheme</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;labels&#39;</span><span class="p">]):</span>
+                <span class="n">annos</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                    <span class="s1">&#39;from&#39;</span><span class="p">:</span> <span class="n">frame_from</span><span class="p">,</span>
+                    <span class="s1">&#39;to&#39;</span><span class="p">:</span> <span class="n">frame_to</span><span class="p">,</span>
+                    <span class="s1">&#39;conf&#39;</span><span class="p">:</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;confidences&quot;</span><span class="p">][</span><span class="nb">id</span><span class="p">],</span>
+                    <span class="s1">&#39;id&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">last_label</span><span class="p">)</span>
+                <span class="p">})</span>
+            <span class="n">current_label_start</span> <span class="o">=</span> <span class="nb">id</span>
+        <span class="n">last_label</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="n">db_handler</span><span class="o">.</span><span class="n">set_annos</span><span class="p">(</span>
+        <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="p">,</span>
+        <span class="n">scheme</span><span class="o">=</span><span class="n">scheme</span><span class="p">,</span>
+        <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">,</span>
+        <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
+        <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span>
+        <span class="n">annos</span><span class="o">=</span><span class="n">annos</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="write_continuous_to_db"><a class="viewcode-back" href="../../../nova-server/nova_server.utils.html#nova_server.utils.db_utils.write_continuous_to_db">[docs]</a><span class="k">def</span> <span class="nf">write_continuous_to_db</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">db_handler</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+    <span class="n">role</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;roles&#39;</span><span class="p">]</span>
+    <span class="c1">#role = roles.split(&#39;;&#39;)[0]</span>
+    <span class="n">annos</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">if</span> <span class="n">request_form</span><span class="p">[</span><span class="s1">&#39;startTime&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;0&#39;</span><span class="p">:</span>
+        <span class="n">annos_db</span> <span class="o">=</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">get_annos</span><span class="p">(</span><span class="n">dataset</span><span class="o">=</span><span class="n">database</span><span class="p">,</span> <span class="n">scheme</span><span class="o">=</span><span class="n">scheme</span><span class="p">,</span> <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">,</span> <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
+                                        <span class="n">roles</span><span class="o">=</span><span class="n">roles</span><span class="p">)</span>
+
+        <span class="n">start_frame</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">request_form</span><span class="p">[</span><span class="s1">&#39;startTime&#39;</span><span class="p">])</span> <span class="o">/</span> <span class="nb">int</span><span class="p">(</span><span class="n">request_form</span><span class="p">[</span><span class="s1">&#39;frameSize&#39;</span><span class="p">][:</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">annos</span> <span class="o">=</span> <span class="n">annos_db</span><span class="p">[:</span><span class="n">start_frame</span><span class="p">]</span>
+
+    <span class="c1">#normalized = (results[&quot;values&quot;] - min(results[&quot;values&quot;])) / (max(results[&quot;values&quot;]) - min(results[&quot;values&quot;]))</span>
+
+    <span class="k">for</span> <span class="n">value</span><span class="p">,</span> <span class="n">confidence</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">],</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;confidences&quot;</span><span class="p">]):</span>
+        <span class="n">annos</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+            <span class="s1">&#39;score&#39;</span><span class="p">:</span> <span class="n">value</span><span class="p">,</span>
+            <span class="s1">&#39;conf&#39;</span><span class="p">:</span> <span class="n">confidence</span>
+        <span class="p">})</span>
+
+    <span class="n">db_handler</span><span class="o">.</span><span class="n">set_annos</span><span class="p">(</span>
+        <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="p">,</span>
+        <span class="n">scheme</span><span class="o">=</span><span class="n">scheme</span><span class="p">,</span>
+        <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">,</span>
+        <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
+        <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span>
+        <span class="n">annos</span><span class="o">=</span><span class="n">annos</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="write_polygons_to_db"><a class="viewcode-back" href="../../../nova-server/nova_server.utils.html#nova_server.utils.db_utils.write_polygons_to_db">[docs]</a><span class="k">def</span> <span class="nf">write_polygons_to_db</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">db_handler</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+    <span class="n">mongo_scheme</span> <span class="o">=</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">get_mongo_scheme</span><span class="p">(</span><span class="n">scheme</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+    <span class="n">mongo_annotator</span> <span class="o">=</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">get_mongo_annotator</span><span class="p">(</span><span class="n">annotator</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+    <span class="n">mongo_role</span> <span class="o">=</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">get_mongo_role</span><span class="p">(</span><span class="n">roles</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+    <span class="n">mongo_session</span> <span class="o">=</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">get_mongo_session</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+
+    <span class="n">mongo_annotations</span> <span class="o">=</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">get_annotation_docs</span><span class="p">(</span>
+        <span class="n">mongo_scheme</span><span class="p">,</span>
+        <span class="n">mongo_session</span><span class="p">,</span>
+        <span class="n">mongo_annotator</span><span class="p">,</span>
+        <span class="n">mongo_role</span><span class="p">,</span>
+        <span class="n">database</span><span class="p">,</span>
+        <span class="n">db_handler</span><span class="o">.</span><span class="n">ANNOTATION_COLLECTION</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">start_frame</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;start_frame&quot;</span><span class="p">]))</span> <span class="o">-</span> <span class="mi">1</span>
+
+    <span class="n">mongo_data_id</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">data_backup_id</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">mongo_annotations</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">mongo_annotations</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;isLocked&quot;</span><span class="p">]:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Can&#39;t overwrite locked annotation </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">mongo_annotations</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;_id&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mongo_data_id</span> <span class="o">=</span> <span class="n">mongo_annotations</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;data_id&quot;</span><span class="p">]</span>
+            <span class="n">data_backup_id</span> <span class="o">=</span> <span class="n">mongo_annotations</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;data_backup_id&quot;</span><span class="p">]</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;...fetch documents...&quot;</span><span class="p">)</span>
+    <span class="c1"># 1. Get the doc (will get merged if other docs are there are nextEntry ID&#39;s)</span>
+    <span class="n">main_docs</span> <span class="o">=</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">get_data_docs_by_prop</span><span class="p">(</span><span class="n">mongo_data_id</span><span class="p">,</span> <span class="s2">&quot;_id&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+    <span class="n">backup_doc</span> <span class="o">=</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">get_docs_by_prop</span><span class="p">(</span><span class="n">mongo_data_id</span><span class="p">,</span> <span class="s2">&quot;_id&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">ANNOTATION_DATA_COLLECTION</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;...fill documents...&quot;</span><span class="p">)</span>
+    <span class="c1"># 2. Fill the doc with the Predictions</span>
+    <span class="n">main_docs</span> <span class="o">=</span> <span class="n">update_polygon_doc</span><span class="p">(</span><span class="n">main_docs</span><span class="p">,</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">],</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;confidences&quot;</span><span class="p">],</span> <span class="n">start_frame</span><span class="p">)</span>
+
+    <span class="c1"># 3. Check if the doc is too large (if, separate it)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bson</span><span class="o">.</span><span class="n">BSON</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">main_docs</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="n">MAX_MONGO_DB_DOC_SIZE</span><span class="p">:</span>
+        <span class="n">main_docs</span> <span class="o">=</span> <span class="n">separate_doc</span><span class="p">(</span><span class="n">main_docs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">main_docs</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="n">main_docs</span> <span class="o">=</span> <span class="p">[</span><span class="n">main_docs</span><span class="p">]</span>
+    <span class="n">main_docs</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;_id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mongo_data_id</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;...separate docs if necessary...&quot;</span><span class="p">)</span>
+    <span class="c1"># 4 Delete old back-up (with tail-docs)</span>
+    <span class="n">db_handler</span><span class="o">.</span><span class="n">delete_doc_with_tail</span><span class="p">(</span><span class="n">data_backup_id</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;...upload docs...&quot;</span><span class="p">)</span>
+    <span class="c1"># 5. Update the backup ID</span>
+    <span class="n">backup_doc</span><span class="p">[</span><span class="s1">&#39;_id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_backup_id</span>
+    <span class="n">db_handler</span><span class="o">.</span><span class="n">insert_doc_by_prop</span><span class="p">(</span><span class="n">backup_doc</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">ANNOTATION_DATA_COLLECTION</span><span class="p">)</span>
+    <span class="n">db_handler</span><span class="o">.</span><span class="n">delete_doc_by_prop</span><span class="p">(</span><span class="n">mongo_data_id</span><span class="p">,</span> <span class="s2">&quot;_id&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">ANNOTATION_DATA_COLLECTION</span><span class="p">)</span>
+
+    <span class="c1"># 6. Upload the doc(s)</span>
+    <span class="k">for</span> <span class="n">doc</span> <span class="ow">in</span> <span class="n">main_docs</span><span class="p">:</span>
+        <span class="n">db_handler</span><span class="o">.</span><span class="n">insert_doc_by_prop</span><span class="p">(</span><span class="n">doc</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">ANNOTATION_DATA_COLLECTION</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="separate_doc"><a class="viewcode-back" href="../../../nova-server/nova_server.utils.html#nova_server.utils.db_utils.separate_doc">[docs]</a><span class="k">def</span> <span class="nf">separate_doc</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+    <span class="n">left</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span>
+    <span class="n">left</span><span class="p">[</span><span class="s2">&quot;_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bson</span><span class="o">.</span><span class="n">objectid</span><span class="o">.</span><span class="n">ObjectId</span><span class="p">()</span>
+    <span class="n">right</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span>
+    <span class="n">right</span><span class="p">[</span><span class="s2">&quot;_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bson</span><span class="o">.</span><span class="n">objectid</span><span class="o">.</span><span class="n">ObjectId</span><span class="p">()</span>
+    <span class="n">half_count</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">doc</span><span class="p">[</span><span class="s1">&#39;labels&#39;</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">left</span><span class="p">[</span><span class="s1">&#39;labels&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">left</span><span class="p">[</span><span class="s1">&#39;labels&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">:</span><span class="n">half_count</span><span class="p">]</span>
+    <span class="n">right</span><span class="p">[</span><span class="s1">&#39;labels&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">right</span><span class="p">[</span><span class="s1">&#39;labels&#39;</span><span class="p">][</span><span class="n">half_count</span><span class="p">:]</span>
+
+    <span class="n">result_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bson</span><span class="o">.</span><span class="n">BSON</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">left</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="n">MAX_MONGO_DB_DOC_SIZE</span><span class="p">:</span>
+        <span class="n">result_list</span> <span class="o">+=</span> <span class="n">separate_doc</span><span class="p">(</span><span class="n">left</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">result_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">left</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bson</span><span class="o">.</span><span class="n">BSON</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">right</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="n">MAX_MONGO_DB_DOC_SIZE</span><span class="p">:</span>
+        <span class="n">result_list</span> <span class="o">+=</span> <span class="n">separate_doc</span><span class="p">(</span><span class="n">right</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">result_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">right</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">result_list</span></div>
+
+
+<div class="viewcode-block" id="update_polygon_doc"><a class="viewcode-back" href="../../../nova-server/nova_server.utils.html#nova_server.utils.db_utils.update_polygon_doc">[docs]</a><span class="k">def</span> <span class="nf">update_polygon_doc</span><span class="p">(</span><span class="n">data_doc</span><span class="p">,</span> <span class="n">polygons</span><span class="p">,</span> <span class="n">confidences</span><span class="p">,</span> <span class="n">start_frame</span><span class="p">):</span>
+    <span class="n">current_frame</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="k">for</span> <span class="n">frame_id</span><span class="p">,</span> <span class="n">frame</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">data_doc</span><span class="p">[</span><span class="s1">&#39;labels&#39;</span><span class="p">]):</span>
+        <span class="k">if</span> <span class="n">frame_id</span> <span class="o">&gt;=</span> <span class="n">start_frame</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">polygons</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">data_doc</span>
+        <span class="k">if</span> <span class="n">frame_id</span> <span class="o">&gt;=</span> <span class="n">start_frame</span><span class="p">:</span>
+            <span class="n">polygons_per_frame</span> <span class="o">=</span> <span class="n">polygons</span><span class="p">[</span><span class="n">frame_id</span> <span class="o">-</span> <span class="n">start_frame</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">label_id</span><span class="p">,</span> <span class="n">polygons_per_label_type</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">polygons_per_frame</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">polygon_id</span><span class="p">,</span> <span class="n">polygon</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">polygons_per_label_type</span><span class="p">):</span>
+                    <span class="n">label</span> <span class="o">=</span> <span class="n">label_id</span> <span class="o">+</span> <span class="mi">1</span>
+                    <span class="n">points_for_db</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">polygon</span><span class="p">,</span> <span class="n">newshape</span><span class="o">=</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">polygon</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="mi">2</span><span class="p">])</span>
+                    <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
+                        <span class="n">points_for_db</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">point</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">point</span><span class="p">[</span><span class="mi">1</span><span class="p">])})</span>
+
+                    <span class="c1"># delete the content of the current frame, the new prediction values have to be set</span>
+                    <span class="k">if</span> <span class="n">current_frame</span> <span class="o">!=</span> <span class="n">frame_id</span><span class="p">:</span>
+                        <span class="n">current_frame</span> <span class="o">=</span> <span class="n">frame_id</span>
+                        <span class="n">data_doc</span><span class="p">[</span><span class="s1">&#39;labels&#39;</span><span class="p">][</span><span class="n">frame_id</span><span class="p">][</span><span class="s1">&#39;polygons&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+                    <span class="n">data_doc</span><span class="p">[</span><span class="s1">&#39;labels&#39;</span><span class="p">][</span><span class="n">frame_id</span><span class="p">][</span><span class="s1">&#39;polygons&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="p">{</span><span class="s1">&#39;label&#39;</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span>
+                         <span class="s1">&#39;confidence&#39;</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="n">confidences</span><span class="p">[</span><span class="n">frame_id</span> <span class="o">-</span> <span class="n">start_frame</span><span class="p">][</span><span class="n">label_id</span><span class="p">][</span><span class="n">polygon_id</span><span class="p">],</span> <span class="mi">2</span><span class="p">),</span>
+                         <span class="s1">&#39;points&#39;</span><span class="p">:</span> <span class="n">points_for_db</span><span class="p">})</span>
+
+    <span class="k">return</span> <span class="n">data_doc</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Dominik Schiller.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

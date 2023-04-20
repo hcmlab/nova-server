@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>nova_utils.interfaces package &mdash; Nova Server 0.1.3 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="nova_utils.ssi_utils package" href="nova_utils.ssi_utils.html" />
+    <link rel="prev" title="nova_utils.db_utils package" href="nova_utils.db_utils.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            Nova Server
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../nova-server/modules.html">nova_server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../hcai-datasets/modules.html">hcai_datasets</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">nova_utils</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="nova_utils.html">nova_utils package</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="nova_utils.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="nova_utils.db_utils.html">nova_utils.db_utils package</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">nova_utils.interfaces package</a></li>
+<li class="toctree-l4"><a class="reference internal" href="nova_utils.ssi_utils.html">nova_utils.ssi_utils package</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="nova_utils.html#module-nova_utils">Module contents</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">Nova Server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="modules.html">nova_utils</a></li>
+          <li class="breadcrumb-item"><a href="nova_utils.html">nova_utils package</a></li>
+      <li class="breadcrumb-item active">nova_utils.interfaces package</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/nova-utils/nova_utils.interfaces.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="nova-utils-interfaces-package">
+<h1>nova_utils.interfaces package<a class="headerlink" href="#nova-utils-interfaces-package" title="Permalink to this heading"></a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this heading"></a></h2>
+</section>
+<section id="module-nova_utils.interfaces.dataset_iterable">
+<span id="nova-utils-interfaces-dataset-iterable-module"></span><h2>nova_utils.interfaces.dataset_iterable module<a class="headerlink" href="#module-nova_utils.interfaces.dataset_iterable" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="nova_utils.interfaces.dataset_iterable.DatasetIterable">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nova_utils.interfaces.dataset_iterable.</span></span><span class="sig-name descname"><span class="pre">DatasetIterable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'train'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_utils/interfaces/dataset_iterable.html#DatasetIterable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.dataset_iterable.DatasetIterable" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<p>Abstract superclass for iterable Datasets, which can be fed into the Bridge classes for tensorflow and pytorch</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="nova_utils.interfaces.dataset_iterable.DatasetIterable.get_output_info">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_output_info</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_utils/interfaces/dataset_iterable.html#DatasetIterable.get_output_info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.dataset_iterable.DatasetIterable.get_output_info" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-nova_utils.interfaces.server_module">
+<span id="nova-utils-interfaces-server-module-module"></span><h2>nova_utils.interfaces.server_module module<a class="headerlink" href="#module-nova_utils.interfaces.server_module" title="Permalink to this heading"></a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Dataset">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nova_utils.interfaces.server_module.</span></span><span class="sig-name descname"><span class="pre">Dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'train'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Dataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Dataset" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nova_utils.interfaces.dataset_iterable.DatasetIterable" title="nova_utils.interfaces.dataset_iterable.DatasetIterable"><code class="xref py py-class docutils literal notranslate"><span class="pre">DatasetIterable</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Dataset.get_output_info">
+<span class="sig-name descname"><span class="pre">get_output_info</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Dataset.get_output_info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Dataset.get_output_info" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Extractor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nova_utils.interfaces.server_module.</span></span><span class="sig-name descname"><span class="pre">Extractor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">logger</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">request_form</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Extractor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Extractor" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nova_utils.interfaces.server_module.Processor" title="nova_utils.interfaces.server_module.Processor"><code class="xref py py-class docutils literal notranslate"><span class="pre">Processor</span></code></a></p>
+<p>Base class of a feature extractor. Implement this interface in your own class to build a feature extractor.</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Extractor.chainable">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">chainable</span></span><a class="headerlink" href="#nova_utils.interfaces.server_module.Extractor.chainable" title="Permalink to this definition"></a></dt>
+<dd><p>Whether this extraction module can be followed by other extractors. If set to True ‘to_ds_iterable()’ must be implemented</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Extractor.to_stream">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">to_stream</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">object</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Extractor.to_stream"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Extractor.to_stream" title="Permalink to this definition"></a></dt>
+<dd><p>Converts the return value from process_data() to data stream chunk that can be processed by nova-server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> (<em>object</em>) – </p>
+</dd>
+</dl>
+<p>Returns: A dictionary mapping a stream identifier (usually composed using the role, signal, extracted feature name and sliding window parameters) to a tuple containing a chunk of the data as well as additional information.
+Each tuple has the form ( type (nova_types.DataTypes), sample_rate (int), data_chunk (numpy.ndarray) ). The shape of the data chunk should in the form of (n_frames, n_features)
+An arbitrary number of streams maybe returned.
+An example for a returned dictionary may look like this:
+{
+speaker_1.audio.mfcc[10ms,10ms,10ms] : ( DataTypes.AUDIO, 100, [[0.0, 0.0, … 0.0], [0.0, 0.0, … 0.0] … [0.0, 0.0, … 0.0]] )
+speaker_2.audio.mfcc[10ms,10ms,10ms] : ( DataTypes.AUDIO, 100, [[0.0, 0.0, … 0.0], [0.0, 0.0, … 0.0] … [0.0, 0.0, … 0.0]] )
+}</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Predictor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nova_utils.interfaces.server_module.</span></span><span class="sig-name descname"><span class="pre">Predictor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">logger</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">request_form</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Predictor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Predictor" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nova_utils.interfaces.server_module.Processor" title="nova_utils.interfaces.server_module.Processor"><code class="xref py py-class docutils literal notranslate"><span class="pre">Processor</span></code></a></p>
+<p>Base class of a data predictor. Implement this interface if you want to write annotations to a database</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Predictor.to_anno">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">to_anno</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Predictor.to_anno"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Predictor.to_anno" title="Permalink to this definition"></a></dt>
+<dd><p>Converts the output of process_data to the correct annotation format to upload them to the database.
+The output should have the following format:</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> (<em>object</em>) – Data output of process_data function</p>
+</dd>
+</dl>
+<p>Returns: A dictionary mapping a stream identifier (usually composed using the role, signal, extracted feature name and sliding window parameters) to a tuple containing a chunk of the data as well as additional information.
+Each tuple has the form ( type (nova_types.DataTypes), sample_rate (int), data_chunk (numpy.ndarray) ). The shape of the data chunk should in the form of (n_frames, n_features)
+An arbitrary number of streams maybe returned.
+An example for a returned dictionary may look like this:</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Processor">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nova_utils.interfaces.server_module.</span></span><span class="sig-name descname"><span class="pre">Processor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">logger</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">request_form</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Processor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Processor" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<p>Base class of a data processor. This interface builds the foundation for all data processing classes.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Processor.DEPENDENCIES">
+<span class="sig-name descname"><span class="pre">DEPENDENCIES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">[]</span></em><a class="headerlink" href="#nova_utils.interfaces.server_module.Processor.DEPENDENCIES" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Processor.postprocess_sample">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">postprocess_sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sample</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Processor.postprocess_sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Processor.postprocess_sample" title="Permalink to this definition"></a></dt>
+<dd><p>Apply any optional postprocessing to the data (e.g. scaling, mapping etc…)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Processor.preprocess_sample">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">preprocess_sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sample</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Processor.preprocess_sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Processor.preprocess_sample" title="Permalink to this definition"></a></dt>
+<dd><p>Preprocess data to convert between nova-server dataset iterator item to the raw model input as required in process_sample.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>sample</strong> (<em>dict</em>) – </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Processor.process_data">
+<span class="sig-name descname"><span class="pre">process_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ds_iter</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Processor.process_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Processor.process_data" title="Permalink to this definition"></a></dt>
+<dd><p>Returning a dictionary that contains the original keys from the dataset iterator and processed samples as value. Can be overwritten to customize the processing</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Processor.process_sample">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">process_sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sample</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Processor.process_sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Processor.process_sample" title="Permalink to this definition"></a></dt>
+<dd><p>Applying processing steps (e.g. feature extraction, data prediction etc… ) to the provided data.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Trainer">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nova_utils.interfaces.server_module.</span></span><span class="sig-name descname"><span class="pre">Trainer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">logger</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">request_form</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Trainer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Trainer" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nova_utils.interfaces.server_module.Processor" title="nova_utils.interfaces.server_module.Processor"><code class="xref py py-class docutils literal notranslate"><span class="pre">Processor</span></code></a></p>
+<p>Base class of a Trainer. Implement this interface in your own class to build a model that is trainable from within nova</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Trainer.load">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Trainer.load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Trainer.load" title="Permalink to this definition"></a></dt>
+<dd><p>Loads a model with the given path. Returns this model.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Trainer.save">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">str</span></span></span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Trainer.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Trainer.save" title="Permalink to this definition"></a></dt>
+<dd><p>Stores the weights of the given model at the given path. Returns the path of the weights.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Trainer.train">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">train</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_utils/interfaces/server_module.html#Trainer.train"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Trainer.train" title="Permalink to this definition"></a></dt>
+<dd><p>Trains a model with the given data.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-nova_utils.interfaces">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-nova_utils.interfaces" title="Permalink to this heading"></a></h2>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="nova_utils.db_utils.html" class="btn btn-neutral float-left" title="nova_utils.db_utils package" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="nova_utils.ssi_utils.html" class="btn btn-neutral float-right" title="nova_utils.ssi_utils package" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Dominik Schiller.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
