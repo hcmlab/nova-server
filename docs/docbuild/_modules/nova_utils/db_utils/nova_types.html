@@ -89,11 +89,24 @@
 
 <span class="sd">&#39;&#39;&#39;Helper&#39;&#39;&#39;</span>
 <div class="viewcode-block" id="string_to_enum"><a class="viewcode-back" href="../../../nova-utils/nova_utils.db_utils.html#nova_utils.db_utils.nova_types.string_to_enum">[docs]</a><span class="k">def</span> <span class="nf">string_to_enum</span><span class="p">(</span><span class="n">enum</span><span class="p">,</span> <span class="n">string</span><span class="p">):</span>
+<span class="w">  </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">  Searches for &#39;string&#39; in the enum names and returns the corresponding enum object.</span>
+<span class="sd">  If the passed string does not correspond to any name in the enum the last item in the enum will be instantiated and returned.</span>
+
+<span class="sd">  Args:</span>
+<span class="sd">    enum (): The enum class to compare against</span>
+<span class="sd">    string (str): String representation of the enum member</span>
+
+<span class="sd">  Returns:</span>
+<span class="sd">    enum: Instance of the provided enum class</span>
+<span class="sd">  &quot;&quot;&quot;</span>
   <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">enum</span><span class="p">:</span>
     <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">string</span><span class="o">.</span><span class="n">upper</span><span class="p">():</span>
       <span class="k">return</span> <span class="n">e</span>
-  <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Warning! Unknown type </span><span class="si">{}</span><span class="s1">. Assuming FEATURE data type.&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">string</span><span class="p">))</span>
-  <span class="k">return</span> <span class="n">DataTypes</span><span class="o">.</span><span class="n">FEATURE</span></div>
+
+  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Warning! Unknown type </span><span class="si">{</span><span class="n">string</span><span class="si">}</span><span class="s1">. Assuming </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1"> data type.&#39;</span><span class="p">)</span>
+  <span class="k">return</span> <span class="n">e</span></div>
 </pre></div>
 
            </div>

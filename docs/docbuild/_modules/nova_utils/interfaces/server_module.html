@@ -78,24 +78,24 @@
 
 <span class="n">REQUIREMENTS</span> <span class="o">=</span> <span class="p">[]</span>
 
+<span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">class Dataset(DatasetIterable):</span>
+<span class="sd">    def __int__(self, *args, data: dict, **kwargs):</span>
+<span class="sd">        super().__init__(*args, **kwargs)</span>
+<span class="sd">        self.counter = 0</span>
+<span class="sd">        self.data = data</span>
 
-<div class="viewcode-block" id="Dataset"><a class="viewcode-back" href="../../../nova-utils/nova_utils.interfaces.html#nova_utils.interfaces.server_module.Dataset">[docs]</a><span class="k">class</span> <span class="nc">Dataset</span><span class="p">(</span><span class="n">DatasetIterable</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__int__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
+<span class="sd">    def __iter__(self):</span>
+<span class="sd">        return self</span>
 
-    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span>
+<span class="sd">    def __next__(self):</span>
+<span class="sd">        data = self.data[&quot;counter&quot;]</span>
+<span class="sd">        self.counter += 1</span>
+<span class="sd">        return data</span>
 
-    <span class="k">def</span> <span class="fm">__next__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="s2">&quot;counter&quot;</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
-        <span class="k">return</span> <span class="n">data</span>
-
-<div class="viewcode-block" id="Dataset.get_output_info"><a class="viewcode-back" href="../../../nova-utils/nova_utils.interfaces.html#nova_utils.interfaces.server_module.Dataset.get_output_info">[docs]</a>    <span class="k">def</span> <span class="nf">get_output_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="s2">&quot;&quot;</span></div></div>
-
+<span class="sd">    def get_output_info(self):</span>
+<span class="sd">        return &quot;&quot;</span>
+<span class="sd">&#39;&#39;&#39;</span>
 
 <div class="viewcode-block" id="Processor"><a class="viewcode-back" href="../../../nova-utils/nova_utils.interfaces.html#nova_utils.interfaces.server_module.Processor">[docs]</a><span class="k">class</span> <span class="nc">Processor</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -187,15 +187,39 @@
 <div class="viewcode-block" id="Predictor.to_anno"><a class="viewcode-back" href="../../../nova-utils/nova_utils.interfaces.html#nova_utils.interfaces.server_module.Predictor.to_anno">[docs]</a>    <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">to_anno</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Converts the output of process_data to the correct annotation format to upload them to the database.</span>
-<span class="sd">        The output should have the following format:</span>
+<span class="sd">        !THE OUTPUT FORMAT OF THIS FUNCTION IS NOT YET FULLY DEFINED AND WILL CHANGE IN FUTURE RELEASES!</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            data (object): Data output of process_data function</span>
 
-<span class="sd">        Returns: A dictionary mapping a stream identifier (usually composed using the role, signal, extracted feature name and sliding window parameters) to a tuple containing a chunk of the data as well as additional information.</span>
-<span class="sd">        Each tuple has the form ( type (nova_types.DataTypes), sample_rate (int), data_chunk (numpy.ndarray) ). The shape of the data chunk should in the form of (n_frames, n_features)</span>
-<span class="sd">        An arbitrary number of streams maybe returned.</span>
-<span class="sd">        An example for a returned dictionary may look like this:</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: A dictionary containing the predictions of the model in the correct annotation format.</span>
+
+
+<span class="sd">        Example:</span>
+
+<span class="sd">            Discrete annotation:</span>
+<span class="sd">                ...</span>
+
+<span class="sd">            Continuous annotation:</span>
+<span class="sd">                ...</span>
+<span class="sd">            Free annotation:</span>
+<span class="sd">                ::</span>
+
+<span class="sd">                    {</span>
+<span class="sd">                        &#39;0.0_1.0&#39; : {</span>
+<span class="sd">                            &#39;speaker_1.audio&#39; : {&#39;name&#39;: &#39;Hello&#39;, &#39;conf&#39;: 0.73}</span>
+<span class="sd">                            &#39;speaker_2.audio&#39; : {&#39;name&#39;: &#39;&#39;, conf: 1.0}</span>
+<span class="sd">                        }</span>
+<span class="sd">                        &#39;1.0_2.0&#39; : {</span>
+<span class="sd">                            &#39;speaker_1.audio&#39; : {&#39;name&#39;: &#39;My Name&#39;, &#39;conf&#39;: 0.85}}</span>
+<span class="sd">                            &#39;speaker_2.audio&#39; : {&#39;name&#39;: &#39;&#39;, conf: 1.0}</span>
+<span class="sd">                        }</span>
+<span class="sd">                        ...</span>
+<span class="sd">                        &#39;values&#39;: [],</span>
+<span class="sd">                        &#39;confidences&#39;: []</span>
+<span class="sd">                    }</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="bp">NotImplemented</span></div></div>
 
@@ -219,16 +243,21 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Converts the return value from process_data() to data stream chunk that can be processed by nova-server.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            data (object):</span>
+<span class="sd">            data (object): The data as returned by the process_data function of the Processor class</span>
 
-<span class="sd">        Returns: A dictionary mapping a stream identifier (usually composed using the role, signal, extracted feature name and sliding window parameters) to a tuple containing a chunk of the data as well as additional information.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: A dictionary mapping a stream identifier (usually composed using the role, signal, extracted feature name and sliding window parameters) to a tuple containing a chunk of the data as well as additional information.</span>
 <span class="sd">        Each tuple has the form ( type (nova_types.DataTypes), sample_rate (int), data_chunk (numpy.ndarray) ). The shape of the data chunk should in the form of (n_frames, n_features)</span>
 <span class="sd">        An arbitrary number of streams maybe returned.</span>
-<span class="sd">        An example for a returned dictionary may look like this:</span>
-<span class="sd">        {</span>
-<span class="sd">        speaker_1.audio.mfcc[10ms,10ms,10ms] : ( DataTypes.AUDIO, 100, [[0.0, 0.0, ... 0.0], [0.0, 0.0, ... 0.0] ... [0.0, 0.0, ... 0.0]] )</span>
-<span class="sd">        speaker_2.audio.mfcc[10ms,10ms,10ms] : ( DataTypes.AUDIO, 100, [[0.0, 0.0, ... 0.0], [0.0, 0.0, ... 0.0] ... [0.0, 0.0, ... 0.0]] )</span>
-<span class="sd">        }</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            ::</span>
+
+<span class="sd">                {</span>
+<span class="sd">                    &#39;speaker_1.audio.mfcc[10ms,10ms,10ms]&#39; : ( DataTypes.AUDIO, 100, [[0.0, 0.0, ... 0.0], [0.0, 0.0, ... 0.0] ... [0.0, 0.0, ... 0.0]] ),</span>
+<span class="sd">                    &#39;speaker_2.audio.mfcc[10ms,10ms,10ms]&#39; : ( DataTypes.AUDIO, 100, [[0.0, 0.0, ... 0.0], [0.0, 0.0, ... 0.0] ... [0.0, 0.0, ... 0.0]] )</span>
+<span class="sd">                }</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="bp">NotImplemented</span></div></div>
 </pre></div>
