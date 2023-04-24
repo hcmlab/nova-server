@@ -1,11 +1,18 @@
 import random
 
 def get_key_from_request_form(request_form):
+    """
+    Returns the logging key from the provided request form
+    Args:
+        request_form (dict): Request form from Nova
 
+    Returns:
+
+    """
     key = request_form.get("jobID", None)
 
     if key is None:
-        key == f"local_{random.randint(0, 10 ^ 7)}"
+        key = f"local_{random.randint(0, 10 ^ 7)}"
 
     # id_components = [
     #     request_form.get('username', None),
