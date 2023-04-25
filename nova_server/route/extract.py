@@ -178,7 +178,8 @@ def extract_data(request_form, app_context):
                     logger.info("Write data to disk...")
                     for stream_id, (data_type, sr, data) in stream_dict.items():
 
-                        out_path = Path(ds_iter.nova_data_dir) / ds_iter.dataset / ds_iter.sessions[0] / stream_id
+                        suffix = request_form.get("suffix", default='')
+                        out_path = Path(ds_iter.nova_data_dir) / ds_iter.dataset / ds_iter.sessions[0] / stream_id + '_' + suffix
 
                         logger.info(f"- {out_path}")
 
