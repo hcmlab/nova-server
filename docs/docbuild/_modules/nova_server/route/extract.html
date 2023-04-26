@@ -86,7 +86,7 @@
 <span class="kn">from</span> <span class="nn">nova_server.utils.thread_utils</span> <span class="kn">import</span> <span class="n">THREADS</span>
 <span class="kn">from</span> <span class="nn">nova_server.utils.status_utils</span> <span class="kn">import</span> <span class="n">update_progress</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span><span class="p">,</span> <span class="n">PureWindowsPath</span>
-<span class="kn">from</span> <span class="nn">nova_utils.db_utils.nova_types</span> <span class="kn">import</span> <span class="n">DataTypes</span><span class="p">,</span> <span class="n">AnnoTypes</span>
+<span class="kn">from</span> <span class="nn">nova_utils.db_utils.nova_types</span> <span class="kn">import</span> <span class="n">DataTypes</span>
 <span class="kn">from</span> <span class="nn">nova_utils.ssi_utils.ssi_xml_utils</span> <span class="kn">import</span> <span class="n">Chain</span><span class="p">,</span> <span class="n">ChainLink</span>
 <span class="kn">from</span> <span class="nn">nova_utils.ssi_utils.ssi_stream_utils</span> <span class="kn">import</span> <span class="n">Stream</span><span class="p">,</span> <span class="n">Chunk</span><span class="p">,</span> <span class="n">FileTypes</span><span class="p">,</span> <span class="n">NPDataTypes</span>
 <span class="kn">from</span> <span class="nn">importlib.machinery</span> <span class="kn">import</span> <span class="n">SourceFileLoader</span>
@@ -94,6 +94,7 @@
     <span class="n">HcaiNovaDynamicIterable</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">soundfile</span> <span class="kn">import</span> <span class="n">write</span>
+<span class="kn">from</span> <span class="nn">nova_server.utils</span> <span class="kn">import</span> <span class="n">db_utils</span>
 
 
 <span class="n">extract</span> <span class="o">=</span> <span class="n">Blueprint</span><span class="p">(</span><span class="s2">&quot;extract&quot;</span><span class="p">,</span> <span class="vm">__name__</span><span class="p">)</span>
@@ -244,21 +245,29 @@
                 <span class="n">stream_dict</span> <span class="o">=</span> <span class="n">extractor</span><span class="o">.</span><span class="n">to_stream</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;...done&quot;</span><span class="p">)</span>
 
-                <span class="c1"># Write to disk</span>
+                <span class="c1"># Write to disk and add to database</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">stream_dict</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Stream data is none&quot;</span><span class="p">)</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Write data to disk...&quot;</span><span class="p">)</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Write...&quot;</span><span class="p">)</span>
+
                     <span class="k">for</span> <span class="n">stream_id</span><span class="p">,</span> <span class="p">(</span><span class="n">data_type</span><span class="p">,</span> <span class="n">sr</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span> <span class="ow">in</span> <span class="n">stream_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
 
-                        <span class="n">out_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">ds_iter</span><span class="o">.</span><span class="n">nova_data_dir</span><span class="p">)</span> <span class="o">/</span> <span class="n">ds_iter</span><span class="o">.</span><span class="n">dataset</span> <span class="o">/</span> <span class="n">ds_iter</span><span class="o">.</span><span class="n">sessions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">stream_id</span>
+                        <span class="n">suffix</span> <span class="o">=</span> <span class="n">request_form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;suffix&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+                        <span class="n">stream_id_sfx</span> <span class="o">=</span> <span class="n">stream_id</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">suffix</span> <span class="k">if</span> <span class="n">suffix</span> <span class="k">else</span> <span class="n">stream_id</span>
+                        <span class="n">out_path</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="n">Path</span><span class="p">(</span><span class="n">ds_iter</span><span class="o">.</span><span class="n">nova_data_dir</span><span class="p">)</span>
+                            <span class="o">/</span> <span class="n">ds_iter</span><span class="o">.</span><span class="n">dataset</span>
+                            <span class="o">/</span> <span class="n">ds_iter</span><span class="o">.</span><span class="n">sessions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                            <span class="o">/</span> <span class="n">stream_id_sfx</span>
+                        <span class="p">)</span>
 
-                        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;- </span><span class="si">{</span><span class="n">out_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2"> - </span><span class="si">{</span><span class="n">out_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
                         <span class="c1"># SSI-Stream</span>
                         <span class="k">if</span> <span class="n">data_type</span> <span class="o">==</span> <span class="n">DataTypes</span><span class="o">.</span><span class="n">FEATURE</span><span class="p">:</span>
                             <span class="n">ftype</span> <span class="o">=</span> <span class="n">FileTypes</span><span class="o">.</span><span class="n">BINARY</span>
-                            <span class="n">sr</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">sr</span><span class="p">)</span>
+                            <span class="n">sr</span> <span class="o">=</span> <span class="n">sr</span>
                             <span class="n">dim</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="mi">1</span>
                             <span class="n">dtype</span> <span class="o">=</span> <span class="n">NPDataTypes</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">type</span><span class="p">)</span>
                             <span class="n">chunks</span> <span class="o">=</span> <span class="p">[</span>
@@ -275,18 +284,31 @@
                             <span class="p">)</span>
 
                             <span class="n">ssi_stream</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">out_path</span><span class="p">)</span>
+                            <span class="c1"># TODO: Add dimlabels from stream</span>
+                            <span class="n">db_utils</span><span class="o">.</span><span class="n">write_stream_info_to_db</span><span class="p">(</span>
+                                <span class="n">request_form</span> <span class="o">=</span> <span class="n">request_form</span><span class="p">,</span>
+                                <span class="n">file_name</span> <span class="o">=</span> <span class="n">stream_id_sfx</span><span class="p">,</span>
+                                <span class="n">file_ext</span> <span class="o">=</span> <span class="s1">&#39;.stream&#39;</span><span class="p">,</span>
+                                <span class="n">stream_type</span> <span class="o">=</span> <span class="s1">&#39;feature&#39;</span><span class="p">,</span>
+                                <span class="n">is_valid</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                                <span class="n">sr</span> <span class="o">=</span> <span class="n">sr</span><span class="p">,</span>
+                                <span class="n">dimlables</span> <span class="o">=</span> <span class="p">[]</span>
+                            <span class="p">)</span>
 
                         <span class="c1"># Audio Data</span>
                         <span class="k">elif</span> <span class="n">data_type</span> <span class="o">==</span> <span class="n">DataTypes</span><span class="o">.</span><span class="n">AUDIO</span><span class="p">:</span>
-                            <span class="n">out_path</span> <span class="o">=</span> <span class="n">out_path</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="p">(</span><span class="n">out_path</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;.wav&#39;</span><span class="p">)</span>
+                            <span class="n">out_path</span> <span class="o">=</span> <span class="n">out_path</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="p">(</span><span class="n">out_path</span><span class="o">.</span><span class="n">name</span> <span class="o">+</span> <span class="s2">&quot;.wav&quot;</span><span class="p">)</span>
                             <span class="n">write</span><span class="p">(</span><span class="n">file</span><span class="o">=</span><span class="n">out_path</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data</span><span class="p">,</span> <span class="n">samplerate</span><span class="o">=</span><span class="n">sr</span><span class="p">)</span>
+
                         <span class="c1"># Video Data</span>
                         <span class="k">elif</span> <span class="n">data_type</span> <span class="o">==</span> <span class="n">DataTypes</span><span class="o">.</span><span class="n">VIDEO</span><span class="p">:</span>
                             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">data_type</span><span class="si">}</span><span class="s2"> is not supported.&quot;</span><span class="p">)</span>
 
-                        <span class="c1"># Annotations</span>
-                        <span class="k">elif</span> <span class="n">data_type</span> <span class="ow">in</span> <span class="n">AnnoTypes</span><span class="p">:</span>
-                            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+
+
+
                     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;...done&quot;</span><span class="p">)</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Extraction completed!&quot;</span><span class="p">)</span>

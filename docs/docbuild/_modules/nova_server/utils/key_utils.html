@@ -71,25 +71,37 @@
            <div itemprop="articleBody">
              
   <h1>Source code for nova_server.utils.key_utils</h1><div class="highlight"><pre>
-<span></span>
+<span></span><span class="kn">import</span> <span class="nn">random</span>
 
 <div class="viewcode-block" id="get_key_from_request_form"><a class="viewcode-back" href="../../../nova-server/nova_server.utils.html#nova_server.utils.key_utils.get_key_from_request_form">[docs]</a><span class="k">def</span> <span class="nf">get_key_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Returns the logging key from the provided request form</span>
+<span class="sd">    Args:</span>
+<span class="sd">        request_form (dict): Request form from Nova</span>
 
-    <span class="n">id_components</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">request_form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;username&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-        <span class="n">request_form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;database&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-        <span class="n">request_form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;scheme&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-        <span class="n">request_form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;streamName&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-        <span class="n">request_form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;annotator&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-        <span class="n">request_form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;sessions&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="p">),</span>
-    <span class="p">]</span>
-    <span class="n">server_key</span> <span class="o">=</span> <span class="s1">&#39;_&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">id_components</span> <span class="k">if</span> <span class="n">x</span><span class="p">])</span>
+<span class="sd">    Returns:</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="n">request_form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;jobID&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;local_</span><span class="si">{</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="w"> </span><span class="o">^</span><span class="w"> </span><span class="mi">7</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="c1"># id_components = [</span>
+    <span class="c1">#     request_form.get(&#39;username&#39;, None),</span>
+    <span class="c1">#     request_form.get(&#39;database&#39;, None),</span>
+    <span class="c1">#     request_form.get(&#39;scheme&#39;, None),</span>
+    <span class="c1">#     request_form.get(&#39;streamName&#39;, None),</span>
+    <span class="c1">#     request_form.get(&#39;annotator&#39;, None),</span>
+    <span class="c1">#     request_form.get(&#39;sessions&#39;, None).replace(&quot;;&quot;, &quot;_&quot;),</span>
+    <span class="c1"># ]</span>
+    <span class="c1"># server_key = &#39;_&#39;.join([x for x in id_components if x])</span>
 
 
     <span class="c1"># serverkey = request_form[&#39;username&#39;] + &#39;_&#39; + request_form[&#39;database&#39;] + &#39;_&#39; + request_form[&#39;scheme&#39;] + &#39;_&#39; + \</span>
     <span class="c1">#     request_form[&#39;streamName&#39;] + &#39;_&#39; + request_form[&#39;annotator&#39;] + &#39;_&#39; + \</span>
     <span class="c1">#     request_form[&#39;sessions&#39;].replace(&quot;;&quot;, &quot;_&quot;)</span>
-    <span class="k">return</span> <span class="n">server_key</span><span class="p">[:</span><span class="mi">128</span><span class="p">]</span></div>
+    <span class="k">return</span> <span class="n">key</span></div>
 </pre></div>
 
            </div>

@@ -75,8 +75,8 @@
 <span class="kn">import</span> <span class="nn">errno</span>
 <span class="kn">import</span> <span class="nn">copy</span>
 <span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">import</span> <span class="nn">configparser</span>
 
+<span class="kn">from</span> <span class="nn">configparser</span> <span class="kn">import</span> <span class="n">ConfigParser</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
 <span class="kn">from</span> <span class="nn">pymongo</span> <span class="kn">import</span> <span class="n">MongoClient</span>
@@ -129,7 +129,13 @@
             <span class="n">host</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ip</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">port</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">user</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">password</span>
         <span class="p">)</span>
 
-<div class="viewcode-block" id="NovaDBHandler.print_config"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.print_config">[docs]</a>    <span class="k">def</span> <span class="nf">print_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">,</span> <span class="n">cfg_path</span><span class="p">):</span>
+<div class="viewcode-block" id="NovaDBHandler.print_config"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.print_config">[docs]</a>    <span class="k">def</span> <span class="nf">print_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">ConfigParser</span><span class="p">,</span> <span class="n">cfg_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Prints the provided configuration on the console</span>
+<span class="sd">        Args:</span>
+<span class="sd">            cfg (ConfigParser): The main configuration parser</span>
+<span class="sd">            cfg_path (str): The file to load the configuration from</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Loaded config from </span><span class="si">{}</span><span class="s2">:&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cfg_path</span><span class="p">))</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;---------------------&quot;</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">sec_name</span><span class="p">,</span> <span class="n">sec_dict</span> <span class="ow">in</span> <span class="n">cfg</span><span class="o">.</span><span class="n">_sections</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -141,28 +147,35 @@
                     <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="si">{}</span><span class="s2"> : </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>
         <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;---------------------&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="NovaDBHandler.read_config"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.read_config">[docs]</a>    <span class="k">def</span> <span class="nf">read_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg_path</span><span class="p">):</span>
-        <span class="n">config</span> <span class="o">=</span> <span class="n">configparser</span><span class="o">.</span><span class="n">RawConfigParser</span><span class="p">()</span>
+<div class="viewcode-block" id="NovaDBHandler.read_config"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.read_config">[docs]</a>    <span class="k">def</span> <span class="nf">read_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cfg_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConfigParser</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Reads a NovaServer configuration from a file</span>
+<span class="sd">        Args:</span>
+<span class="sd">            cfg_path (str): The file to load the configuration from</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            ConfigParser: The parsed configuration</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">config</span> <span class="o">=</span> <span class="n">ConfigParser</span><span class="p">()</span>
         <span class="n">config</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">cfg_path</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">print_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">cfg_path</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">config</span></div>
 
     <span class="c1"># Reading from database</span>
 <div class="viewcode-block" id="NovaDBHandler.get_docs_by_prop"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_docs_by_prop">[docs]</a>    <span class="k">def</span> <span class="nf">get_docs_by_prop</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span> <span class="n">vals</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">property</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">collection</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">vals</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">property</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">collection</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Fetching a document from the mongo db collection in the respective database where the passed values are matching a specific property in the collection.</span>
-
 <span class="sd">        Args:</span>
-<span class="sd">          vals: The specific value of a property in the document</span>
-<span class="sd">          property: The property to look for the passed values</span>
-<span class="sd">          database: The name of the database to search</span>
-<span class="sd">          collection: The name of the collection within the database to search</span>
+<span class="sd">            vals (Union[list[str], str]): Value(s) of a property in the document. Might be a single value or list of values.</span>
+<span class="sd">            property (str): Property to look for the passed values</span>
+<span class="sd">            database (str): Name of the database to search</span>
+<span class="sd">            collection (str): Name of the collection within the database to search</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">          list: List of documents that match the specified criteria</span>
-
+<span class="sd">            list[dict]: List of documents that match the specified criteria</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">filter</span> <span class="o">=</span> <span class="p">[]</span>
 
@@ -176,19 +189,15 @@
         <span class="n">ret</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">[</span><span class="n">database</span><span class="p">][</span><span class="n">collection</span><span class="p">]</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="nb">filter</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">ret</span></div>
 
-<div class="viewcode-block" id="NovaDBHandler.get_schemes"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_schemes">[docs]</a>    <span class="k">def</span> <span class="nf">get_schemes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">,</span> <span class="n">schemes</span><span class="p">):</span>
+<div class="viewcode-block" id="NovaDBHandler.get_schemes"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_schemes">[docs]</a>    <span class="k">def</span> <span class="nf">get_schemes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">schemes</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Fetches the scheme object that matches the specified criteria from the nova database and returns them as a python readable dictionary.</span>
+<span class="sd">        Retreives all schemes matchin the provided criteria</span>
 <span class="sd">        Args:</span>
-<span class="sd">          ip:</span>
-<span class="sd">          port:</span>
-<span class="sd">          user:</span>
-<span class="sd">          password:</span>
-<span class="sd">          dataset:</span>
-<span class="sd">          scheme:</span>
+<span class="sd">            dataset (str): Name of the dataset. Must match the respective entry in the MongoDB</span>
+<span class="sd">            schemes (str): List of schemes for which the mongo database entries are fetched</span>
 
 <span class="sd">        Returns:</span>
-
+<span class="sd">            list[dict]: List of schemes that match the specified criteria</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">schemes</span><span class="p">:</span>
@@ -204,7 +213,9 @@
                 <span class="n">scheme</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">dataset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">SCHEME_COLLECTION</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">mongo_scheme</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;WARNING: No scheme </span><span class="si">{</span><span class="n">scheme</span><span class="si">}</span><span class="s2"> found in database for dataset </span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;WARNING: No scheme </span><span class="si">{</span><span class="n">scheme</span><span class="si">}</span><span class="s2"> found in database for dataset </span><span class="si">{</span><span class="n">dataset</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">mongo_schemes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mongo_scheme</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
 
@@ -215,17 +226,17 @@
 
         <span class="k">return</span> <span class="n">mongo_schemes</span></div>
 
-<div class="viewcode-block" id="NovaDBHandler.get_session_info"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_session_info">[docs]</a>    <span class="k">def</span> <span class="nf">get_session_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">,</span> <span class="n">session</span><span class="p">):</span>
+<div class="viewcode-block" id="NovaDBHandler.get_session_info"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_session_info">[docs]</a>    <span class="k">def</span> <span class="nf">get_session_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">sessions</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Fetches the session object that matches the specified criteria from the nova database and returns them as a python readable dictionary.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">          dataset:</span>
-<span class="sd">          session:</span>
+<span class="sd">          dataset (str): Name of the dataset. Must match the respective entry in the MongoDB</span>
+<span class="sd">          session (Union[list, str]): Session or list of sessions for which the mongo database entries are fetched</span>
 
 <span class="sd">        Returns:</span>
-
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">          list[dict]: List of sessions that match the specified criteria</span>
+<span class="sd">      &quot;&quot;&quot;</span>
         <span class="n">mongo_session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_docs_by_prop</span><span class="p">(</span>
             <span class="n">session</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">dataset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">SESSION_COLLECTION</span>
         <span class="p">)</span>
@@ -263,13 +274,13 @@
         <span class="k">return</span> <span class="n">mongo_streams</span></div>
 
 <div class="viewcode-block" id="NovaDBHandler.get_annotation_docs"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_annotation_docs">[docs]</a>    <span class="k">def</span> <span class="nf">get_annotation_docs</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">mongo_schemes</span><span class="p">,</span>
-            <span class="n">mongo_sessions</span><span class="p">,</span>
-            <span class="n">mongo_annotators</span><span class="p">,</span>
-            <span class="n">mongo_roles</span><span class="p">,</span>
-            <span class="n">database</span><span class="p">,</span>
-            <span class="n">collection</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">mongo_schemes</span><span class="p">,</span>
+        <span class="n">mongo_sessions</span><span class="p">,</span>
+        <span class="n">mongo_annotators</span><span class="p">,</span>
+        <span class="n">mongo_roles</span><span class="p">,</span>
+        <span class="n">database</span><span class="p">,</span>
+        <span class="n">collection</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Fetches all annotationobjects that match the specified criteria from the nova database</span>
@@ -315,12 +326,12 @@
         <span class="k">return</span> <span class="n">ret</span></div>
 
 <div class="viewcode-block" id="NovaDBHandler.get_annos"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_annos">[docs]</a>    <span class="k">def</span> <span class="nf">get_annos</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-            <span class="n">scheme</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-            <span class="n">session</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-            <span class="n">annotator</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-            <span class="n">roles</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">scheme</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">session</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">annotator</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">roles</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Fetches all annotations that matches the specified criteria from the nova database and returns them as a list of python readable dictionaries.</span>
@@ -346,7 +357,9 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">mongo_annotators</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown annotator </span><span class="si">{</span><span class="n">annotator</span><span class="si">}</span><span class="s2"> found&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="p">[]</span>
-        <span class="n">mongo_roles</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_docs_by_prop</span><span class="p">(</span><span class="n">roles</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">dataset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ROLE_COLLECTION</span><span class="p">)</span>
+        <span class="n">mongo_roles</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_docs_by_prop</span><span class="p">(</span>
+            <span class="n">roles</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">dataset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ROLE_COLLECTION</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">mongo_roles</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown role </span><span class="si">{</span><span class="n">roles</span><span class="si">}</span><span class="s2"> found&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="p">[]</span>
@@ -368,7 +381,11 @@
 
         <span class="c1"># getting the annotation data and the session name</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">mongo_annos</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="n">errno</span><span class="o">.</span><span class="n">ENOENT</span><span class="p">,</span> <span class="s1">&#39;No such annotation&#39;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;annotator: </span><span class="si">{</span><span class="n">annotator</span><span class="si">}</span><span class="s2"> - scheme: </span><span class="si">{</span><span class="n">scheme</span><span class="si">}</span><span class="s2"> - session: </span><span class="si">{</span><span class="n">session</span><span class="si">}</span><span class="s2"> - role: </span><span class="si">{</span><span class="n">roles</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+                <span class="n">errno</span><span class="o">.</span><span class="n">ENOENT</span><span class="p">,</span>
+                <span class="s2">&quot;No such annotation&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;annotator: </span><span class="si">{</span><span class="n">annotator</span><span class="si">}</span><span class="s2"> - scheme: </span><span class="si">{</span><span class="n">scheme</span><span class="si">}</span><span class="s2"> - session: </span><span class="si">{</span><span class="n">session</span><span class="si">}</span><span class="s2"> - role: </span><span class="si">{</span><span class="n">roles</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
 
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># TODO: adapt for multiple roles, annotators etc.</span>
@@ -380,7 +397,7 @@
         <span class="k">return</span> <span class="n">label</span></div>
 
 <div class="viewcode-block" id="NovaDBHandler.insert_doc_by_prop"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.insert_doc_by_prop">[docs]</a>    <span class="k">def</span> <span class="nf">insert_doc_by_prop</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span> <span class="n">doc</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">collection</span><span class="p">:</span> <span class="nb">str</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">doc</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">collection</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">InsertOneResult</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Uploading a document to the database using the specificed parameters</span>
@@ -396,7 +413,7 @@
         <span class="k">return</span> <span class="n">ret</span></div>
 
 <div class="viewcode-block" id="NovaDBHandler.update_doc_by_prop"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.update_doc_by_prop">[docs]</a>    <span class="k">def</span> <span class="nf">update_doc_by_prop</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span> <span class="n">doc</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">collection</span><span class="p">:</span> <span class="nb">str</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">doc</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">collection</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">UpdateResult</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Uploading a document to the database using the specificed parameters</span>
@@ -414,7 +431,7 @@
         <span class="k">return</span> <span class="n">ret</span></div>
 
 <div class="viewcode-block" id="NovaDBHandler.update_doc_by_id"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.update_doc_by_id">[docs]</a>    <span class="k">def</span> <span class="nf">update_doc_by_id</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span> <span class="n">_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">doc</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">collection</span><span class="p">:</span> <span class="nb">str</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">doc</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">collection</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">UpdateResult</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Uploading a document to the database using the specificed parameters</span>
@@ -427,9 +444,7 @@
 <span class="sd">        Returns:</span>
 <span class="sd">          str: ObjectID of the inserted objects or an empty list in case of failure</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">[</span><span class="n">database</span><span class="p">][</span><span class="n">collection</span><span class="p">]</span><span class="o">.</span><span class="n">update_one</span><span class="p">(</span>
-            <span class="p">{</span><span class="s2">&quot;_id&quot;</span><span class="p">:</span> <span class="n">_id</span><span class="p">},</span> <span class="p">{</span><span class="s2">&quot;$set&quot;</span><span class="p">:</span> <span class="n">doc</span><span class="p">}</span>
-        <span class="p">)</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">[</span><span class="n">database</span><span class="p">][</span><span class="n">collection</span><span class="p">]</span><span class="o">.</span><span class="n">update_one</span><span class="p">({</span><span class="s2">&quot;_id&quot;</span><span class="p">:</span> <span class="n">_id</span><span class="p">},</span> <span class="p">{</span><span class="s2">&quot;$set&quot;</span><span class="p">:</span> <span class="n">doc</span><span class="p">})</span>
         <span class="k">return</span> <span class="n">ret</span></div>
 
     <span class="c1"># TODO: Remove Restclass Labels in discrete Cases</span>
@@ -437,15 +452,15 @@
     <span class="c1"># TODO: Add Backup case</span>
     <span class="c1"># TODO: Call preprocess of annotation</span>
 <div class="viewcode-block" id="NovaDBHandler.set_annos"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.set_annos">[docs]</a>    <span class="k">def</span> <span class="nf">set_annos</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span>
-            <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-            <span class="n">scheme</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-            <span class="n">session</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-            <span class="n">annotator</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-            <span class="n">role</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-            <span class="n">annos</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
-            <span class="n">is_finished</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-            <span class="n">is_locked</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">scheme</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">session</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">annotator</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">role</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">annos</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+        <span class="n">is_finished</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">is_locked</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Uploading annotations to the database</span>
@@ -479,10 +494,14 @@
         <span class="n">mongo_data_id</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">mongo_annos</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">mongo_annos</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;isLocked&quot;</span><span class="p">]:</span>
-                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Can&#39;t overwrite locked annotation </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">mongo_annos</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;_id&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Can&#39;t overwrite locked annotation </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">mongo_annos</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;_id&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
                 <span class="k">return</span> <span class="s2">&quot;&quot;</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Overwriting existing annotation </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">mongo_annos</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;_id&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Overwriting existing annotation </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">mongo_annos</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;_id&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
                 <span class="n">mongo_anno_id</span> <span class="o">=</span> <span class="n">mongo_annos</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;_id&quot;</span><span class="p">]</span>
                 <span class="n">mongo_data_id</span> <span class="o">=</span> <span class="n">mongo_annos</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;data_id&quot;</span><span class="p">]</span>
 
@@ -496,7 +515,9 @@
                 <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ANNOTATION_DATA_COLLECTION</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">success</span><span class="o">.</span><span class="n">acknowledged</span><span class="p">:</span>
-                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown error update database entries for Annotation data </span><span class="si">{</span><span class="n">mongo_data_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Unknown error update database entries for Annotation data </span><span class="si">{</span><span class="n">mongo_data_id</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
                 <span class="k">return</span> <span class="s2">&quot;&quot;</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">data_id</span> <span class="o">=</span> <span class="n">mongo_data_id</span>
@@ -507,8 +528,10 @@
                 <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ANNOTATION_DATA_COLLECTION</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">success</span><span class="o">.</span><span class="n">acknowledged</span><span class="p">:</span>
-                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected error uploading annotation data for </span><span class="si">{</span><span class="n">database</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="n">session</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="n">scheme</span><span class="si">}</span><span class="s2"> - &quot;</span>
-                              <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">annotator</span><span class="si">}</span><span class="s2">. Upload failed.&quot;</span><span class="p">)</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Unexpected error uploading annotation data for </span><span class="si">{</span><span class="n">database</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="n">session</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="n">scheme</span><span class="si">}</span><span class="s2"> - &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">annotator</span><span class="si">}</span><span class="s2">. Upload failed.&quot;</span>
+                <span class="p">)</span>
                 <span class="k">return</span> <span class="s2">&quot;&quot;</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">data_id</span> <span class="o">=</span> <span class="n">success</span><span class="o">.</span><span class="n">inserted_id</span>
@@ -528,7 +551,9 @@
         <span class="k">if</span> <span class="n">mongo_anno_id</span><span class="p">:</span>
             <span class="n">mongo_anno_doc</span><span class="p">[</span><span class="s2">&quot;_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mongo_anno_id</span>
             <span class="n">success</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">update_doc_by_prop</span><span class="p">(</span>
-                <span class="n">doc</span><span class="o">=</span><span class="n">mongo_anno_doc</span><span class="p">,</span> <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ANNOTATION_COLLECTION</span>
+                <span class="n">doc</span><span class="o">=</span><span class="n">mongo_anno_doc</span><span class="p">,</span>
+                <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="p">,</span>
+                <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ANNOTATION_COLLECTION</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">success</span><span class="o">.</span><span class="n">acknowledged</span><span class="p">:</span>
                 <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
@@ -539,7 +564,9 @@
                 <span class="n">anno_id</span> <span class="o">=</span> <span class="n">mongo_anno_id</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">success</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">insert_doc_by_prop</span><span class="p">(</span>
-                <span class="n">doc</span><span class="o">=</span><span class="n">mongo_anno_doc</span><span class="p">,</span> <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="p">,</span> <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ANNOTATION_COLLECTION</span>
+                <span class="n">doc</span><span class="o">=</span><span class="n">mongo_anno_doc</span><span class="p">,</span>
+                <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="p">,</span>
+                <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">ANNOTATION_COLLECTION</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">success</span><span class="o">.</span><span class="n">acknowledged</span><span class="p">:</span>
                 <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
@@ -550,8 +577,58 @@
                 <span class="n">anno_id</span> <span class="o">=</span> <span class="n">success</span><span class="o">.</span><span class="n">inserted_id</span>
         <span class="k">return</span> <span class="n">anno_id</span></div>
 
+<div class="viewcode-block" id="NovaDBHandler.set_data_streams"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.set_data_streams">[docs]</a>    <span class="k">def</span> <span class="nf">set_data_streams</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">file_ext</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">stream_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">is_valid</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="n">sr</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="n">dimlabels</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
+    <span class="p">):</span>
+
+        <span class="c1"># check if datastream already exists</span>
+        <span class="n">mongo_stream</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_docs_by_prop</span><span class="p">(</span>
+            <span class="n">file_name</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">STREAM_COLLECTION</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">mongo_stream</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;INFO: Stream </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2"> already exists in database. Skip adding stream.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># build doc</span>
+        <span class="n">mongo_steam_doc</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">file_name</span><span class="p">,</span>
+            <span class="s2">&quot;fileExt&quot;</span><span class="p">:</span> <span class="n">file_ext</span><span class="p">,</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="n">stream_type</span><span class="p">,</span>
+            <span class="s2">&quot;isValid&quot;</span><span class="p">:</span> <span class="n">is_valid</span><span class="p">,</span>
+            <span class="s2">&quot;sr&quot;</span><span class="p">:</span> <span class="n">sr</span><span class="p">,</span>
+            <span class="s2">&quot;dimlabels&quot;</span><span class="p">:</span> <span class="n">dimlabels</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="c1"># insert datastream</span>
+        <span class="n">success</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">insert_doc_by_prop</span><span class="p">(</span>
+            <span class="n">doc</span><span class="o">=</span><span class="n">mongo_steam_doc</span><span class="p">,</span>
+            <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="p">,</span>
+            <span class="n">collection</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">STREAM_COLLECTION</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">success</span><span class="o">.</span><span class="n">acknowledged</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Unexpected error adding stream for </span><span class="si">{</span><span class="n">database</span><span class="si">}</span><span class="s2"> - </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">file_ext</span><span class="si">}</span><span class="s2">. Upload failed.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">stream_id</span> <span class="o">=</span> <span class="n">success</span><span class="o">.</span><span class="n">inserted_id</span>
+
+        <span class="k">return</span> <span class="n">stream_id</span></div>
+
 <div class="viewcode-block" id="NovaDBHandler.get_mongo_scheme"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_mongo_scheme">[docs]</a>    <span class="k">def</span> <span class="nf">get_mongo_scheme</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scheme</span><span class="p">,</span> <span class="n">database</span><span class="p">):</span>
-        <span class="n">mongo_scheme</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_docs_by_prop</span><span class="p">(</span><span class="n">scheme</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">SCHEME_COLLECTION</span><span class="p">)</span>
+        <span class="n">mongo_scheme</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_docs_by_prop</span><span class="p">(</span>
+            <span class="n">scheme</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">SCHEME_COLLECTION</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">mongo_scheme</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown scheme </span><span class="si">{</span><span class="n">scheme</span><span class="si">}</span><span class="s2"> found&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="s2">&quot;&quot;</span>
@@ -559,7 +636,9 @@
         <span class="k">return</span> <span class="n">mongo_scheme</span></div>
 
 <div class="viewcode-block" id="NovaDBHandler.get_mongo_annotator"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_mongo_annotator">[docs]</a>    <span class="k">def</span> <span class="nf">get_mongo_annotator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">annotator</span><span class="p">,</span> <span class="n">database</span><span class="p">):</span>
-        <span class="n">mongo_annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_docs_by_prop</span><span class="p">(</span><span class="n">annotator</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ANNOTATOR_COLLECTION</span><span class="p">)</span>
+        <span class="n">mongo_annotator</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_docs_by_prop</span><span class="p">(</span>
+            <span class="n">annotator</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ANNOTATOR_COLLECTION</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">mongo_annotator</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown annotator </span><span class="si">{</span><span class="n">annotator</span><span class="si">}</span><span class="s2"> found&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="s2">&quot;&quot;</span>
@@ -575,7 +654,9 @@
         <span class="k">return</span> <span class="n">mongo_role</span></div>
 
 <div class="viewcode-block" id="NovaDBHandler.get_mongo_session"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_mongo_session">[docs]</a>    <span class="k">def</span> <span class="nf">get_mongo_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">database</span><span class="p">):</span>
-        <span class="n">mongo_session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_docs_by_prop</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">SESSION_COLLECTION</span><span class="p">)</span>
+        <span class="n">mongo_session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_docs_by_prop</span><span class="p">(</span>
+            <span class="n">session</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">SESSION_COLLECTION</span>
+        <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">mongo_session</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown for session </span><span class="si">{</span><span class="n">session</span><span class="si">}</span><span class="s2"> found&quot;</span><span class="p">)</span>
             <span class="k">return</span> <span class="s2">&quot;&quot;</span>
@@ -585,16 +666,25 @@
 <div class="viewcode-block" id="NovaDBHandler.delete_doc_with_tail"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.delete_doc_with_tail">[docs]</a>    <span class="k">def</span> <span class="nf">delete_doc_with_tail</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">doc_id_to_remove</span><span class="p">,</span> <span class="n">database</span><span class="p">):</span>
         <span class="k">while</span> <span class="n">doc_id_to_remove</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">remove_id</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">doc_id_to_remove</span><span class="p">)</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fields_by_properties</span><span class="p">(</span><span class="n">doc_id_to_remove</span><span class="p">,</span> <span class="s2">&quot;_id&quot;</span><span class="p">,</span> <span class="s2">&quot;nextEntry&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span>
-                                                   <span class="bp">self</span><span class="o">.</span><span class="n">ANNOTATION_DATA_COLLECTION</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s1">&#39;nextEntry&#39;</span> <span class="ow">in</span> <span class="n">result</span><span class="p">:</span>
-                <span class="n">doc_id_to_remove</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s1">&#39;nextEntry&#39;</span><span class="p">]</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_fields_by_properties</span><span class="p">(</span>
+                <span class="n">doc_id_to_remove</span><span class="p">,</span>
+                <span class="s2">&quot;_id&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;nextEntry&quot;</span><span class="p">,</span>
+                <span class="n">database</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">ANNOTATION_DATA_COLLECTION</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">&quot;nextEntry&quot;</span> <span class="ow">in</span> <span class="n">result</span><span class="p">:</span>
+                <span class="n">doc_id_to_remove</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;nextEntry&quot;</span><span class="p">]</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">doc_id_to_remove</span> <span class="o">=</span> <span class="kc">None</span>
 
-            <span class="bp">self</span><span class="o">.</span><span class="n">delete_doc_by_prop</span><span class="p">(</span><span class="n">remove_id</span><span class="p">,</span> <span class="s2">&quot;_id&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ANNOTATION_DATA_COLLECTION</span><span class="p">)</span></div>
+            <span class="bp">self</span><span class="o">.</span><span class="n">delete_doc_by_prop</span><span class="p">(</span>
+                <span class="n">remove_id</span><span class="p">,</span> <span class="s2">&quot;_id&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ANNOTATION_DATA_COLLECTION</span>
+            <span class="p">)</span></div>
 
-<div class="viewcode-block" id="NovaDBHandler.delete_doc_by_prop"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.delete_doc_by_prop">[docs]</a>    <span class="k">def</span> <span class="nf">delete_doc_by_prop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vals</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">property</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">collection</span><span class="p">):</span>
+<div class="viewcode-block" id="NovaDBHandler.delete_doc_by_prop"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.delete_doc_by_prop">[docs]</a>    <span class="k">def</span> <span class="nf">delete_doc_by_prop</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">vals</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">property</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">collection</span>
+    <span class="p">):</span>
         <span class="nb">filter</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
@@ -607,7 +697,9 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">[</span><span class="n">database</span><span class="p">][</span><span class="n">collection</span><span class="p">]</span><span class="o">.</span><span class="n">delete_one</span><span class="p">(</span><span class="nb">filter</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="NovaDBHandler.get_data_docs_by_prop"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_data_docs_by_prop">[docs]</a>    <span class="k">def</span> <span class="nf">get_data_docs_by_prop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vals</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">property</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<div class="viewcode-block" id="NovaDBHandler.get_data_docs_by_prop"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_data_docs_by_prop">[docs]</a>    <span class="k">def</span> <span class="nf">get_data_docs_by_prop</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">vals</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">property</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">database</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="p">):</span>
         <span class="nb">filter</span> <span class="o">=</span> <span class="p">[]</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
@@ -618,14 +710,22 @@
 
         <span class="nb">filter</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;$or&quot;</span><span class="p">:</span> <span class="nb">filter</span><span class="p">}</span>
 
-        <span class="n">result</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">[</span><span class="n">database</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">ANNOTATION_DATA_COLLECTION</span><span class="p">]</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="nb">filter</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">[</span><span class="n">database</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">ANNOTATION_DATA_COLLECTION</span><span class="p">]</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="nb">filter</span><span class="p">)</span>
+        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">if</span> <span class="s2">&quot;nextEntry&quot;</span> <span class="ow">in</span> <span class="n">result</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">merge_collections</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">result</span></div>
 
-<div class="viewcode-block" id="NovaDBHandler.get_fields_by_properties"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_fields_by_properties">[docs]</a>    <span class="k">def</span> <span class="nf">get_fields_by_properties</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vals</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="nb">property</span><span class="p">,</span> <span class="n">fields</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-                                 <span class="n">collection</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<div class="viewcode-block" id="NovaDBHandler.get_fields_by_properties"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.get_fields_by_properties">[docs]</a>    <span class="k">def</span> <span class="nf">get_fields_by_properties</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">vals</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+        <span class="nb">property</span><span class="p">,</span>
+        <span class="n">fields</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+        <span class="n">database</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">collection</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">):</span>
         <span class="nb">filter</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="n">fields_dict</span> <span class="o">=</span> <span class="p">{}</span>
 
@@ -648,7 +748,7 @@
 <div class="viewcode-block" id="NovaDBHandler.merge_collections"><a class="viewcode-back" href="../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.html#hcai_datasets.hcai_nova_dynamic.nova_db_handler.NovaDBHandler.merge_collections">[docs]</a>    <span class="k">def</span> <span class="nf">merge_collections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">doc</span><span class="p">,</span> <span class="n">database</span><span class="p">):</span>
         <span class="n">next_id</span> <span class="o">=</span> <span class="n">doc</span><span class="p">[</span><span class="s2">&quot;nextEntry&quot;</span><span class="p">]</span>
         <span class="n">new_doc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_data_docs_by_prop</span><span class="p">(</span><span class="n">next_id</span><span class="p">,</span> <span class="s2">&quot;_id&quot;</span><span class="p">,</span> <span class="n">database</span><span class="p">)</span>
-        <span class="n">doc</span><span class="p">[</span><span class="s1">&#39;labels&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">new_doc</span><span class="p">[</span><span class="s1">&#39;labels&#39;</span><span class="p">]</span>
+        <span class="n">doc</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">new_doc</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">]</span>
 
         <span class="k">return</span> <span class="n">doc</span></div></div>
 
@@ -729,9 +829,9 @@
 
         <span class="n">new_annotator</span> <span class="o">=</span> <span class="s2">&quot;schildom&quot;</span>
         <span class="n">new_annos</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="p">{</span><span class="s2">&quot;from&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;conf&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s1">&#39;das&#39;</span><span class="p">},</span>
-            <span class="p">{</span><span class="s2">&quot;from&quot;</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">:</span> <span class="mi">25</span><span class="p">,</span> <span class="s2">&quot;conf&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s1">&#39;geht&#39;</span><span class="p">},</span>
-            <span class="p">{</span><span class="s2">&quot;from&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">:</span> <span class="mi">35</span><span class="p">,</span> <span class="s2">&quot;conf&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s1">&#39;ja&#39;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s2">&quot;from&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;conf&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;das&quot;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s2">&quot;from&quot;</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">:</span> <span class="mi">25</span><span class="p">,</span> <span class="s2">&quot;conf&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;geht&quot;</span><span class="p">},</span>
+            <span class="p">{</span><span class="s2">&quot;from&quot;</span><span class="p">:</span> <span class="mi">30</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">:</span> <span class="mi">35</span><span class="p">,</span> <span class="s2">&quot;conf&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;ja&quot;</span><span class="p">},</span>
         <span class="p">]</span>
 
         <span class="n">db_handler</span><span class="o">.</span><span class="n">set_annos</span><span class="p">(</span>

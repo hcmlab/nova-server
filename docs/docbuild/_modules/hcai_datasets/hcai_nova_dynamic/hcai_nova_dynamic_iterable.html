@@ -155,9 +155,17 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">frame_size_ms</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">ndu</span><span class="o">.</span><span class="n">parse_time_string_to_ms</span><span class="p">(</span><span class="n">frame_size</span><span class="p">)</span> <span class="k">if</span> <span class="n">frame_size</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_size_ms</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">&quot;WARNING: Frame size 0 is invalid. Returning whole session as sample.&quot;</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">frame_size_ms</span> <span class="o">=</span> <span class="kc">None</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">stride_ms</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">ndu</span><span class="o">.</span><span class="n">parse_time_string_to_ms</span><span class="p">(</span><span class="n">stride</span><span class="p">)</span> <span class="k">if</span> <span class="n">stride</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_size_ms</span>
         <span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">start_ms</span> <span class="o">=</span> <span class="n">ndu</span><span class="o">.</span><span class="n">parse_time_string_to_ms</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_ms</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">start_ms</span> <span class="o">=</span> <span class="mi">0</span>
@@ -345,6 +353,8 @@
                     <span class="n">sample_stream_name</span><span class="p">,</span>
                 <span class="p">)</span>
                 <span class="n">dtype</span> <span class="o">=</span> <span class="n">nt</span><span class="o">.</span><span class="n">string_to_enum</span><span class="p">(</span><span class="n">nt</span><span class="o">.</span><span class="n">DataTypes</span><span class="p">,</span> <span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">])</span>
+                <span class="n">window_size</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">left_context_ms</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">frame_size_ms</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">right_context_ms</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">data_stream</span><span class="p">[</span><span class="s2">&quot;sr&quot;</span><span class="p">])</span>
+                <span class="c1"># TODO</span>
                 <span class="k">try</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">nt</span><span class="o">.</span><span class="n">DataTypes</span><span class="o">.</span><span class="n">VIDEO</span><span class="p">:</span>
                         <span class="n">data</span> <span class="o">=</span> <span class="n">VideoData</span><span class="p">(</span>

@@ -248,7 +248,7 @@
 
 <span class="sd">        Returns:</span>
 <span class="sd">            dict: A dictionary mapping a stream identifier (usually composed using the role, signal, extracted feature name and sliding window parameters) to a tuple containing a chunk of the data as well as additional information.</span>
-<span class="sd">        Each tuple has the form ( type (nova_types.DataTypes), sample_rate (int), data_chunk (numpy.ndarray) ). The shape of the data chunk should in the form of (n_frames, n_features)</span>
+<span class="sd">        Each tuple has the form ( type (nova_types.DataTypes), sample_rate (double), data_chunk (numpy.ndarray) ). The shape of the data chunk should in the form of (n_frames, n_features)</span>
 <span class="sd">        An arbitrary number of streams maybe returned.</span>
 
 <span class="sd">        Example:</span>

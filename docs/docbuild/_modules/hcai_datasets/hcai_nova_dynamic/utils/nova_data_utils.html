@@ -97,6 +97,7 @@
         <span class="n">is_valid</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">sample_data_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
         <span class="n">lazy_loading</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">n_samples_per_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 
@@ -122,6 +123,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">sample_data_shape</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">np_data_type</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">meta_loaded</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_frames_per_window</span> <span class="o">=</span> <span class="n">n_samples_per_window</span>
 
         <span class="c1"># Set when open_file_reader is called</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">file_path</span> <span class="o">=</span> <span class="kc">None</span>
@@ -327,6 +329,14 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">data_stream_opend</span><span class="p">()</span>
             <span class="n">start_frame</span> <span class="o">=</span> <span class="n">milli_seconds_to_frame</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sr</span><span class="p">,</span> <span class="n">frame_start_ms</span><span class="p">)</span>
             <span class="n">end_frame</span> <span class="o">=</span> <span class="n">milli_seconds_to_frame</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sr</span><span class="p">,</span> <span class="n">frame_end_ms</span><span class="p">)</span>
+
+            <span class="c1"># rounding error</span>
+            <span class="c1">#if start_frame == end_frame:</span>
+            <span class="c1">#    end_frame += 1</span>
+            <span class="c1">#elif end_frame - start_frame &gt; 1:</span>
+
+
+
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_reader</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">start_frame</span><span class="p">:</span><span class="n">end_frame</span><span class="p">]</span>
         <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span>
@@ -361,8 +371,8 @@
 <span class="c1">##########################</span>
 
 
-<div class="viewcode-block" id="frame_to_seconds"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.frame_to_seconds">[docs]</a><span class="k">def</span> <span class="nf">frame_to_seconds</span><span class="p">(</span><span class="n">sr</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">frame</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-    <span class="k">return</span> <span class="n">frame</span> <span class="o">/</span> <span class="n">sr</span></div>
+<span class="c1">#def frame_to_seconds(sr: int, frame: int) -&gt; float:</span>
+<span class="c1">#    return frame / sr</span>
 
 
 <div class="viewcode-block" id="seconds_to_frame"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.seconds_to_frame">[docs]</a><span class="k">def</span> <span class="nf">seconds_to_frame</span><span class="p">(</span><span class="n">sr</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">time_s</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
@@ -373,11 +383,12 @@
     <span class="k">return</span> <span class="n">seconds_to_frame</span><span class="p">(</span><span class="n">sr</span><span class="o">=</span><span class="n">sr</span><span class="p">,</span> <span class="n">time_s</span><span class="o">=</span><span class="n">time_ms</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span></div>
 
 
+
 <div class="viewcode-block" id="parse_time_string_to_ms"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.parse_time_string_to_ms">[docs]</a><span class="k">def</span> <span class="nf">parse_time_string_to_ms</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
     <span class="c1"># if frame is specified milliseconds as string</span>
     <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;ms&quot;</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">frame</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">frame</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Invalid input format for frame in milliseconds: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
@@ -386,7 +397,7 @@
     <span class="k">elif</span> <span class="nb">str</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;s&quot;</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">frame_s</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">frame</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">frame_s</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">frame_s</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">&quot;Invalid input format for frame in seconds: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
@@ -399,7 +410,7 @@
                     <span class="n">frame</span>
                 <span class="p">)</span>
             <span class="p">)</span>
-            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="mi">1000</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">frame</span><span class="p">))</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="mi">1000</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">frame</span><span class="p">))</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid input format for frame: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">frame</span><span class="p">))</span>
     <span class="c1"># if type is int we assume the input will be milliseconds</span>
@@ -410,7 +421,7 @@
                     <span class="n">frame</span>
                 <span class="p">)</span>
             <span class="p">)</span>
-            <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid input format for frame: </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">frame</span><span class="p">))</span>
 
