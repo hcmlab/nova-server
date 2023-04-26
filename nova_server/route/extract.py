@@ -13,7 +13,7 @@ from flask import current_app
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
 from pathlib import Path, PureWindowsPath
-from nova_utils.db_utils.nova_types import DataTypes, AnnoTypes
+from nova_utils.db_utils.nova_types import DataTypes
 from nova_utils.ssi_utils.ssi_xml_utils import Chain, ChainLink
 from nova_utils.ssi_utils.ssi_stream_utils import Stream, Chunk, FileTypes, NPDataTypes
 from importlib.machinery import SourceFileLoader
@@ -21,6 +21,7 @@ from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
     HcaiNovaDynamicIterable,
 )
 from soundfile import write
+from nova_server.utils import db_utils
 
 
 extract = Blueprint("extract", __name__)
@@ -171,22 +172,29 @@ def extract_data(request_form, app_context):
                 stream_dict = extractor.to_stream(data)
                 logger.info("...done")
 
-                # Write to disk
+                # Write to disk and add to database
                 if not stream_dict:
                     raise ValueError("Stream data is none")
                 else:
-                    logger.info("Write data to disk...")
+                    logger.info("Write...")
+
                     for stream_id, (data_type, sr, data) in stream_dict.items():
 
-                        suffix = request_form.get("suffix", default='')
-                        out_path = Path(ds_iter.nova_data_dir) / ds_iter.dataset / ds_iter.sessions[0] / stream_id + '_' + suffix
+                        suffix = request_form.get("suffix", "")
+                        stream_id_sfx = stream_id + "_" + suffix if suffix else stream_id
+                        out_path = (
+                            Path(ds_iter.nova_data_dir)
+                            / ds_iter.dataset
+                            / ds_iter.sessions[0]
+                            / stream_id_sfx
+                        )
 
-                        logger.info(f"- {out_path}")
+                        logger.info(f"\t - {out_path}")
 
                         # SSI-Stream
                         if data_type == DataTypes.FEATURE:
                             ftype = FileTypes.BINARY
-                            sr = int(sr)
+                            sr = sr
                             dim = data.shape[-1] if len(data.shape) > 1 else 1
                             dtype = NPDataTypes(type(data.dtype).type)
                             chunks = [
@@ -203,18 +211,31 @@ def extract_data(request_form, app_context):
                             )
 
                             ssi_stream.save(out_path)
+                            # TODO: Add dimlabels from stream
+                            db_utils.write_stream_info_to_db(
+                                request_form = request_form,
+                                file_name = stream_id_sfx,
+                                file_ext = '.stream',
+                                stream_type = 'feature',
+                                is_valid = True,
+                                sr = sr,
+                                dimlables = []
+                            )
 
                         # Audio Data
                         elif data_type == DataTypes.AUDIO:
-                            out_path = out_path.parent / (out_path.name + '.wav')
+                            out_path = out_path.parent / (out_path.name + ".wav")
                             write(file=out_path, data=data, samplerate=sr)
+
                         # Video Data
                         elif data_type == DataTypes.VIDEO:
                             raise NotImplementedError()
+                        else:
+                            raise NotImplementedError(f"{data_type} is not supported.")
 
-                        # Annotations
-                        elif data_type in AnnoTypes:
-                            raise NotImplementedError()
+
+
+
                     logger.info("...done")
 
         logger.info("Extraction completed!")

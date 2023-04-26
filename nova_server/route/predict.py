@@ -1,6 +1,5 @@
 """This file contains the general logic for predicting annotations to the nova database"""
 import copy
-import os
 from pathlib import Path, PureWindowsPath
 from nova_server.utils import db_utils
 from flask import Blueprint, request, jsonify
@@ -157,6 +156,7 @@ def predict_data(request_form, app_context):
         logger.info("...done")
 
         logger.info("Saving predictions to database...")
+
         # TODO: Refactor to not use request form in upload
         request_form_copy = copy.copy(request_form)
         request_form_copy['sessions'] = session

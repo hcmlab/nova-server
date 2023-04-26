@@ -30,6 +30,31 @@ def check_format(variable, logger):
         raise Exception(text)
 
 
+def write_stream_info_to_db(request_form: dict, file_name: str, file_ext: str, stream_type: str, is_valid: bool, sr: float, dimlables: list = None):
+    # TODO check if we really need to establish a new connection to the database
+    db_config_dict = {
+        'ip': request_form["server"].split(':')[0],
+        'port': int(request_form["server"].split(':')[1]),
+        'user': request_form["username"],
+        'password': request_form["password"]
+    }
+
+    db_handler = NovaDBHandler(db_config_dict=db_config_dict)
+    database = request_form['database']
+
+    db_handler.set_data_streams(
+        database= database,
+        file_name= file_name,
+        file_ext= file_ext,
+        stream_type= stream_type,
+        is_valid= is_valid,
+        sr= sr,
+        dimlabels= dimlables
+    )
+
+
+
+
 def write_annotation_to_db(request_form, results: dict, logger):
     global database, scheme, session, annotator, roles
     check_format(results, logger)
