@@ -351,24 +351,6 @@
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.get_info_hook">
-<span class="sig-name descname"><span class="pre">get_info_hook</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#AudioData.get_info_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.get_info_hook" title="Permalink to this definition"></a></dt>
-<dd><p>Returns the features for this datastream to create the DatasetInfo for tensorflow</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.get_sample_hook">
-<span class="sig-name descname"><span class="pre">get_sample_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frame_start_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_end_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#AudioData.get_sample_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.get_sample_hook" title="Permalink to this definition"></a></dt>
-<dd><p>Returns a data chunk from start frame to end frame</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.open_file_reader_hook">
-<span class="sig-name descname"><span class="pre">open_file_reader_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#AudioData.open_file_reader_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.open_file_reader_hook" title="Permalink to this definition"></a></dt>
-<dd><p>Opens a filereader for the respective datastream. Sets attributes self.file_reader and self.dur</p>
-</dd></dl>
-
-<dl class="py method">
 <dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.populate_meta_info">
 <span class="sig-name descname"><span class="pre">populate_meta_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#AudioData.populate_meta_info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.populate_meta_info" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
@@ -382,7 +364,7 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.</span></span><span class="sig-name descname"><span class="pre">Data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">role</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_ext</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'stream'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../nova-utils/nova_utils.db_utils.html#nova_utils.db_utils.nova_types.DataTypes" title="nova_utils.db_utils.nova_types.DataTypes"><span class="pre">DataTypes</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_valid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_data_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lazy_loading</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_samples_per_window</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#Data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.</span></span><span class="sig-name descname"><span class="pre">Data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">role</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_ext</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'stream'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../nova-utils/nova_utils.db_utils.html#nova_utils.db_utils.nova_types.DataTypes" title="nova_utils.db_utils.nova_types.DataTypes"><span class="pre">DataTypes</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">is_valid</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_data_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lazy_loading</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#Data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.close_file_reader">
@@ -401,21 +383,9 @@
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.get_info_hook">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_info_hook</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#Data.get_info_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.get_info_hook" title="Permalink to this definition"></a></dt>
-<dd><p>Returns the features for this datastream to create the DatasetInfo for tensorflow</p>
-</dd></dl>
-
-<dl class="py method">
 <dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.get_sample">
 <span class="sig-name descname"><span class="pre">get_sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frame_start_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_end_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#Data.get_sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.get_sample" title="Permalink to this definition"></a></dt>
 <dd><p>Returns the sample for the respective frames. If lazy loading is true, only the filepath and frame_start, frame_end will be returned.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.get_sample_hook">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_sample_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_frame</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_frame</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#Data.get_sample_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.get_sample_hook" title="Permalink to this definition"></a></dt>
-<dd><p>Returns a data chunk from start frame to end frame</p>
 </dd></dl>
 
 <dl class="py method">
@@ -432,12 +402,6 @@
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.open_file_reader_hook">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">open_file_reader_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#Data.open_file_reader_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.open_file_reader_hook" title="Permalink to this definition"></a></dt>
-<dd><p>Opens a filereader for the respective datastream. Sets attributes self.file_reader and self.dur</p>
-</dd></dl>
-
-<dl class="py method">
 <dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.populate_meta_info">
 <em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">populate_meta_info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#Data.populate_meta_info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.populate_meta_info" title="Permalink to this definition"></a></dt>
 <dd><p>Opens a data sample from the provided path to extract additional data that is not in the database</p>
@@ -447,30 +411,12 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.</span></span><span class="sig-name descname"><span class="pre">StreamData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#StreamData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.</span></span><span class="sig-name descname"><span class="pre">StreamData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">object</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#StreamData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data" title="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data"><code class="xref py py-class docutils literal notranslate"><span class="pre">Data</span></code></a></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.close_file_reader">
 <span class="sig-name descname"><span class="pre">close_file_reader</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#StreamData.close_file_reader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.close_file_reader" title="Permalink to this definition"></a></dt>
 <dd><p>Closes a filereader for the respective datastream</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.get_info_hook">
-<span class="sig-name descname"><span class="pre">get_info_hook</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#StreamData.get_info_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.get_info_hook" title="Permalink to this definition"></a></dt>
-<dd><p>Returns the features for this datastream to create the DatasetInfo for tensorflow</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.get_sample_hook">
-<span class="sig-name descname"><span class="pre">get_sample_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frame_start_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_end_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#StreamData.get_sample_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.get_sample_hook" title="Permalink to this definition"></a></dt>
-<dd><p>Returns a data chunk from start frame to end frame</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.open_file_reader_hook">
-<span class="sig-name descname"><span class="pre">open_file_reader_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bool</span></span></span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#StreamData.open_file_reader_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.open_file_reader_hook" title="Permalink to this definition"></a></dt>
-<dd><p>Opens a filereader for the respective datastream. Sets attributes self.file_reader and self.dur</p>
 </dd></dl>
 
 <dl class="py method">
@@ -483,30 +429,12 @@
 
 <dl class="py class">
 <dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.</span></span><span class="sig-name descname"><span class="pre">VideoData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#VideoData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.</span></span><span class="sig-name descname"><span class="pre">VideoData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">object</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#VideoData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data" title="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data"><code class="xref py py-class docutils literal notranslate"><span class="pre">Data</span></code></a></p>
 <dl class="py method">
 <dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.close_file_reader">
 <span class="sig-name descname"><span class="pre">close_file_reader</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#VideoData.close_file_reader"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.close_file_reader" title="Permalink to this definition"></a></dt>
 <dd><p>Closes a filereader for the respective datastream</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.get_info_hook">
-<span class="sig-name descname"><span class="pre">get_info_hook</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#VideoData.get_info_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.get_info_hook" title="Permalink to this definition"></a></dt>
-<dd><p>Returns the features for this datastream to create the DatasetInfo for tensorflow</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.get_sample_hook">
-<span class="sig-name descname"><span class="pre">get_sample_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frame_start_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_end_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#VideoData.get_sample_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.get_sample_hook" title="Permalink to this definition"></a></dt>
-<dd><p>Returns a data chunk from start frame to end frame</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.open_file_reader_hook">
-<span class="sig-name descname"><span class="pre">open_file_reader_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#VideoData.open_file_reader_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.open_file_reader_hook" title="Permalink to this definition"></a></dt>
-<dd><p>Opens a filereader for the respective datastream. Sets attributes self.file_reader and self.dur</p>
 </dd></dl>
 
 <dl class="py method">
@@ -518,9 +446,22 @@
 </dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.milli_seconds_to_frame">
-<span class="sig-prename descclassname"><span class="pre">hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.</span></span><span class="sig-name descname"><span class="pre">milli_seconds_to_frame</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#milli_seconds_to_frame"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.milli_seconds_to_frame" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.milli_seconds_to_sample_nr">
+<span class="sig-prename descclassname"><span class="pre">hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.</span></span><span class="sig-name descname"><span class="pre">milli_seconds_to_sample_nr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#milli_seconds_to_sample_nr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.milli_seconds_to_sample_nr" title="Permalink to this definition"></a></dt>
+<dd><p>Calculates the specific sample number in a data stream that corresponds to a given time
+:param sr: The sample rate of the data stream
+:type sr: float
+:param time_ms: The timestamp of the sample in milliseconds
+:type time_ms: int</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Unrounded index of the sample in the stream for a given time</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.parse_time_string_to_ms">
@@ -528,9 +469,42 @@
 <dd></dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.seconds_to_frame">
-<span class="sig-prename descclassname"><span class="pre">hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.</span></span><span class="sig-name descname"><span class="pre">seconds_to_frame</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#seconds_to_frame"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.seconds_to_frame" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.sample_window_from_interval">
+<span class="sig-prename descclassname"><span class="pre">hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.</span></span><span class="sig-name descname"><span class="pre">sample_window_from_interval</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start_time_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_time_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#sample_window_from_interval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.sample_window_from_interval" title="Permalink to this definition"></a></dt>
+<dd><p>Calculates the start and end sample number of a sliding window.
+:param start_time_ms: Start time of the window in milliseconds
+:type start_time_ms: int
+:param end_time_ms: End time of the window in milliseconds
+:type end_time_ms: int
+:param sr: Sample rate of the data stream
+:type sr: float</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>First and last sample number of the window</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>tuple[int, int]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.seconds_to_sample_nr">
+<span class="sig-prename descclassname"><span class="pre">hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.</span></span><span class="sig-name descname"><span class="pre">seconds_to_sample_nr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time_s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="../_modules/hcai_datasets/hcai_nova_dynamic/utils/nova_data_utils.html#seconds_to_sample_nr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.seconds_to_sample_nr" title="Permalink to this definition"></a></dt>
+<dd><p>Calculates the specific sample number in a data stream that corresponds to a given time
+:param sr: The sample rate of the data stream
+:type sr: float
+:param time_s: The timestamp of the sample in seconds
+:type time_s: float</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Unrounded index of the sample in the stream for a given time</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
 
 </section>
 <section id="module-hcai_datasets.hcai_nova_dynamic.utils.nova_string_utils">

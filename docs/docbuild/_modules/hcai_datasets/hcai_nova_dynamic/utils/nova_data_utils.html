@@ -76,7 +76,9 @@
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">import</span> <span class="nn">errno</span>
+<span class="kn">import</span> <span class="nn">math</span>
 
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">nova_utils.db_utils</span> <span class="kn">import</span> <span class="n">nova_types</span> <span class="k">as</span> <span class="n">nt</span>
 <span class="kn">from</span> <span class="nn">nova_utils.ssi_utils.ssi_stream_utils</span> <span class="kn">import</span> <span class="n">Stream</span>
 <span class="kn">from</span> <span class="nn">hcai_datasets.hcai_nova_dynamic.utils.nova_string_utils</span> <span class="kn">import</span> <span class="p">(</span>
@@ -97,19 +99,18 @@
         <span class="n">is_valid</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">sample_data_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
         <span class="n">lazy_loading</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="n">n_samples_per_window</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-
+<span class="sd">        Abstract base class for all data types</span>
 <span class="sd">        Args:</span>
-<span class="sd">            role ():</span>
-<span class="sd">            name ():</span>
-<span class="sd">            file_ext ():</span>
-<span class="sd">            sr ():</span>
-<span class="sd">            data_type ():</span>
-<span class="sd">            is_valid ():</span>
-<span class="sd">            sample_data_path ():</span>
-<span class="sd">            lazy_loading ():</span>
+<span class="sd">            role (str): Role to which the datastream belongs</span>
+<span class="sd">            name (str): Filename of the datastream without the role</span>
+<span class="sd">            file_ext (str): File extension of the datastream</span>
+<span class="sd">            sr (int): Samplerate of the datastream</span>
+<span class="sd">            data_type (DataTypes): Type of the datastream as specified in the nova_utils package under db_utils.nova_types.novDataTypes</span>
+<span class="sd">            is_valid (bool): Whether the datastream is valid or not</span>
+<span class="sd">            sample_data_path (str): A path to an example data file from which all meta information that is not saved in the Nova database can be read</span>
+<span class="sd">            lazy_loading (bool): If set to true only the respective timestamps and filenames will be returned for each window. Not the actual data.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">role</span> <span class="o">=</span> <span class="n">role</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
@@ -123,7 +124,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">sample_data_shape</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">np_data_type</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">meta_loaded</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">n_frames_per_window</span> <span class="o">=</span> <span class="n">n_samples_per_window</span>
+        <span class="c1"># self.n_frames_per_window = n_samples_per_window</span>
 
         <span class="c1"># Set when open_file_reader is called</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">file_path</span> <span class="o">=</span> <span class="kc">None</span>
@@ -157,7 +158,7 @@
                     <span class="s2">&quot;frame_end&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;dtype&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">)},</span>
                     <span class="s2">&quot;file_path&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;dtype&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">str</span><span class="p">,</span> <span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="p">(</span><span class="kc">None</span><span class="p">,)},</span>
                 <span class="p">}</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_info_hook</span><span class="p">()</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_info_hook</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span>
                 <span class="s2">&quot;Meta data has not been loaded for file </span><span class="si">{}</span><span class="s2">. Call get_meta_info() first.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
@@ -171,9 +172,9 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_reader</span><span class="p">:</span>
-            <span class="n">start_frame</span> <span class="o">=</span> <span class="n">milli_seconds_to_frame</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sr</span><span class="p">,</span> <span class="n">frame_start_ms</span><span class="p">)</span>
-            <span class="n">end_frame</span> <span class="o">=</span> <span class="n">milli_seconds_to_frame</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sr</span><span class="p">,</span> <span class="n">frame_end_ms</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_data_shape</span> <span class="o">+</span> <span class="p">(</span><span class="n">end_frame</span> <span class="o">-</span> <span class="n">start_frame</span><span class="p">,</span> <span class="p">))</span>
+            <span class="n">start_frame</span> <span class="o">=</span> <span class="n">milli_seconds_to_sample_nr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sr</span><span class="p">,</span> <span class="n">frame_start_ms</span><span class="p">)</span>
+            <span class="n">end_frame</span> <span class="o">=</span> <span class="n">milli_seconds_to_sample_nr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sr</span><span class="p">,</span> <span class="n">frame_end_ms</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_data_shape</span> <span class="o">+</span> <span class="p">(</span><span class="n">end_frame</span> <span class="o">-</span> <span class="n">start_frame</span><span class="p">,))</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">lazy_loading</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">{</span>
                 <span class="s2">&quot;frame_start&quot;</span><span class="p">:</span> <span class="n">frame_start_ms</span><span class="p">,</span>
@@ -181,7 +182,7 @@
                 <span class="s2">&quot;file_path&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_path</span><span class="p">,</span>
             <span class="p">}</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_sample_hook</span><span class="p">(</span><span class="n">frame_start_ms</span><span class="p">,</span> <span class="n">frame_end_ms</span><span class="p">)</span></div>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_sample_hook</span><span class="p">(</span><span class="n">frame_start_ms</span><span class="p">,</span> <span class="n">frame_end_ms</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Data.open_file_reader"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.open_file_reader">[docs]</a>    <span class="k">def</span> <span class="nf">open_file_reader</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -195,28 +196,28 @@
             <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="n">errno</span><span class="o">.</span><span class="n">ENOENT</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">strerror</span><span class="p">(</span><span class="n">errno</span><span class="o">.</span><span class="n">ENOENT</span><span class="p">),</span> <span class="n">path</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">meta_loaded</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">populate_meta_info</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">open_file_reader_hook</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_open_file_reader_hook</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Data.get_info_hook"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.get_info_hook">[docs]</a>    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">get_info_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_get_info_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns the features for this datastream to create the DatasetInfo for tensorflow</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="o">...</span></div>
+        <span class="o">...</span>
 
-<div class="viewcode-block" id="Data.get_sample_hook"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.get_sample_hook">[docs]</a>    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">get_sample_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">start_frame</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">end_frame</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_get_sample_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">window_start_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">window_end_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Returns a data chunk from start frame to end frame</span>
+<span class="sd">        Returns a data chunk from window start to window end. The window is automatically adjusted to always provide the same number of data samples.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="o">...</span></div>
+        <span class="o">...</span>
 
-<div class="viewcode-block" id="Data.open_file_reader_hook"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.open_file_reader_hook">[docs]</a>    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">open_file_reader_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">_open_file_reader_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Opens a filereader for the respective datastream. Sets attributes self.file_reader and self.dur</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="o">...</span></div>
+        <span class="o">...</span>
 
 <div class="viewcode-block" id="Data.populate_meta_info"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.Data.populate_meta_info">[docs]</a>    <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">populate_meta_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
@@ -235,28 +236,34 @@
 
 <div class="viewcode-block" id="AudioData"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData">[docs]</a><span class="k">class</span> <span class="nc">AudioData</span><span class="p">(</span><span class="n">Data</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            **kwargs ():</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
         <span class="c1"># Overwrite default</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sample_data_shape</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sample_data_shape</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)</span>
 
-<div class="viewcode-block" id="AudioData.get_info_hook"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.get_info_hook">[docs]</a>    <span class="k">def</span> <span class="nf">get_info_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_get_info_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">merge_role_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="p">{</span>
             <span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_data_shape</span><span class="p">,</span>
             <span class="s2">&quot;dtype&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
-        <span class="p">}</span></div>
+        <span class="p">}</span>
 
-<div class="viewcode-block" id="AudioData.get_sample_hook"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.get_sample_hook">[docs]</a>    <span class="k">def</span> <span class="nf">get_sample_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame_start_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">frame_end_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
-        <span class="n">start_frame</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">frame_start_ms</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sr</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span>
-        <span class="n">end_frame</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">frame_end_ms</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sr</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_get_sample_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">window_start_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">window_end_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="n">windows_start_sample</span><span class="p">,</span> <span class="n">window_end_sample</span> <span class="o">=</span> <span class="n">sample_window_from_interval</span><span class="p">(</span>
+            <span class="n">window_start_ms</span><span class="p">,</span> <span class="n">window_end_ms</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sr</span>
+        <span class="p">)</span>
         <span class="n">chunk</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_reader</span><span class="o">.</span><span class="n">get_batch</span><span class="p">(</span>
-            <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">start_frame</span><span class="p">,</span> <span class="n">end_frame</span><span class="p">))</span>
+            <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">windows_start_sample</span><span class="p">,</span> <span class="n">window_end_sample</span><span class="p">))</span>
         <span class="p">)</span><span class="o">.</span><span class="n">asnumpy</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">chunk</span></div>
+        <span class="k">return</span> <span class="n">chunk</span>
 
-<div class="viewcode-block" id="AudioData.open_file_reader_hook"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.open_file_reader_hook">[docs]</a>    <span class="k">def</span> <span class="nf">open_file_reader_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_open_file_reader_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">file_reader</span> <span class="o">=</span> <span class="n">AudioReader</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">cpu</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">mono</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">dur</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_reader</span><span class="o">.</span><span class="n">duration</span><span class="p">()</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dur</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_reader</span><span class="o">.</span><span class="n">duration</span><span class="p">()</span>
 
 <div class="viewcode-block" id="AudioData.populate_meta_info"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.AudioData.populate_meta_info">[docs]</a>    <span class="k">def</span> <span class="nf">populate_meta_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -275,32 +282,37 @@
 
 
 <div class="viewcode-block" id="VideoData"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData">[docs]</a><span class="k">class</span> <span class="nc">VideoData</span><span class="p">(</span><span class="n">Data</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            **kwargs ():</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
         <span class="c1"># Overwrite default</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">sample_data_shape</span> <span class="o">=</span> <span class="p">(</span><span class="mi">480</span><span class="p">,</span> <span class="mi">640</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="VideoData.get_info_hook"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.get_info_hook">[docs]</a>    <span class="k">def</span> <span class="nf">get_info_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_get_info_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">merge_role_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="p">{</span>
             <span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_data_shape</span><span class="p">,</span>
             <span class="s2">&quot;dtype&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
-        <span class="p">}</span></div>
+        <span class="p">}</span>
 
-<div class="viewcode-block" id="VideoData.get_sample_hook"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.get_sample_hook">[docs]</a>    <span class="k">def</span> <span class="nf">get_sample_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame_start_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">frame_end_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
-        <span class="n">start_frame</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">frame_start_ms</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sr</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span>
-        <span class="n">end_frame</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">frame_end_ms</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">sr</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">_get_sample_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">window_start_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">window_end_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="n">windows_start_sample</span><span class="p">,</span> <span class="n">window_end_sample</span> <span class="o">=</span> <span class="n">sample_window_from_interval</span><span class="p">(</span>
+            <span class="n">window_start_ms</span><span class="p">,</span> <span class="n">window_end_ms</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sr</span>
+        <span class="p">)</span>
         <span class="n">chunk</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_reader</span><span class="o">.</span><span class="n">get_batch</span><span class="p">(</span>
-            <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">start_frame</span><span class="p">,</span> <span class="n">end_frame</span><span class="p">))</span>
+            <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">windows_start_sample</span><span class="p">,</span> <span class="n">window_end_sample</span><span class="p">))</span>
         <span class="p">)</span><span class="o">.</span><span class="n">asnumpy</span><span class="p">()</span>
-        <span class="k">return</span> <span class="n">chunk</span></div>
+        <span class="k">return</span> <span class="n">chunk</span>
 
-<div class="viewcode-block" id="VideoData.open_file_reader_hook"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.open_file_reader_hook">[docs]</a>    <span class="k">def</span> <span class="nf">open_file_reader_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_open_file_reader_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">file_reader</span> <span class="o">=</span> <span class="n">VideoReader</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">ctx</span><span class="o">=</span><span class="n">cpu</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
         <span class="n">fps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_reader</span><span class="o">.</span><span class="n">get_avg_fps</span><span class="p">()</span>
         <span class="n">frame_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">file_reader</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">dur</span> <span class="o">=</span> <span class="n">frame_count</span> <span class="o">/</span> <span class="n">fps</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dur</span> <span class="o">=</span> <span class="n">frame_count</span> <span class="o">/</span> <span class="n">fps</span>
 
 <div class="viewcode-block" id="VideoData.populate_meta_info"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.VideoData.populate_meta_info">[docs]</a>    <span class="k">def</span> <span class="nf">populate_meta_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
         <span class="n">file_reader</span> <span class="o">=</span> <span class="n">VideoReader</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
@@ -312,40 +324,38 @@
 
 
 <div class="viewcode-block" id="StreamData"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData">[docs]</a><span class="k">class</span> <span class="nc">StreamData</span><span class="p">(</span><span class="n">Data</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="nb">object</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            **kwargs ():</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="c1"># Overwrite default</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sample_data_shape</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sample_data_shape</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,)</span>
 
-
-<div class="viewcode-block" id="StreamData.get_info_hook"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.get_info_hook">[docs]</a>    <span class="k">def</span> <span class="nf">get_info_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_get_info_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">merge_role_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="p">{</span>
             <span class="s2">&quot;shape&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_data_shape</span><span class="p">,</span>
             <span class="s2">&quot;dtype&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">np_data_type</span><span class="p">,</span>
-        <span class="p">}</span></div>
+        <span class="p">}</span>
 
-<div class="viewcode-block" id="StreamData.get_sample_hook"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.get_sample_hook">[docs]</a>    <span class="k">def</span> <span class="nf">get_sample_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frame_start_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">frame_end_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_get_sample_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">window_start_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">window_end_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">data_stream_opend</span><span class="p">()</span>
-            <span class="n">start_frame</span> <span class="o">=</span> <span class="n">milli_seconds_to_frame</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sr</span><span class="p">,</span> <span class="n">frame_start_ms</span><span class="p">)</span>
-            <span class="n">end_frame</span> <span class="o">=</span> <span class="n">milli_seconds_to_frame</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">sr</span><span class="p">,</span> <span class="n">frame_end_ms</span><span class="p">)</span>
+            <span class="n">windows_start_sample</span><span class="p">,</span> <span class="n">window_end_sample</span> <span class="o">=</span> <span class="n">sample_window_from_interval</span><span class="p">(</span>
+                <span class="n">window_start_ms</span><span class="p">,</span> <span class="n">window_end_ms</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sr</span>
+            <span class="p">)</span>
 
-            <span class="c1"># rounding error</span>
-            <span class="c1">#if start_frame == end_frame:</span>
-            <span class="c1">#    end_frame += 1</span>
-            <span class="c1">#elif end_frame - start_frame &gt; 1:</span>
-
-
-
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_reader</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">start_frame</span><span class="p">:</span><span class="n">end_frame</span><span class="p">]</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">file_reader</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">windows_start_sample</span><span class="p">:</span><span class="n">window_end_sample</span><span class="p">]</span>
         <span class="k">except</span> <span class="ne">RuntimeError</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span>
                 <span class="s2">&quot;Could not get chunk </span><span class="si">{}</span><span class="s2">-</span><span class="si">{}</span><span class="s2"> from data stream </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-                    <span class="n">frame_start_ms</span><span class="p">,</span> <span class="n">frame_end_ms</span><span class="p">,</span> <span class="n">merge_role_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+                    <span class="n">window_start_ms</span><span class="p">,</span> <span class="n">window_end_ms</span><span class="p">,</span> <span class="n">merge_role_key</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
                 <span class="p">)</span>
-            <span class="p">)</span></div>
+            <span class="p">)</span>
 
-<div class="viewcode-block" id="StreamData.open_file_reader_hook"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.open_file_reader_hook">[docs]</a>    <span class="k">def</span> <span class="nf">open_file_reader_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_open_file_reader_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="n">stream</span> <span class="o">=</span> <span class="n">Stream</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">path</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">stream</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">file_reader</span> <span class="o">=</span> <span class="n">stream</span>
@@ -353,7 +363,7 @@
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Could not open Stream </span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">str</span><span class="p">))</span>
-            <span class="k">return</span> <span class="kc">False</span></div>
+            <span class="k">return</span> <span class="kc">False</span>
 
 <div class="viewcode-block" id="StreamData.close_file_reader"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.StreamData.close_file_reader">[docs]</a>    <span class="k">def</span> <span class="nf">close_file_reader</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="kc">True</span></div>
@@ -371,17 +381,73 @@
 <span class="c1">##########################</span>
 
 
-<span class="c1">#def frame_to_seconds(sr: int, frame: int) -&gt; float:</span>
+<span class="c1"># def frame_to_seconds(sr: int, frame: int) -&gt; float:</span>
 <span class="c1">#    return frame / sr</span>
 
 
-<div class="viewcode-block" id="seconds_to_frame"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.seconds_to_frame">[docs]</a><span class="k">def</span> <span class="nf">seconds_to_frame</span><span class="p">(</span><span class="n">sr</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">time_s</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-    <span class="k">return</span> <span class="nb">round</span><span class="p">(</span><span class="n">time_s</span> <span class="o">*</span> <span class="n">sr</span><span class="p">)</span></div>
+<div class="viewcode-block" id="seconds_to_sample_nr"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.seconds_to_sample_nr">[docs]</a><span class="k">def</span> <span class="nf">seconds_to_sample_nr</span><span class="p">(</span><span class="n">time_s</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">sr</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculates the specific sample number in a data stream that corresponds to a given time</span>
+<span class="sd">    Args:</span>
+<span class="sd">        sr (float): The sample rate of the data stream</span>
+<span class="sd">        time_s (float): The timestamp of the sample in seconds</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        float: Unrounded index of the sample in the stream for a given time</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">time_s</span> <span class="o">*</span> <span class="n">sr</span></div>
 
 
-<div class="viewcode-block" id="milli_seconds_to_frame"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.milli_seconds_to_frame">[docs]</a><span class="k">def</span> <span class="nf">milli_seconds_to_frame</span><span class="p">(</span><span class="n">sr</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">time_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-    <span class="k">return</span> <span class="n">seconds_to_frame</span><span class="p">(</span><span class="n">sr</span><span class="o">=</span><span class="n">sr</span><span class="p">,</span> <span class="n">time_s</span><span class="o">=</span><span class="n">time_ms</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span></div>
+<div class="viewcode-block" id="milli_seconds_to_sample_nr"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.milli_seconds_to_sample_nr">[docs]</a><span class="k">def</span> <span class="nf">milli_seconds_to_sample_nr</span><span class="p">(</span><span class="n">time_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">sr</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculates the specific sample number in a data stream that corresponds to a given time</span>
+<span class="sd">    Args:</span>
+<span class="sd">        sr (float): The sample rate of the data stream</span>
+<span class="sd">        time_ms (int): The timestamp of the sample in milliseconds</span>
 
+<span class="sd">    Returns:</span>
+<span class="sd">        float: Unrounded index of the sample in the stream for a given time</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">seconds_to_sample_nr</span><span class="p">(</span><span class="n">sr</span><span class="o">=</span><span class="n">sr</span><span class="p">,</span> <span class="n">time_s</span><span class="o">=</span><span class="n">time_ms</span> <span class="o">/</span> <span class="mf">1000.0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="sample_window_from_interval"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.sample_window_from_interval">[docs]</a><span class="k">def</span> <span class="nf">sample_window_from_interval</span><span class="p">(</span>
+    <span class="n">start_time_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">end_time_ms</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">sr</span><span class="p">:</span> <span class="nb">float</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculates the start and end sample number of a sliding window.</span>
+<span class="sd">    Args:</span>
+<span class="sd">        start_time_ms (int): Start time of the window in milliseconds</span>
+<span class="sd">        end_time_ms (int): End time of the window in milliseconds</span>
+<span class="sd">        sr (float): Sample rate of the data stream</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple[int, int]: First and last sample number of the window</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Get unrounded sample numbers</span>
+    <span class="n">start_sample_nr</span> <span class="o">=</span> <span class="n">milli_seconds_to_sample_nr</span><span class="p">(</span><span class="n">start_time_ms</span><span class="p">,</span> <span class="n">sr</span><span class="p">)</span>
+    <span class="n">end_sample_nr</span> <span class="o">=</span> <span class="n">milli_seconds_to_sample_nr</span><span class="p">(</span><span class="n">end_time_ms</span><span class="p">,</span> <span class="n">sr</span><span class="p">)</span>
+
+    <span class="c1"># Rounding start and end to include maximum information</span>
+    <span class="n">start_sample_nr</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">start_sample_nr</span><span class="p">)</span>
+    <span class="n">end_sample_nr</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">end_sample_nr</span><span class="p">)</span>
+
+    <span class="c1"># Assert number of samples in window</span>
+    <span class="n">expected_number_of_samples</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(((</span><span class="n">end_time_ms</span> <span class="o">-</span> <span class="n">start_time_ms</span><span class="p">)</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span> <span class="o">*</span> <span class="n">sr</span><span class="p">)</span>
+    <span class="n">number_of_samples</span> <span class="o">=</span> <span class="n">end_sample_nr</span> <span class="o">-</span> <span class="n">start_sample_nr</span>
+    <span class="n">sample_diff</span> <span class="o">=</span> <span class="n">number_of_samples</span> <span class="o">-</span> <span class="n">expected_number_of_samples</span>
+
+    <span class="c1"># Fewer then expected samples: We pad with samples from the past</span>
+    <span class="c1"># More samples than expected: We cut samples from the beginning</span>
+    <span class="n">start_sample_nr</span> <span class="o">+=</span> <span class="n">sample_diff</span>
+
+    <span class="k">assert</span> <span class="n">expected_number_of_samples</span> <span class="o">==</span> <span class="n">end_sample_nr</span> <span class="o">-</span> <span class="n">start_sample_nr</span>
+
+    <span class="k">return</span> <span class="n">start_sample_nr</span><span class="p">,</span> <span class="n">end_sample_nr</span></div>
 
 
 <div class="viewcode-block" id="parse_time_string_to_ms"><a class="viewcode-back" href="../../../../hcai-datasets/hcai_datasets.hcai_nova_dynamic.utils.html#hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils.parse_time_string_to_ms">[docs]</a><span class="k">def</span> <span class="nf">parse_time_string_to_ms</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
