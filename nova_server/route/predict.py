@@ -154,7 +154,8 @@ def predict_data(request_form, app_context):
 
         # TODO: Refactor to not use request form in upload
         request_form_copy = copy.copy(request_form)
-        request_form_copy['sessions'] = session
+        assert len(ss_ds_iter.sessions) == 1
+        request_form_copy['sessions'] = ss_ds_iter.sessions[0]
         db_utils.write_annotation_to_db(request_form_copy, annos, logger)
         logger.info("...done")
 
