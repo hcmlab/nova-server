@@ -49,8 +49,6 @@ def predict_data(request_form, app_context):
 
     logger.info("Action 'Predict' started.")
     status_utils.update_status(key, status_utils.JobStatus.RUNNING)
-    sessions = request_form["sessions"].split(";")
-    roles = request_form["roles"].split(";")
     trainer_file_path = Path(cml_dir).joinpath(
         PureWindowsPath(request_form["trainerFilePath"])
     )
@@ -69,9 +67,6 @@ def predict_data(request_form, app_context):
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return None
 
-    # TODO: Integrate multi_role_input attribute in xml trainer files
-    multi_role_input = True
-
     # Load data
     try:
         update_progress(key, "Data loading")
@@ -80,7 +75,7 @@ def predict_data(request_form, app_context):
         iterators = []
         for session in sessions:
             request_form["sessions"] = session
-            if multi_role_input:
+            if trainer.model_multi_role_input:
                 request_form["roles"] = ";".join(roles)
                 iterators.append(
                     dataset_utils.dataset_from_request_form(request_form, data_dir)
@@ -102,7 +97,7 @@ def predict_data(request_form, app_context):
 
 
     # Load Trainer
-    model_script_path = trainer_file_path.parent / trainer.model_script_path
+    model_script_path = (trainer_file_path.parent / PureWindowsPath(trainer.model_script_path)).resolve()
     source = SourceFileLoader(
         "ns_tr_" + model_script_path.stem, str(model_script_path)
     ).load_module()
