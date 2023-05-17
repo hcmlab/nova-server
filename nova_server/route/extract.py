@@ -21,6 +21,8 @@ from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
     HcaiNovaDynamicIterable,
 )
 from soundfile import write
+import ffmpegio
+import numpy as np
 from nova_server.utils import db_utils
 
 
@@ -182,6 +184,7 @@ def extract_data(request_form, app_context):
 
                         suffix = request_form.get("suffix", "")
                         stream_id_sfx = stream_id + "_" + suffix if suffix else stream_id
+                        file_name_db = '.'.join(stream_id_sfx.split('.')[1:])
                         out_path = (
                             Path(ds_iter.nova_data_dir)
                             / ds_iter.dataset
@@ -193,6 +196,7 @@ def extract_data(request_form, app_context):
 
                         # SSI-Stream
                         if data_type == DataTypes.FEATURE:
+                            file_ex = '.stream'
                             ftype = FileTypes.BINARY
                             sr = sr
                             dim = data.shape[-1] if len(data.shape) > 1 else 1
@@ -209,32 +213,34 @@ def extract_data(request_form, app_context):
                                 data=data,
                                 chunks=chunks,
                             )
-
                             ssi_stream.save(out_path)
-                            # TODO: Add dimlabels from stream
-                            db_utils.write_stream_info_to_db(
-                                request_form = request_form,
-                                file_name = stream_id_sfx,
-                                file_ext = '.stream',
-                                stream_type = 'feature',
-                                is_valid = True,
-                                sr = sr,
-                                dimlables = []
-                            )
 
-                        # Audio Data
+                            # Audio Data
                         elif data_type == DataTypes.AUDIO:
-                            out_path = out_path.parent / (out_path.name + ".wav")
-                            write(file=out_path, data=data, samplerate=sr)
+                            file_ex = '.wav'
+                            out_path = out_path.parent / (out_path.name + file_ex)
+                            ffmpegio.audio.write(out_path, int(sr), np.swapaxes(np.hstack(data),0 , -1), overwrite=True)
 
                         # Video Data
                         elif data_type == DataTypes.VIDEO:
-                            raise NotImplementedError()
+                            file_ex = '.mp4'
+                            out_path = out_path.parent / (out_path.name + file_ex)
+                            ffmpegio.video.write(out_path, int(sr), np.vstack(data), overwrite=True)
                         else:
                             raise NotImplementedError(f"{data_type} is not supported.")
 
 
-
+                        # Add Stream info to Databases
+                        # TODO: Add dimlabels from stream
+                        db_utils.write_stream_info_to_db(
+                             request_form = request_form,
+                             file_name = file_name_db,
+                             file_ext = file_ex,
+                             stream_type = data_type.name.lower(),
+                             is_valid = True,
+                             sr = sr,
+                             dimlables = []
+                         )
 
                     logger.info("...done")
 
