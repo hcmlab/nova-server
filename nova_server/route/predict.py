@@ -95,7 +95,6 @@ def predict_data(request_form, app_context):
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         return None
 
-
     # Load Trainer
     model_script_path = (trainer_file_path.parent / PureWindowsPath(trainer.model_script_path)).resolve()
     source = SourceFileLoader(
@@ -108,28 +107,10 @@ def predict_data(request_form, app_context):
     trainer_class = getattr(source, trainer.model_create)
     predictor = trainer_class(logger, log_conform_request)
     logger.info(f"Model {trainer.model_create} created")
-    #model_script = source.TrainerClass(ds_iter, logger, request_form)
-
-    # Set Options
-    logger.info("Setting options...")
-    if not request_form["optStr"] == "":
-        for k, v in dict(
-            option.split("=")
-            for option in request_form["optStr"].split(";")
-        ).items():
-            if v in ("True", "False"):
-                predictor.OPTIONS[k] = True if v == "True" else False
-            elif v == "None":
-                predictor.OPTIONS[k] = True if v == "True" else False
-            else:
-                predictor.OPTIONS[k] = v
-            logger.info(k + "=" + v)
-    logger.info("...done.")
-
+    # model_script = source.TrainerClass(ds_iter, logger, request_form)
 
     # If the module implements the Trainer interface load weights
     if isinstance(predictor, iTrainer):
-
         # Load Model
         model_weight_path = (
                 trainer_file_path.parent / trainer.model_weights_path
@@ -141,7 +122,6 @@ def predict_data(request_form, app_context):
     # Iterate over all sessions
     ds_iter: HcaiNovaDynamicIterable
     for ds_iter in iterators:
-
         # TODO: Remove prior creation of separate iterators to reduce redundancy
         ss_ds_iter = ds_iter.to_single_session_iterator()
 
@@ -162,43 +142,40 @@ def predict_data(request_form, app_context):
     logger.info("Prediction completed!")
     status_utils.update_status(key, status_utils.JobStatus.FINISHED)
 
-        # model_script.ds_iter = ds_iter
-        # model_script.request_form["sessions"] = session
-        # model_script.request_form["roles"] = role
-        #
-        # logger.info("Execute preprocessing.")
-        # model_script.preprocess()
-        # logger.info("Preprocessing done.")
-        #
-        # logger.info("Execute prediction.")
-        # model_script.predict()
-        # logger.info("Prediction done.")
-        #
-        # logger.info("Execute postprocessing.")
-        # results = model_script.postprocess()
-        # logger.info("Postprocessing done.")
-        #
-        # logger.info("Execute saving process.")
-        # db_utils.write_annotation_to_db(request_form, results, logger)
-        # logger.info("Saving process done.")
+    # model_script.ds_iter = ds_iter
+    # model_script.request_form["sessions"] = session
+    # model_script.request_form["roles"] = role
+    #
+    # logger.info("Execute preprocessing.")
+    # model_script.preprocess()
+    # logger.info("Preprocessing done.")
+    #
+    # logger.info("Execute prediction.")
+    # model_script.predict()
+    # logger.info("Prediction done.")
+    #
+    # logger.info("Execute postprocessing.")
+    # results = model_script.postprocess()
+    # logger.info("Postprocessing done.")
+    #
+    # logger.info("Execute saving process.")
+    # db_utils.write_annotation_to_db(request_form, results, logger)
+    # logger.info("Saving process done.")
 
-        # 5. In CML case, delete temporary files..
-        # if request_form["deleteFiles"] == "True":
-        #     trainer_name = request_form["trainerName"]
-        #     logger.info("Deleting temporary CML files...")
-        #     out_dir = Path(cml_dir).joinpath(
-        #         PureWindowsPath(request_form["trainerOutputDirectory"])
-        #     )
-        #     os.remove(out_dir / trainer.model_weights_path)
-        #     os.remove(out_dir / trainer.model_script_path)
-        #     for f in model_script.DEPENDENCIES:
-        #         os.remove(trainer_file_path.parent / f)
-        #     trainer_fullname = trainer_name + ".trainer"
-        #     os.remove(out_dir / trainer_fullname)
-        #     logger.info("...done")
-
-
-
+    # 5. In CML case, delete temporary files..
+    # if request_form["deleteFiles"] == "True":
+    #     trainer_name = request_form["trainerName"]
+    #     logger.info("Deleting temporary CML files...")
+    #     out_dir = Path(cml_dir).joinpath(
+    #         PureWindowsPath(request_form["trainerOutputDirectory"])
+    #     )
+    #     os.remove(out_dir / trainer.model_weights_path)
+    #     os.remove(out_dir / trainer.model_script_path)
+    #     for f in model_script.DEPENDENCIES:
+    #         os.remove(trainer_file_path.parent / f)
+    #     trainer_fullname = trainer_name + ".trainer"
+    #     os.remove(out_dir / trainer_fullname)
+    #     logger.info("...done")
 
 # except Exception as e:
 # logger.error('Error:' + str(e))
