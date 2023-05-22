@@ -1,7 +1,7 @@
 # We follow Semantic Versioning (https://semver.org/)
 _MAJOR_VERSION = '0'
 _MINOR_VERSION = '1'
-_PATCH_VERSION = '5'
+_PATCH_VERSION = '6'
 
 __version__ = '.'.join([
     _MAJOR_VERSION,
