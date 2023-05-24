@@ -112,11 +112,11 @@ def write_freeform_to_db(request_form, results: dict, db_handler, logger):
         db_handler ():
         logger ():
 
-    Returns:
-
     """
+
     annotations = {}
     """Temp fix"""
+
     results.pop("values", None)
     results.pop("confidences", None)
 
