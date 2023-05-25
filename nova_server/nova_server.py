@@ -22,8 +22,7 @@ def create_app(template_folder):
     print("... done!")
     return app
 
-
-if __name__ == "__main__":
+def run_app():
     from waitress import serve
 
     parser = argparse.ArgumentParser(
@@ -85,3 +84,7 @@ if __name__ == "__main__":
     host = args.host
     port = args.port
     serve(app, host=host, port=port)
+
+
+if __name__ == "__main__":
+    run_app()
