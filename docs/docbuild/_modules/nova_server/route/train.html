@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>nova_server.route.train &mdash; Nova Server 0.1.3 documentation</title>
+      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
+        <script src="../../../_static/doctools.js"></script>
+        <script src="../../../_static/sphinx_highlight.js"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            Nova Server
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Nova Server:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova-server/modules.html">nova_server</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova-utils/modules.html">nova_utils</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/hcai-datasets/modules.html">hcai_nova_dynamic</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">Nova Server</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">nova_server.route.train</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for nova_server.route.train</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">imblearn</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">from</span> <span class="nn">importlib.machinery</span> <span class="kn">import</span> <span class="n">SourceFileLoader</span>
+
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Blueprint</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">jsonify</span>
+<span class="kn">from</span> <span class="nn">nova_server.utils</span> <span class="kn">import</span> <span class="n">dataset_utils</span><span class="p">,</span> <span class="n">thread_utils</span><span class="p">,</span> <span class="n">status_utils</span><span class="p">,</span> <span class="n">log_utils</span><span class="p">,</span> <span class="n">import_utils</span>
+<span class="kn">from</span> <span class="nn">nova_server.utils.status_utils</span> <span class="kn">import</span> <span class="n">update_progress</span>
+<span class="kn">from</span> <span class="nn">nova_server.utils.key_utils</span> <span class="kn">import</span> <span class="n">get_key_from_request_form</span>
+<span class="kn">from</span> <span class="nn">nova_server.utils.thread_utils</span> <span class="kn">import</span> <span class="n">THREADS</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span><span class="p">,</span> <span class="n">PureWindowsPath</span>
+<span class="kn">from</span> <span class="nn">nova_utils.ssi_utils.ssi_xml_utils</span> <span class="kn">import</span> <span class="n">Trainer</span>
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">current_app</span>
+
+<span class="kn">import</span> <span class="nn">importlib</span>
+
+<span class="n">train</span> <span class="o">=</span> <span class="n">Blueprint</span><span class="p">(</span><span class="s2">&quot;train&quot;</span><span class="p">,</span> <span class="vm">__name__</span><span class="p">)</span>
+<span class="n">thread</span> <span class="o">=</span> <span class="n">Blueprint</span><span class="p">(</span><span class="s2">&quot;thread&quot;</span><span class="p">,</span> <span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="train_thread"><a class="viewcode-back" href="../../../api/nova-server/nova_server.route.train.html#nova_server.route.train.train_thread">[docs]</a><span class="nd">@train</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/train&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<span class="k">def</span> <span class="nf">train_thread</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;POST&quot;</span><span class="p">:</span>
+        <span class="n">request_form</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">get_key_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
+        <span class="n">thread</span> <span class="o">=</span> <span class="n">train_model</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">current_app</span><span class="o">.</span><span class="n">_get_current_object</span><span class="p">())</span>
+        <span class="n">status_utils</span><span class="o">.</span><span class="n">add_new_job</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">}</span>
+        <span class="n">thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="n">THREADS</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">thread</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+
+
+<span class="nd">@thread_utils</span><span class="o">.</span><span class="n">ml_thread_wrapper</span>
+<span class="k">def</span> <span class="nf">train_model</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">app_context</span><span class="p">):</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="n">get_key_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">log_utils</span><span class="o">.</span><span class="n">get_logger_for_thread</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    <span class="n">cml_dir</span> <span class="o">=</span> <span class="n">app_context</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;CML_DIR&#39;</span><span class="p">]</span>
+    <span class="n">data_dir</span> <span class="o">=</span> <span class="n">app_context</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;DATA_DIR&#39;</span><span class="p">]</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">status_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">status_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">)</span>
+        <span class="n">update_progress</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="s1">&#39;Initializing&#39;</span><span class="p">)</span>
+
+        <span class="n">trainer_file_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">cml_dir</span><span class="p">)</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">PureWindowsPath</span><span class="p">(</span><span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;trainerFilePath&quot;</span><span class="p">]))</span>
+        <span class="n">out_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">cml_dir</span><span class="p">)</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span>
+            <span class="n">PureWindowsPath</span><span class="p">(</span><span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;trainerOutputDirectory&quot;</span><span class="p">])</span>
+        <span class="p">)</span>
+        <span class="n">trainer_name</span> <span class="o">=</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;trainerName&quot;</span><span class="p">]</span>
+
+        <span class="n">log_conform_request</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
+        <span class="n">log_conform_request</span><span class="p">[</span><span class="s1">&#39;password&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;---&#39;</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Action &#39;Train&#39; started.&quot;</span><span class="p">)</span>
+        <span class="n">trainer</span> <span class="o">=</span> <span class="n">Trainer</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">trainer_file_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Trainer file not available!&quot;</span><span class="p">)</span>
+            <span class="n">status_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">status_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">trainer</span><span class="o">.</span><span class="n">load_from_file</span><span class="p">(</span><span class="n">trainer_file_path</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Trainer successfully loaded.&quot;</span><span class="p">)</span>
+
+
+        <span class="c1"># Load Data</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">update_progress</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="s1">&#39;Data loading&#39;</span><span class="p">)</span>
+            <span class="n">ds_iter</span> <span class="o">=</span> <span class="n">dataset_utils</span><span class="o">.</span><span class="n">dataset_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">data_dir</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Train-Data successfully loaded...&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+            <span class="n">log_utils</span><span class="o">.</span><span class="n">remove_log_from_dict</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Not able to load the data from the database!&quot;</span><span class="p">)</span>
+            <span class="n">status_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">status_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="c1"># Load Trainer</span>
+        <span class="n">model_script_path</span> <span class="o">=</span> <span class="n">trainer_file_path</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">trainer</span><span class="o">.</span><span class="n">model_script_path</span>
+        <span class="n">source</span> <span class="o">=</span> <span class="n">SourceFileLoader</span><span class="p">(</span><span class="s2">&quot;model_script&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">model_script_path</span><span class="p">))</span><span class="o">.</span><span class="n">load_module</span><span class="p">()</span>
+        <span class="n">import_utils</span><span class="o">.</span><span class="n">assert_or_install_dependencies</span><span class="p">(</span><span class="n">source</span><span class="o">.</span><span class="n">REQUIREMENTS</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">model_script_path</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span><span class="p">)</span>
+        <span class="n">model_script</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">TrainerClass</span><span class="p">(</span><span class="n">ds_iter</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">request_form</span><span class="p">)</span>
+
+        <span class="c1"># Set Options </span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Setting options...&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;OptStr&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;&#39;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">dict</span><span class="p">(</span><span class="n">option</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">option</span> <span class="ow">in</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;OptStr&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="s1">&#39;True&#39;</span><span class="p">,</span> <span class="s1">&#39;False&#39;</span><span class="p">):</span>
+                    <span class="n">model_script</span><span class="o">.</span><span class="n">OPTIONS</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span> <span class="k">if</span> <span class="n">v</span> <span class="o">==</span> <span class="s1">&#39;True&#39;</span> <span class="k">else</span> <span class="kc">False</span>
+                <span class="k">elif</span> <span class="n">v</span> <span class="o">==</span> <span class="s1">&#39;None&#39;</span><span class="p">:</span>
+                    <span class="n">model_script</span><span class="o">.</span><span class="n">OPTIONS</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">model_script</span><span class="o">.</span><span class="n">OPTIONS</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">k</span> <span class="o">+</span> <span class="s1">&#39;=&#39;</span> <span class="o">+</span> <span class="n">v</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;...done.&quot;</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Preprocessing data...&quot;</span><span class="p">)</span>
+        <span class="c1"># TODO: generic preprocessing interface, remove request form from model interface</span>
+        <span class="n">model_script</span><span class="o">.</span><span class="n">preprocess</span><span class="p">()</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;...done&quot;</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Training model...&quot;</span><span class="p">)</span>
+        <span class="n">model_script</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;...done&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Save</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;Saving...&#39;</span><span class="p">)</span>
+        <span class="n">out_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">trainer</span><span class="o">.</span><span class="n">info_trained</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="c1"># TODO add users / sessions</span>
+        <span class="c1"># TODO there might be a more elegant way to get classes...</span>
+        <span class="n">tmp</span> <span class="o">=</span> <span class="n">ds_iter</span><span class="o">.</span><span class="n">annos</span><span class="p">[</span><span class="n">ds_iter</span><span class="o">.</span><span class="n">roles</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">ds_iter</span><span class="o">.</span><span class="n">schemes</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">labels</span>
+        <span class="n">trainer</span><span class="o">.</span><span class="n">classes</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;schemeType&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;DISCRETE_POLYGON&quot;</span> <span class="ow">or</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;schemeType&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;POLYGON&quot;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">tmp</span><span class="p">:</span>
+                <span class="n">trainer</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">tmp</span><span class="p">[</span><span class="n">entry</span><span class="p">][</span><span class="mi">0</span><span class="p">]})</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">tmp</span><span class="p">:</span>
+                <span class="n">trainer</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">tmp</span><span class="p">[</span><span class="n">entry</span><span class="p">]})</span>
+
+        <span class="n">weight_path</span> <span class="o">=</span> <span class="n">model_script</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">out_dir</span> <span class="o">/</span> <span class="n">trainer_name</span><span class="p">)</span>
+        <span class="n">trainer</span><span class="o">.</span><span class="n">model_weights_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">weight_path</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;...weights&#39;</span><span class="p">)</span>
+        <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">model_script_path</span><span class="p">,</span> <span class="n">out_dir</span> <span class="o">/</span> <span class="n">trainer</span><span class="o">.</span><span class="n">model_script_path</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;...train script&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">model_script</span><span class="o">.</span><span class="n">DEPENDENCIES</span><span class="p">:</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">trainer_file_path</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">f</span><span class="p">,</span> <span class="n">out_dir</span> <span class="o">/</span> <span class="n">f</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;...dependencies&#39;</span><span class="p">)</span>
+        <span class="n">trainer</span><span class="o">.</span><span class="n">write_trainer_to_file</span><span class="p">(</span><span class="n">out_dir</span> <span class="o">/</span> <span class="n">trainer_name</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;...trainerfile&#39;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Training completed!&quot;</span><span class="p">)</span>
+        <span class="n">status_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">status_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">FINISHED</span><span class="p">)</span>
+
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Error:&#39;</span> <span class="o">+</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">())</span>
+        <span class="n">status_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">status_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+
+
+<span class="c1"># TODO DATA BALANCING</span>
+<div class="viewcode-block" id="balance_data"><a class="viewcode-back" href="../../../api/nova-server/nova_server.route.train.html#nova_server.route.train.balance_data">[docs]</a><span class="k">def</span> <span class="nf">balance_data</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">x_np</span><span class="p">,</span> <span class="n">y_np</span><span class="p">):</span>
+    <span class="c1"># DATA BALANCING</span>
+    <span class="k">if</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;balance&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;over&quot;</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;OVERSAMPLING from </span><span class="si">{}</span><span class="s2"> Samples&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">x_np</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+        <span class="n">oversample</span> <span class="o">=</span> <span class="n">imblearn</span><span class="o">.</span><span class="n">over_sampling</span><span class="o">.</span><span class="n">SMOTE</span><span class="p">()</span>
+        <span class="n">x_np</span><span class="p">,</span> <span class="n">y_np</span> <span class="o">=</span> <span class="n">oversample</span><span class="o">.</span><span class="n">fit_resample</span><span class="p">(</span><span class="n">x_np</span><span class="p">,</span> <span class="n">y_np</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;to </span><span class="si">{}</span><span class="s2"> Samples&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">x_np</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;balance&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;under&quot;</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;UNDERSAMPLING from </span><span class="si">{}</span><span class="s2"> Samples&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">x_np</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+        <span class="n">undersample</span> <span class="o">=</span> <span class="n">imblearn</span><span class="o">.</span><span class="n">under_sampling</span><span class="o">.</span><span class="n">RandomUnderSampler</span><span class="p">()</span>
+        <span class="n">x_np</span><span class="p">,</span> <span class="n">y_np</span> <span class="o">=</span> <span class="n">undersample</span><span class="o">.</span><span class="n">fit_resample</span><span class="p">(</span><span class="n">x_np</span><span class="p">,</span> <span class="n">y_np</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;to </span><span class="si">{}</span><span class="s2"> Samples&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">x_np</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, Dominik Schiller.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
