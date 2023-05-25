@@ -26,6 +26,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 install_requires=[
     "hcai-datasets",
+    "hcai-nova-utils",
     "Flask == 2.0.2",
     "imbalanced-learn==0.8.1",
     "waitress==2.0.0",
