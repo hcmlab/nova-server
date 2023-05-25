@@ -73,7 +73,7 @@ setup(
     package_data={"": ["*.csv"]},
     entry_points = {
         'console_scripts': [
-            'nova-server = nova_server.nova_server:run_app',
+            'nova-server = nova_server.app:run_app',
         ]
     }
 )
