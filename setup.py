@@ -70,5 +70,10 @@ setup(
     python_requires=">=3.6, <4",
     install_requires = install_requires,
     include_package_data=True,
-    package_data={"": ["*.csv"]}
+    package_data={"": ["*.csv"]},
+    entry_points = {
+        'console_scripts': [
+            'nova-server = nova_server.nova_backend:main',
+        ]
+    }
 )
