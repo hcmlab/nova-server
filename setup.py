@@ -30,6 +30,8 @@ install_requires=[
     "Flask == 2.0.2",
     "imbalanced-learn==0.8.1",
     "waitress==2.0.0",
+    "ffmpegio"
+
 ]
 
 # Adjustment for nightly build
@@ -40,10 +42,11 @@ if nightly:
     __version__ = f"{curr_version.base_version}.dev{datestring}"
     install_requires=[
         "hcai-datasets-nightly",
-        "hcai-nova-utils",
         "Flask == 2.0.2",
         "imbalanced-learn==0.8.1",
         "waitress==2.0.0",
+        "ffmpegio"
+
     ]
 
 # Setup
