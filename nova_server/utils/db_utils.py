@@ -5,8 +5,7 @@ import warnings
 import numpy as np
 
 from hcai_datasets.hcai_nova_dynamic.nova_db_handler import NovaDBHandler
-from hcai_datasets.hcai_nova_dynamic.utils import nova_data_utils
-
+from nova_utils.ssi_utils.ssi_anno_utils import Anno, SchemeType
 MAX_MONGO_DB_DOC_SIZE = 16777216
 database = None
 scheme = None
@@ -64,11 +63,12 @@ def write_stream_info_to_db(
     )
 
 
-def write_annotation_to_db(request_form, results: dict, logger):
-    global database, scheme, session, annotator, roles
-    check_format(results, logger)
+def write_annotation_to_db(request_form, anno: Anno, logger):
+    #global database, scheme, session, annotator, roles
+    #check_format(results, logger)
 
     # TODO check if we really need to establish a new connection to the database
+    # DB Config
     db_config_dict = {
         "ip": request_form["server"].split(":")[0],
         "port": int(request_form["server"].split(":")[1]),
@@ -76,29 +76,47 @@ def write_annotation_to_db(request_form, results: dict, logger):
         "password": request_form["password"],
     }
 
+    # Database specific options
     db_handler = NovaDBHandler(db_config_dict=db_config_dict)
     database = request_form["database"]
-    scheme = request_form["scheme"]
     session = request_form["sessions"]
-    annotator = request_form["annotator"]
-    roles = request_form["roles"]
 
-    if request_form["schemeType"] == "DISCRETE":
-        write_discrete_to_db(request_form, results, db_handler, logger)
-    elif request_form["schemeType"] == "FREE":
-        write_freeform_to_db(request_form, results, db_handler, logger)
-    elif request_form["schemeType"] == "CONTINUOUS":
-        write_continuous_to_db(request_form, results, db_handler, logger)
-    elif request_form["schemeType"] == "POINT":
-        pass  # todo
-    elif (
-        request_form["schemeType"] == "DISCRETE_POLYGON"
-        or request_form["schemeType"] == "POLYGON"
-    ):
-        write_polygons_to_db(request_form, results, db_handler, logger)
+    # Format data correctly
+    scheme_dtype_names = anno.scheme.get_dtype()['names']
+    anno_data = [
+        dict(zip(scheme_dtype_names, ad))
+        for ad
+        in anno.data
+    ]
 
 
-def write_freeform_to_db(request_form, results: dict, db_handler, logger):
+    db_handler.set_annos(
+        database=database,
+        session=session,
+        scheme=anno.scheme.name,
+        annotator=anno.annotator,
+        role=anno.role,
+        annos=anno_data,
+    )
+
+    # if request_form["schemeType"] == "DISCRETE":
+    #     write_discrete_to_db(request_form, anno, db_handler, logger)
+    # elif request_form["schemeType"] == "FREE":
+    #     write_freeform_to_db(request_form, anno, db_handler, logger)
+    # elif request_form["schemeType"] == "CONTINUOUS":
+    #     write_continuous_to_db(request_form, anno, db_handler, logger)
+    # else:
+    #     raise NotImplementedError()
+    # elif request_form["schemeType"] == "POINT":
+    #     pass  # todo
+    # elif (
+    #     request_form["schemeType"] == "DISCRETE_POLYGON"
+    #     or request_form["schemeType"] == "POLYGON"
+    # ):
+    #     write_polygons_to_db(request_form, anno, db_handler, logger)
+
+
+def write_freeform_to_db(request_form, anno: Anno, db_handler, logger):
     """
     Args:
         request_form ():
@@ -115,10 +133,7 @@ def write_freeform_to_db(request_form, results: dict, db_handler, logger):
     """
 
     annotations = {}
-    """Temp fix"""
 
-    results.pop("values", None)
-    results.pop("confidences", None)
 
     for frame, results in results.items():
         frame_info = frame.split("_")
@@ -149,7 +164,59 @@ def write_freeform_to_db(request_form, results: dict, db_handler, logger):
             annos=anno,
         )
 
+def write_discrete_to_db(request_form, results: dict, db_handler, logger):
+    """
+    Args:
+        request_form ():
+        results (dict): {
+            'from_to' : {
+                <role>.<stream>: {
+                    'name': <text>, 'conf': <confidence>
+                }
+            }
+        }
+        db_handler ():
+        logger ():
 
+    """
+
+    annotations = {}
+    """Temp fix"""
+
+    results.pop("values", None)
+    results.pop("confidences", None)
+
+    for frame, results in results.items():
+        frame_info = frame.split("_")
+        frame_from = float(frame_info[-2])
+        frame_to = float(frame_info[-1])
+        for stream_id, anno in results.items():
+
+            conf = anno["conf"]
+            id = anno["id"]
+
+            if stream_id not in annotations.keys():
+                annotations[stream_id] = []
+
+            annotations[stream_id].append(
+                {"from": frame_from, "to": frame_to, "conf": conf, "id": id}
+            )
+
+    for anno_id, anno in annotations.items():
+        # TODO does not work with flattened roles
+        role, stream = anno_id.split(".")
+
+        db_handler.set_annos(
+            database=database,
+            scheme=scheme,
+            session=session,
+            annotator=annotator,
+            role=role,
+            annos=anno,
+        )
+
+
+'''
 def write_discrete_to_db(request_form, results: dict, db_handler, logger):
     # TODO: We only take one role into account in this case. Fix
     # role = roles.split(';')[0]
@@ -203,7 +270,7 @@ def write_discrete_to_db(request_form, results: dict, db_handler, logger):
         role=role,
         annos=annos,
     )
-
+    '''
 
 def write_continuous_to_db(request_form, results: dict, db_handler, logger):
     role = results["roles"]
