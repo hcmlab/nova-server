@@ -17,7 +17,7 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
-   nova_server.nova_backend
+   nova_server.app
 
 Module contents
 ---------------

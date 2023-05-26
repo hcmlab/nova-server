@@ -42,7 +42,19 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">API Documentation:</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules/overview_link.html">overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../modules/whisperx_link.html">WhisperX</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation:</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">nova_server</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="nova_server.html">nova_server package</a><ul class="current">
@@ -108,7 +120,7 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="nova_server.utils.db_utils.write_annotation_to_db">
-<span class="sig-prename descclassname"><span class="pre">nova_server.utils.db_utils.</span></span><span class="sig-name descname"><span class="pre">write_annotation_to_db</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request_form</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_server/utils/db_utils.html#write_annotation_to_db"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_server.utils.db_utils.write_annotation_to_db" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">nova_server.utils.db_utils.</span></span><span class="sig-name descname"><span class="pre">write_annotation_to_db</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request_form</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">anno</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../nova-utils/nova_utils.ssi_utils.ssi_anno_utils.html#nova_utils.ssi_utils.ssi_anno_utils.Anno" title="nova_utils.ssi_utils.ssi_anno_utils.Anno"><span class="pre">Anno</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_server/utils/db_utils.html#write_annotation_to_db"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_server.utils.db_utils.write_annotation_to_db" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
@@ -119,11 +131,32 @@
 <dl class="py function">
 <dt class="sig sig-object py" id="nova_server.utils.db_utils.write_discrete_to_db">
 <span class="sig-prename descclassname"><span class="pre">nova_server.utils.db_utils.</span></span><span class="sig-name descname"><span class="pre">write_discrete_to_db</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request_form</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">db_handler</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_server/utils/db_utils.html#write_discrete_to_db"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_server.utils.db_utils.write_discrete_to_db" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>(</strong><strong>)</strong> (<em>logger</em>) – </p></li>
+<li><p><strong>results</strong> (<em>dict</em>) – <p>{
+‘from_to’ : {</p>
+<blockquote>
+<div><dl class="simple">
+<dt>&lt;role&gt;.&lt;stream&gt;: {</dt><dd><p>‘name’: &lt;text&gt;, ‘conf’: &lt;confidence&gt;</p>
+</dd>
+</dl>
+<p>}</p>
+</div></blockquote>
+<p>}</p>
+</p></li>
+<li><p><strong>}</strong> – </p></li>
+<li><p><strong>(</strong><strong>)</strong> – </p></li>
+<li><p><strong>(</strong><strong>)</strong> – </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="nova_server.utils.db_utils.write_freeform_to_db">
-<span class="sig-prename descclassname"><span class="pre">nova_server.utils.db_utils.</span></span><span class="sig-name descname"><span class="pre">write_freeform_to_db</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request_form</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">db_handler</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_server/utils/db_utils.html#write_freeform_to_db"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_server.utils.db_utils.write_freeform_to_db" title="Permalink to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">nova_server.utils.db_utils.</span></span><span class="sig-name descname"><span class="pre">write_freeform_to_db</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">request_form</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">anno</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../nova-utils/nova_utils.ssi_utils.ssi_anno_utils.html#nova_utils.ssi_utils.ssi_anno_utils.Anno" title="nova_utils.ssi_utils.ssi_anno_utils.Anno"><span class="pre">Anno</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">db_handler</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logger</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_server/utils/db_utils.html#write_freeform_to_db"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_server.utils.db_utils.write_freeform_to_db" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">

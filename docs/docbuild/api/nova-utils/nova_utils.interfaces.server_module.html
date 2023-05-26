@@ -42,7 +42,19 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">API Documentation:</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules/overview_link.html">overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../modules/whisperx_link.html">WhisperX</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../nova-server/modules.html">nova_server</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">nova_utils</a><ul class="current">
@@ -121,8 +133,8 @@
 An arbitrary number of streams maybe returned.</p>
 <p class="rubric">Example</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s1">&#39;speaker_1.audio.mfcc[10ms,10ms,10ms]&#39;</span> <span class="p">:</span> <span class="p">(</span> <span class="n">DataTypes</span><span class="o">.</span><span class="n">AUDIO</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="p">[[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">...</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">...</span> <span class="mf">0.0</span><span class="p">]</span> <span class="o">...</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">...</span> <span class="mf">0.0</span><span class="p">]]</span> <span class="p">),</span>
-    <span class="s1">&#39;speaker_2.audio.mfcc[10ms,10ms,10ms]&#39;</span> <span class="p">:</span> <span class="p">(</span> <span class="n">DataTypes</span><span class="o">.</span><span class="n">AUDIO</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="p">[[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">...</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">...</span> <span class="mf">0.0</span><span class="p">]</span> <span class="o">...</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">...</span> <span class="mf">0.0</span><span class="p">]]</span> <span class="p">)</span>
+    <span class="s1">&#39;speaker_1.audio.mfcc[10ms,10ms,10ms]&#39;</span> <span class="p">:</span> <span class="p">(</span> <span class="n">nova_utils</span><span class="o">.</span><span class="n">db_utils</span><span class="o">.</span><span class="n">nova_types</span><span class="o">.</span><span class="n">DataTypes</span><span class="o">.</span><span class="n">AUDIO</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="p">[[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">...</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">...</span> <span class="mf">0.0</span><span class="p">]</span> <span class="o">...</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">...</span> <span class="mf">0.0</span><span class="p">]]</span> <span class="p">),</span>
+    <span class="s1">&#39;speaker_2.audio.mfcc[10ms,10ms,10ms]&#39;</span> <span class="p">:</span> <span class="p">(</span> <span class="n">nova_utils</span><span class="o">.</span><span class="n">db_utils</span><span class="o">.</span><span class="n">nova_types</span><span class="o">.</span><span class="n">DataTypes</span><span class="o">.</span><span class="n">AUDIO</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="p">[[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">...</span> <span class="mf">0.0</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">...</span> <span class="mf">0.0</span><span class="p">]</span> <span class="o">...</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="o">...</span> <span class="mf">0.0</span><span class="p">]]</span> <span class="p">)</span>
 <span class="p">}</span>
 </pre></div>
 </div>
@@ -137,7 +149,7 @@ An arbitrary number of streams maybe returned.</p>
 <p>Base class of a data predictor. Implement this interface if you want to write annotations to a database</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="nova_utils.interfaces.server_module.Predictor.to_anno">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">to_anno</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_utils/interfaces/server_module.html#Predictor.to_anno"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Predictor.to_anno" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">to_anno</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="nova_utils.ssi_utils.ssi_anno_utils.html#nova_utils.ssi_utils.ssi_anno_utils.Anno" title="nova_utils.ssi_utils.ssi_anno_utils.Anno"><span class="pre">nova_utils.ssi_utils.ssi_anno_utils.Anno</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/nova_utils/interfaces/server_module.html#Predictor.to_anno"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.interfaces.server_module.Predictor.to_anno" title="Permalink to this definition"></a></dt>
 <dd><p>Converts the output of process_data to the correct annotation format to upload them to the database.
 !THE OUTPUT FORMAT OF THIS FUNCTION IS NOT YET FULLY DEFINED AND WILL CHANGE IN FUTURE RELEASES!</p>
 <dl class="field-list simple">
@@ -145,43 +157,10 @@ An arbitrary number of streams maybe returned.</p>
 <dd class="field-odd"><p><strong>data</strong> (<em>object</em>) – Data output of process_data function</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>A dictionary containing the predictions of the model in the correct annotation format.</p>
+<dd class="field-even"><p>A list of annotation objects</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>dict</p>
-</dd>
-</dl>
-<p class="rubric">Example</p>
-<dl>
-<dt>Discrete annotation:</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s1">&#39;0.0_1.0&#39;</span> <span class="p">:</span> <span class="p">{</span>
-        <span class="s1">&#39;speaker_1.audio&#39;</span> <span class="p">:</span> <span class="p">{</span><span class="s1">&#39;id&#39;</span><span class="p">:</span> <span class="s1">&#39;1&#39;</span><span class="p">,</span> <span class="s1">&#39;conf&#39;</span><span class="p">:</span> <span class="mf">0.73</span><span class="p">}</span>
-        <span class="s1">&#39;speaker_2.audio&#39;</span> <span class="p">:</span> <span class="p">{</span><span class="s1">&#39;id&#39;</span><span class="p">:</span> <span class="s1">&#39;0&#39;</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">}</span>
-    <span class="p">}</span>
-    <span class="o">...</span>
-    <span class="s1">&#39;values&#39;</span><span class="p">:</span> <span class="p">[],</span>
-    <span class="s1">&#39;confidences&#39;</span><span class="p">:</span> <span class="p">[]</span>
-<span class="p">}</span>
-</pre></div>
-</div>
-</dd>
-<dt>Continuous annotation:</dt><dd><p>…</p>
-</dd>
-<dt>Free annotation:</dt><dd><div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
-    <span class="s1">&#39;0.0_1.0&#39;</span> <span class="p">:</span> <span class="p">{</span>
-        <span class="s1">&#39;speaker_1.audio&#39;</span> <span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;Hello&#39;</span><span class="p">,</span> <span class="s1">&#39;conf&#39;</span><span class="p">:</span> <span class="mf">0.73</span><span class="p">}</span>
-        <span class="s1">&#39;speaker_2.audio&#39;</span> <span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">}</span>
-    <span class="p">}</span>
-    <span class="s1">&#39;1.0_2.0&#39;</span> <span class="p">:</span> <span class="p">{</span>
-        <span class="s1">&#39;speaker_1.audio&#39;</span> <span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;My Name&#39;</span><span class="p">,</span> <span class="s1">&#39;conf&#39;</span><span class="p">:</span> <span class="mf">0.85</span><span class="p">}}</span>
-        <span class="s1">&#39;speaker_2.audio&#39;</span> <span class="p">:</span> <span class="p">{</span><span class="s1">&#39;name&#39;</span><span class="p">:</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="mf">1.0</span><span class="p">}</span>
-    <span class="p">}</span>
-    <span class="o">...</span>
-    <span class="s1">&#39;values&#39;</span><span class="p">:</span> <span class="p">[],</span>
-    <span class="s1">&#39;confidences&#39;</span><span class="p">:</span> <span class="p">[]</span>
-<span class="p">}</span>
-</pre></div>
-</div>
+<dd class="field-odd"><p>list</p>
 </dd>
 </dl>
 </dd></dl>

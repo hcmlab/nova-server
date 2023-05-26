@@ -42,7 +42,19 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">API Documentation:</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules/overview_link.html">overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../modules/whisperx_link.html">WhisperX</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../nova-server/modules.html">nova_server</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">nova_utils</a><ul class="current">
@@ -93,8 +105,13 @@
 <span id="nova-utils-ssi-utils-ssi-anno-utils-module"></span><h1>nova_utils.ssi_utils.ssi_anno_utils module<a class="headerlink" href="#module-nova_utils.ssi_utils.ssi_anno_utils" title="Permalink to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.Anno">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nova_utils.ssi_utils.ssi_anno_utils.</span></span><span class="sig-name descname"><span class="pre">Anno</span></span><a class="reference internal" href="../../_modules/nova_utils/ssi_utils/ssi_anno_utils.html#Anno"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.Anno" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nova_utils.ssi_utils.ssi_anno_utils.</span></span><span class="sig-name descname"><span class="pre">Anno</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ftype</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="nova_utils.ssi_utils.ssi_data_types.html#nova_utils.ssi_utils.ssi_data_types.FileTypes" title="nova_utils.ssi_utils.ssi_data_types.FileTypes"><span class="pre">FileTypes</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">FileTypes.UNDEF</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">role</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">annotator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scheme</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#nova_utils.ssi_utils.ssi_anno_utils.Scheme" title="nova_utils.ssi_utils.ssi_anno_utils.Scheme"><span class="pre">Scheme</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_utils/ssi_utils/ssi_anno_utils.html#Anno"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.Anno" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.Anno.ftype">
+<span class="sig-name descname"><span class="pre">ftype</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="nova_utils.ssi_utils.ssi_data_types.html#nova_utils.ssi_utils.ssi_data_types.FileTypes" title="nova_utils.ssi_utils.ssi_data_types.FileTypes"><span class="pre">FileTypes</span></a></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.Anno.ftype" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
 <dl class="py method">
 <dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.Anno.load">
 <span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_utils/ssi_utils/ssi_anno_utils.html#Anno.load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.Anno.load" title="Permalink to this definition"></a></dt>
@@ -128,29 +145,61 @@
 </dd></dl>
 
 <dl class="py class">
-<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.Scheme">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nova_utils.ssi_utils.ssi_anno_utils.</span></span><span class="sig-name descname"><span class="pre">Scheme</span></span><a class="reference internal" href="../../_modules/nova_utils/ssi_utils/ssi_anno_utils.html#Scheme"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.Scheme" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.SchemeTypes">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nova_utils.ssi_utils.ssi_anno_utils.</span></span><span class="sig-name descname"><span class="pre">SchemeTypes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_utils/ssi_utils/ssi_anno_utils.html#SchemeTypes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.SchemeTypes" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.LabelDataType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nova_utils.ssi_utils.ssi_anno_utils.</span></span><span class="sig-name descname"><span class="pre">LabelDataType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_utils/ssi_utils/ssi_anno_utils.html#LabelDataType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.LabelDataType" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></p>
 <p>An enumeration.</p>
 <dl class="py attribute">
-<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.SchemeTypes.CONTINUOUS">
-<span class="sig-name descname"><span class="pre">CONTINUOUS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.SchemeTypes.CONTINUOUS" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.CONTINUOUS">
+<span class="sig-name descname"><span class="pre">CONTINUOUS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'formats':</span> <span class="pre">(&lt;class</span> <span class="pre">'numpy.float32'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;),</span> <span class="pre">'names':</span> <span class="pre">('score',</span> <span class="pre">'conf')}</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.CONTINUOUS" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.SchemeTypes.DISCRETE">
-<span class="sig-name descname"><span class="pre">DISCRETE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.SchemeTypes.DISCRETE" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.DISCRETE">
+<span class="sig-name descname"><span class="pre">DISCRETE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'formats':</span> <span class="pre">(&lt;class</span> <span class="pre">'numpy.float32'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.int32'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;),</span> <span class="pre">'names':</span> <span class="pre">('from',</span> <span class="pre">'to',</span> <span class="pre">'class',</span> <span class="pre">'conf')}</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.DISCRETE" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.SchemeTypes.FREE">
-<span class="sig-name descname"><span class="pre">FREE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.SchemeTypes.FREE" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.FREE">
+<span class="sig-name descname"><span class="pre">FREE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'formats':</span> <span class="pre">(&lt;class</span> <span class="pre">'numpy.float64'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float64'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.object_'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;),</span> <span class="pre">'names':</span> <span class="pre">('from',</span> <span class="pre">'to',</span> <span class="pre">'name',</span> <span class="pre">'conf')}</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.FREE" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.dt">
+<span class="sig-name descname"><span class="pre">dt</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'formats':</span> <span class="pre">(&lt;class</span> <span class="pre">'numpy.float64'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float64'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.object_'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;),</span> <span class="pre">'names':</span> <span class="pre">('from',</span> <span class="pre">'to',</span> <span class="pre">'name',</span> <span class="pre">'conf')}</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.dt" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.Scheme">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nova_utils.ssi_utils.ssi_anno_utils.</span></span><span class="sig-name descname"><span class="pre">Scheme</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#nova_utils.ssi_utils.ssi_anno_utils.SchemeType" title="nova_utils.ssi_utils.ssi_anno_utils.SchemeType"><span class="pre">SchemeType</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">SchemeType.DISCRETE</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">classes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_utils/ssi_utils/ssi_anno_utils.html#Scheme"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.Scheme" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.Scheme.get_dtype">
+<span class="sig-name descname"><span class="pre">get_dtype</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_utils/ssi_utils/ssi_anno_utils.html#Scheme.get_dtype"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.Scheme.get_dtype" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.SchemeType">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nova_utils.ssi_utils.ssi_anno_utils.</span></span><span class="sig-name descname"><span class="pre">SchemeType</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_utils/ssi_utils/ssi_anno_utils.html#SchemeType"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.SchemeType" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></p>
+<p>An enumeration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.SchemeType.CONTINUOUS">
+<span class="sig-name descname"><span class="pre">CONTINUOUS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.SchemeType.CONTINUOUS" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.SchemeType.DISCRETE">
+<span class="sig-name descname"><span class="pre">DISCRETE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">0</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.SchemeType.DISCRETE" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.SchemeType.FREE">
+<span class="sig-name descname"><span class="pre">FREE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.SchemeType.FREE" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>
