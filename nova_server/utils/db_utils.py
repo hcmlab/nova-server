@@ -84,7 +84,7 @@ def write_annotation_to_db(request_form, anno: Anno, logger):
     # Format data correctly
     scheme_dtype_names = anno.scheme.get_dtype().base.names
     anno_data = [
-        dict(zip(scheme_dtype_names, ad))
+        dict(zip(scheme_dtype_names, ad.item()))
         for ad
         in anno.data
     ]
@@ -97,212 +97,6 @@ def write_annotation_to_db(request_form, anno: Anno, logger):
         annotator=anno.annotator,
         role=anno.role,
         annos=anno_data,
-    )
-
-    # if request_form["schemeType"] == "DISCRETE":
-    #     write_discrete_to_db(request_form, anno, db_handler, logger)
-    # elif request_form["schemeType"] == "FREE":
-    #     write_freeform_to_db(request_form, anno, db_handler, logger)
-    # elif request_form["schemeType"] == "CONTINUOUS":
-    #     write_continuous_to_db(request_form, anno, db_handler, logger)
-    # else:
-    #     raise NotImplementedError()
-    # elif request_form["schemeType"] == "POINT":
-    #     pass  # todo
-    # elif (
-    #     request_form["schemeType"] == "DISCRETE_POLYGON"
-    #     or request_form["schemeType"] == "POLYGON"
-    # ):
-    #     write_polygons_to_db(request_form, anno, db_handler, logger)
-
-
-def write_freeform_to_db(request_form, anno: Anno, db_handler, logger):
-    """
-    Args:
-        request_form ():
-        results (dict): {
-            'from_to' : {
-                <role>.<stream>: {
-                    'name': <text>, 'conf': <confidence>
-                }
-            }
-        }
-        db_handler ():
-        logger ():
-
-    """
-
-    annotations = {}
-
-
-    for frame, results in results.items():
-        frame_info = frame.split("_")
-        frame_from = float(frame_info[-2])
-        frame_to = float(frame_info[-1])
-        for stream_id, anno in results.items():
-
-            conf = anno["conf"]
-            name = anno["name"]
-
-            if stream_id not in annotations.keys():
-                annotations[stream_id] = []
-
-            annotations[stream_id].append(
-                {"from": frame_from, "to": frame_to, "conf": conf, "name": name}
-            )
-
-    for anno_id, anno in annotations.items():
-        # TODO does not work with flattened roles
-        role, stream = anno_id.split(".")
-
-        db_handler.set_annos(
-            database=database,
-            scheme=scheme,
-            session=session,
-            annotator=annotator,
-            role=role,
-            annos=anno,
-        )
-
-def write_discrete_to_db(request_form, results: dict, db_handler, logger):
-    """
-    Args:
-        request_form ():
-        results (dict): {
-            'from_to' : {
-                <role>.<stream>: {
-                    'name': <text>, 'conf': <confidence>
-                }
-            }
-        }
-        db_handler ():
-        logger ():
-
-    """
-
-    annotations = {}
-    """Temp fix"""
-
-    results.pop("values", None)
-    results.pop("confidences", None)
-
-    for frame, results in results.items():
-        frame_info = frame.split("_")
-        frame_from = float(frame_info[-2])
-        frame_to = float(frame_info[-1])
-        for stream_id, anno in results.items():
-
-            conf = anno["conf"]
-            id = anno["id"]
-
-            if stream_id not in annotations.keys():
-                annotations[stream_id] = []
-
-            annotations[stream_id].append(
-                {"from": frame_from, "to": frame_to, "conf": conf, "id": id}
-            )
-
-    for anno_id, anno in annotations.items():
-        # TODO does not work with flattened roles
-        role, stream = anno_id.split(".")
-
-        db_handler.set_annos(
-            database=database,
-            scheme=scheme,
-            session=session,
-            annotator=annotator,
-            role=role,
-            annos=anno,
-        )
-
-
-'''
-def write_discrete_to_db(request_form, results: dict, db_handler, logger):
-    # TODO: We only take one role into account in this case. Fix
-    # role = roles.split(';')[0]
-    role = results["roles"]
-    frame_size = nova_data_utils.parse_time_string_to_ms(request_form["frameSize"])
-    mongo_scheme = db_handler.get_mongo_scheme(scheme, database)
-    annos = []
-    start_frame = 0
-
-    if request_form["startTime"] != "0":
-        annos_db = db_handler.get_annos(
-            dataset=database,
-            scheme=scheme,
-            session=session,
-            annotator=annotator,
-            roles=role,
-        )
-
-        start_frame = float(request_form["startTime"]) / 1000
-        annos = list(filter(lambda x: float(x["from"]) < start_frame, annos_db))
-
-    last_label = None
-    current_label_start = 1
-
-    values = results["values"]
-
-    for id, value in enumerate(values):
-        # current label is different from the one before
-        if not value == last_label and last_label is not None:
-            frame_from = str(
-                start_frame + ((current_label_start * frame_size) / 1000.0)
-            )
-            frame_to = str(start_frame + ((id * frame_size) / 1000.0))
-            if last_label < len(mongo_scheme[0]["labels"]):
-                annos.append(
-                    {
-                        "from": frame_from,
-                        "to": frame_to,
-                        "conf": results["confidences"][id],
-                        "id": int(last_label),
-                    }
-                )
-            current_label_start = id
-        last_label = value
-
-    db_handler.set_annos(
-        database=database,
-        scheme=scheme,
-        session=session,
-        annotator=annotator,
-        role=role,
-        annos=annos,
-    )
-    '''
-
-def write_continuous_to_db(request_form, results: dict, db_handler, logger):
-    role = results["roles"]
-    # role = roles.split(';')[0]
-    annos = []
-
-    if request_form["startTime"] != "0":
-        annos_db = db_handler.get_annos(
-            dataset=database,
-            scheme=scheme,
-            session=session,
-            annotator=annotator,
-            roles=roles,
-        )
-
-        start_frame = int(
-            int(request_form["startTime"]) / int(request_form["frameSize"][:-2]) + 1
-        )
-        annos = annos_db[:start_frame]
-
-    # normalized = (results["values"] - min(results["values"])) / (max(results["values"]) - min(results["values"]))
-
-    for value, confidence in zip(results["values"], results["confidences"]):
-        annos.append({"score": value, "conf": confidence})
-
-    db_handler.set_annos(
-        database=database,
-        scheme=scheme,
-        session=session,
-        annotator=annotator,
-        role=role,
-        annos=annos,
     )
 
 
@@ -374,62 +168,62 @@ def write_polygons_to_db(request_form, results: dict, db_handler, logger):
         )
 
 
-def separate_doc(doc) -> list:
-    left = copy.deepcopy(doc)
-    left["_id"] = bson.objectid.ObjectId()
-    right = copy.deepcopy(doc)
-    right["_id"] = bson.objectid.ObjectId()
-    half_count = int(len(doc["labels"]) / 2)
-    left["labels"] = left["labels"][0:half_count]
-    right["labels"] = right["labels"][half_count:]
-
-    result_list = []
-    if len(bson.BSON.encode(left)) >= MAX_MONGO_DB_DOC_SIZE:
-        result_list += separate_doc(left)
-    else:
-        result_list.append(left)
-
-    if len(bson.BSON.encode(right)) >= MAX_MONGO_DB_DOC_SIZE:
-        result_list += separate_doc(right)
-    else:
-        result_list.append(right)
-
-    return result_list
-
-
-def update_polygon_doc(data_doc, polygons, confidences, start_frame):
-    current_frame = -1
-    for frame_id, frame in enumerate(data_doc["labels"]):
-        if frame_id >= start_frame + len(polygons):
-            return data_doc
-        if frame_id >= start_frame:
-            polygons_per_frame = polygons[frame_id - start_frame]
-            for label_id, polygons_per_label_type in enumerate(polygons_per_frame):
-                for polygon_id, polygon in enumerate(polygons_per_label_type):
-                    label = label_id + 1
-                    points_for_db = []
-                    points = np.reshape(
-                        polygon, newshape=[int(polygon.shape[0] / 2), 2]
-                    )
-                    for point in points:
-                        points_for_db.append({"x": int(point[0]), "y": int(point[1])})
-
-                    # delete the content of the current frame, the new prediction values have to be set
-                    if current_frame != frame_id:
-                        current_frame = frame_id
-                        data_doc["labels"][frame_id]["polygons"] = []
-
-                    data_doc["labels"][frame_id]["polygons"].append(
-                        {
-                            "label": label,
-                            "confidence": round(
-                                confidences[frame_id - start_frame][label_id][
-                                    polygon_id
-                                ],
-                                2,
-                            ),
-                            "points": points_for_db,
-                        }
-                    )
-
-    return data_doc
+# def separate_doc(doc) -> list:
+#     left = copy.deepcopy(doc)
+#     left["_id"] = bson.objectid.ObjectId()
+#     right = copy.deepcopy(doc)
+#     right["_id"] = bson.objectid.ObjectId()
+#     half_count = int(len(doc["labels"]) / 2)
+#     left["labels"] = left["labels"][0:half_count]
+#     right["labels"] = right["labels"][half_count:]
+#
+#     result_list = []
+#     if len(bson.BSON.encode(left)) >= MAX_MONGO_DB_DOC_SIZE:
+#         result_list += separate_doc(left)
+#     else:
+#         result_list.append(left)
+#
+#     if len(bson.BSON.encode(right)) >= MAX_MONGO_DB_DOC_SIZE:
+#         result_list += separate_doc(right)
+#     else:
+#         result_list.append(right)
+#
+#     return result_list
+#
+#
+# def update_polygon_doc(data_doc, polygons, confidences, start_frame):
+#     current_frame = -1
+#     for frame_id, frame in enumerate(data_doc["labels"]):
+#         if frame_id >= start_frame + len(polygons):
+#             return data_doc
+#         if frame_id >= start_frame:
+#             polygons_per_frame = polygons[frame_id - start_frame]
+#             for label_id, polygons_per_label_type in enumerate(polygons_per_frame):
+#                 for polygon_id, polygon in enumerate(polygons_per_label_type):
+#                     label = label_id + 1
+#                     points_for_db = []
+#                     points = np.reshape(
+#                         polygon, newshape=[int(polygon.shape[0] / 2), 2]
+#                     )
+#                     for point in points:
+#                         points_for_db.append({"x": int(point[0]), "y": int(point[1])})
+#
+#                     # delete the content of the current frame, the new prediction values have to be set
+#                     if current_frame != frame_id:
+#                         current_frame = frame_id
+#                         data_doc["labels"][frame_id]["polygons"] = []
+#
+#                     data_doc["labels"][frame_id]["polygons"].append(
+#                         {
+#                             "label": label,
+#                             "confidence": round(
+#                                 confidences[frame_id - start_frame][label_id][
+#                                     polygon_id
+#                                 ],
+#                                 2,
+#                             ),
+#                             "points": points_for_db,
+#                         }
+#                     )
+#
+#     return data_doc

@@ -134,11 +134,8 @@ def predict_data(request_form, app_context):
 
         # TODO: Refactor to not use request form in upload
         request_form_copy = copy.copy(request_form)
-        request_form_copy['scheme'] = 'activelistening'
-
         assert len(ss_ds_iter.sessions) == 1
         request_form_copy['sessions'] = ss_ds_iter.sessions[0]
-        request_form_copy['roles'] = ss_ds_iter.roles[0]
 
         for anno in annos:
             db_utils.write_annotation_to_db(request_form_copy, anno, logger)
@@ -147,6 +144,7 @@ def predict_data(request_form, app_context):
     logger.info("Prediction completed!")
     status_utils.update_status(key, status_utils.JobStatus.FINISHED)
 
+'''Keep for later reference to implement polygons'''
     # model_script.ds_iter = ds_iter
     # model_script.request_form["sessions"] = session
     # model_script.request_form["roles"] = role
