@@ -82,7 +82,7 @@ def write_annotation_to_db(request_form, anno: Anno, logger):
     session = request_form["sessions"]
 
     # Format data correctly
-    scheme_dtype_names = anno.scheme.get_dtype()['names']
+    scheme_dtype_names = anno.scheme.get_dtype().base.names
     anno_data = [
         dict(zip(scheme_dtype_names, ad))
         for ad
