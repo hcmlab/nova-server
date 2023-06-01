@@ -16,7 +16,7 @@ def dataset_from_request_form(request_form, data_dir):
     }
 
     flattenSamples = False
-    if request_form["flattenSamples"] == "true":
+    if request_form.get("flattenSamples") == "true":
         flattenSamples = True
 
     ds_iter = HcaiNovaDynamicIterable(
