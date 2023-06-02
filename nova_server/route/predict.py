@@ -1,5 +1,6 @@
 """This file contains the general logic for predicting annotations to the nova database"""
 import copy
+import os
 from pathlib import Path, PureWindowsPath
 from nova_server.utils import db_utils
 from flask import Blueprint, request, jsonify
@@ -41,8 +42,10 @@ def predict_thread():
 def predict_data(request_form, app_context):
     key = get_key_from_request_form(request_form)
     logger = log_utils.get_logger_for_thread(key)
-    cml_dir = app_context.config["CML_DIR"]
-    data_dir = app_context.config["DATA_DIR"]
+    #cml_dir = app_context.config["CML_DIR"]
+    #data_dir = app_context.config["DATA_DIR"]
+    cml_dir = os.environ["NOVA_CML_DIR"]
+    data_dir = os.environ["NOVA_DATA_DIR"]
 
     log_conform_request = dict(request_form)
     log_conform_request["password"] = "---"

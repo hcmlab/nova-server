@@ -23,8 +23,8 @@ from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
 import ffmpegio
 import numpy as np
 from nova_server.utils import db_utils
-
-
+from flask import current_app
+import os
 extract = Blueprint("extract", __name__)
 
 
@@ -45,10 +45,13 @@ def extract_thread():
 def extract_data(request_form, app_context):
 
     # Initialize
+    #cml_dir = app_context.config["CML_DIR"]
+    #data_dir = app_context.config["DATA_DIR"]
+    cml_dir = os.environ["NOVA_CML_DIR"]
+    data_dir = os.environ["NOVA_DATA_DIR"]
+
     key = get_key_from_request_form(request_form)
     logger = log_utils.get_logger_for_thread(key)
-    cml_dir = app_context.config["CML_DIR"]
-    data_dir = app_context.config["DATA_DIR"]
 
     chain_file_path = Path(cml_dir).joinpath(
         PureWindowsPath(request_form["chainFilePath"])

@@ -1,8 +1,9 @@
 import logging
 import threading
-import pathlib
+from pathlib import Path
+import os
 from nova_server.utils import status_utils
-
+from flask import current_app
 
 LOGS = {}
 
@@ -13,8 +14,8 @@ def get_logfile_name_for_thread(log_key):
 
 def get_log_path_for_thread(log_key):
     name = get_logfile_name_for_thread(log_key)
-    # TODO: add  dynamic log path from config
-    return pathlib.Path(__file__).parent.parent / "logs" / (name + ".log")
+    log_dir = os.environ["NOVA_CML_DIR"]
+    return Path(log_dir) / (name + ".log")
 
 
 def init_logger(logger, log_key):
