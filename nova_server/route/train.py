@@ -56,7 +56,7 @@ def train_model(request_form, app_context):
         trainer = Trainer()
 
         if not trainer_file_path.is_file():
-            logger.error("Trainer file not available!")
+            logger.error(f"Trainer file not available: {trainer_file_path}")
             status_utils.update_status(key, status_utils.JobStatus.ERROR)
             return None
         else:
