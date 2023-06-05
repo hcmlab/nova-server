@@ -9,7 +9,6 @@ from nova_server.utils import (
     import_utils,
 )
 from nova_server.utils.key_utils import get_key_from_request_form
-from flask import current_app
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
 from pathlib import Path, PureWindowsPath
@@ -33,7 +32,7 @@ def extract_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
         key = get_key_from_request_form(request_form)
-        thread = extract_data(request_form, current_app._get_current_object())
+        thread = extract_data(request_form)
         status_utils.add_new_job(key)
         data = {"success": "true"}
         thread.start()
@@ -42,11 +41,9 @@ def extract_thread():
 
 
 @thread_utils.ml_thread_wrapper
-def extract_data(request_form, app_context):
+def extract_data(request_form):
 
     # Initialize
-    #cml_dir = app_context.config["CML_DIR"]
-    #data_dir = app_context.config["DATA_DIR"]
     cml_dir = os.environ["NOVA_CML_DIR"]
     data_dir = os.environ["NOVA_DATA_DIR"]
 

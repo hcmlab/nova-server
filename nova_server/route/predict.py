@@ -20,7 +20,6 @@ from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
     HcaiNovaDynamicIterable,
 )
 from nova_utils.interfaces.server_module import Trainer as iTrainer
-from flask import current_app
 
 predict = Blueprint("predict", __name__)
 
@@ -30,7 +29,7 @@ def predict_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
         key = get_key_from_request_form(request_form)
-        thread = predict_data(request_form, current_app._get_current_object())
+        thread = predict_data(request_form)
         status_utils.add_new_job(key)
         data = {"success": "true"}
         thread.start()
@@ -39,11 +38,10 @@ def predict_thread():
 
 
 @thread_utils.ml_thread_wrapper
-def predict_data(request_form, app_context):
+def predict_data(request_form):
     key = get_key_from_request_form(request_form)
     logger = log_utils.get_logger_for_thread(key)
-    #cml_dir = app_context.config["CML_DIR"]
-    #data_dir = app_context.config["DATA_DIR"]
+
     cml_dir = os.environ["NOVA_CML_DIR"]
     data_dir = os.environ["NOVA_DATA_DIR"]
 
