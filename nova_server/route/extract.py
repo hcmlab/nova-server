@@ -33,7 +33,7 @@ def extract_thread():
         request_form = request.form.to_dict()
         key = get_key_from_request_form(request_form)
         thread = extract_data(request_form)
-        status_utils.add_new_job(key)
+        status_utils.add_new_job(key, request_form=request_form)
         data = {"success": "true"}
         thread.start()
         THREADS[key] = thread
@@ -58,6 +58,9 @@ def extract_data(request_form):
     log_conform_request["password"] = "---"
 
     logger.info("Action 'Extract' started.")
+    status_utils.update_status(key, status_utils.JobStatus.RUNNING)
+
+
     chain = Chain()
 
     # Load chain
@@ -169,6 +172,7 @@ def extract_data(request_form):
             # Last element of chain
             else:
                 logger.info("Extract data...")
+                update_progress(key, "Extracting")
                 data = extractor.process_data(ds_iter)
                 stream_dict = extractor.to_stream(data)
                 logger.info("...done")
@@ -244,7 +248,5 @@ def extract_data(request_form):
                     logger.info("...done")
 
         logger.info("Extraction completed!")
+        update_progress(key, "Done")
         status_utils.update_status(key, status_utils.JobStatus.FINISHED)
-
-        logger.info("Action 'Extract' finished.")
-        # TODO: Start legacy ssi chain support

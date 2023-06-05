@@ -33,42 +33,42 @@ parser.add_argument(
 parser.add_argument(
     "--template_folder",
     type=str,
-    default="./templates",
+    default="templates",
     help="Path for the templates to load relative to this script",
 )
 
 parser.add_argument(
     "--cml_dir",
     type=str,
-    default="./cml",
+    default="cml",
     help="Cml folder to read the training scripts from. Same as in Nova.",
 )
 
 parser.add_argument(
     "--data_dir",
     type=str,
-    default="./data",
+    default="data",
     help="Data folder to read the training scripts from. Same as in Nova.",
 )
 
 parser.add_argument(
     "--cache_dir",
     type=str,
-    default="./cache",
+    default="cache",
     help="Cache folder where all large files (e.g. model weights) are cached.",
 )
 
 parser.add_argument(
     "--tmp_dir",
     type=str,
-    default="./tmp",
+    default="tmp",
     help="Folder for temporary data storage.",
 )
 
 parser.add_argument(
     "--log_dir",
     type=str,
-    default="./log",
+    default="log",
     help="Folder for temporary data storage.",
 )
 

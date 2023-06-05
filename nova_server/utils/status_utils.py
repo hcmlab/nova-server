@@ -2,6 +2,7 @@ from datetime import datetime
 from enum import Enum
 from nova_server.utils.thread_utils import status_thread_wrapper
 import copy
+from . import log_utils, db_utils
 
 JOBS = {}
 
@@ -14,7 +15,7 @@ class JobStatus(Enum):
 
 
 class Job:
-    def __init__(self, job_key, interactive_url=None, log_path=None):
+    def __init__(self, job_key, interactive_url=None, log_path=None, details=None):
         self.start_time = None
         self.end_time = None
         self.progress = None
@@ -22,6 +23,7 @@ class Job:
         self.job_key = job_key
         self.interactive_url = interactive_url
         self.log_path = log_path
+        self.details = details
 
     def serializable(self):
         s = copy.deepcopy(vars(self))
@@ -31,8 +33,10 @@ class Job:
 
 
 @status_thread_wrapper
-def add_new_job(job_key, interactive_url=None):
-    job = Job(job_key, interactive_url)
+def add_new_job(job_key, interactive_url=None, request_form=None):
+    log_path = log_utils.get_log_path_for_thread(job_key)
+    job_details = log_utils.get_log_conform_request(request_form)
+    job = Job(job_key, interactive_url, log_path, details=job_details)
     JOBS[job_key] = job
 
     return True

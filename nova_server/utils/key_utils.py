@@ -1,4 +1,6 @@
 import random
+from ..data import ANIMALS
+from ..data import COLORS
 
 def get_key_from_request_form(request_form):
     """
@@ -12,20 +14,26 @@ def get_key_from_request_form(request_form):
     key = request_form.get("jobID", None)
 
     if key is None:
-        key = f"local_{random.randint(0, 10 ^ 7)}"
+        key = f"{get_random_name()}"
 
-    # id_components = [
-    #     request_form.get('username', None),
-    #     request_form.get('database', None),
-    #     request_form.get('scheme', None),
-    #     request_form.get('streamName', None),
-    #     request_form.get('annotator', None),
-    #     request_form.get('sessions', None).replace(";", "_"),
-    # ]
-    # server_key = '_'.join([x for x in id_components if x])
-
-
-    # serverkey = request_form['username'] + '_' + request_form['database'] + '_' + request_form['scheme'] + '_' + \
-    #     request_form['streamName'] + '_' + request_form['annotator'] + '_' + \
-    #     request_form['sessions'].replace(";", "_")
     return key
+
+
+
+def get_random_name(
+        combo=[COLORS, ANIMALS], separator: str = " ", style: str = "capital"
+):
+    if not combo:
+        raise Exception("combo cannot be empty")
+
+    random_name = []
+    for word_list in combo:
+        part_name = random.choice(word_list)
+        if style == "capital":
+            part_name = part_name.capitalize()
+        if style == "lowercase":
+            part_name = part_name.lower()
+        if style == "uppercase":
+            part_name = part_name.upper()
+        random_name.append(part_name)
+    return separator.join(random_name)

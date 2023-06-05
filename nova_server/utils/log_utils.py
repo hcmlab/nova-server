@@ -3,18 +3,23 @@ import threading
 from pathlib import Path
 import os
 from nova_server.utils import status_utils
-from flask import current_app
-
+import datetime
 LOGS = {}
 
+def get_log_conform_request(request_form):
+    log_conform_request = dict(request_form)
+    log_conform_request["password"] = "---"
+    return log_conform_request
 
 def get_logfile_name_for_thread(log_key):
-    return log_key + "-job_" + threading.current_thread().name
+    #current_time = datetime.datetime.now()
+    #formatted_time = current_time.strftime('%Y-%m-%d_%H-%M-%S')
+    return log_key
 
 
 def get_log_path_for_thread(log_key):
     name = get_logfile_name_for_thread(log_key)
-    log_dir = os.environ["NOVA_CML_DIR"]
+    log_dir = os.environ["NOVA_LOG_DIR"]
     return Path(log_dir) / (name + ".log")
 
 
