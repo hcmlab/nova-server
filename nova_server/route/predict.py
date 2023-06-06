@@ -30,7 +30,7 @@ def predict_thread():
         request_form = request.form.to_dict()
         key = get_key_from_request_form(request_form)
         thread = predict_data(request_form)
-        status_utils.add_new_job(key)
+        status_utils.add_new_job(key, request_form=request_form)
         data = {"success": "true"}
         thread.start()
         THREADS[key] = thread
