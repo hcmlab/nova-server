@@ -39,7 +39,17 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Nova Server:</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Modules</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../modules/overview_link.html">overview</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Documentation:</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../api/nova-server/modules.html">nova_server</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../api/nova-utils/modules.html">nova_utils</a></li>
@@ -129,7 +139,7 @@
         <span class="n">trainer</span> <span class="o">=</span> <span class="n">Trainer</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">trainer_file_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Trainer file not available!&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Trainer file not available: </span><span class="si">{</span><span class="n">trainer_file_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="n">status_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">status_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
             <span class="k">return</span> <span class="kc">None</span>
         <span class="k">else</span><span class="p">:</span>

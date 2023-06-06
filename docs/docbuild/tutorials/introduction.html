@@ -19,7 +19,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="Installation" href="installation.html" />
+    <link rel="next" title="&lt;no title&gt;" href="installation.html" />
     <link rel="prev" title="NovaServer documentation!" href="../index.html" /> 
 </head>
 
@@ -44,14 +44,21 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Introduction</a></li>
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#prerequesites">Prerequesites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#setup">Setup</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#start-the-server">Start the server</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="usage.html">Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../modules/overview_link.html">overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../modules/whisperx_link.html">WhisperX</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Documentation:</span></p>
 <ul>
@@ -86,6 +93,53 @@
              
   <section id="introduction">
 <h1>Introduction<a class="headerlink" href="#introduction" title="Permalink to this heading"></a></h1>
+<section id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this heading"></a></h2>
+<section id="prerequesites">
+<h3>Prerequesites<a class="headerlink" href="#prerequesites" title="Permalink to this heading"></a></h3>
+<p>Before starting to install NOVA-Server you need to install Python and FFMPEG.
+While other Python versions may work as well the module is only tested for the following versions:</p>
+<ul class="simple">
+<li><p>3.9.x</p></li>
+</ul>
+<p>You can download the current version of python for your system <a class="reference external" href="https://www.python.org/downloads/">here</a>.</p>
+<p>Download the current version off FFMPEG binaries from <a class="reference external" href="https://github.com/BtbN/FFmpeg-Builds/releases">here</a> for your system and make sure to extract them to a place that is in your system path.</p>
+</section>
+<section id="setup">
+<h3>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h3>
+<p>You can then install NOVA-Server using pip like this:</p>
+<p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">hcai-nova-server</span></code></p>
+</section>
+<section id="start-the-server">
+<h3>Start the server<a class="headerlink" href="#start-the-server" title="Permalink to this heading"></a></h3>
+<p>To start NOVA-Server you can just open a Terminal and type</p>
+<p><code class="docutils literal notranslate"><span class="pre">nova-server</span></code></p>
+<p>NOVA-Server takes the following optional arguments as input:</p>
+<p><code class="docutils literal notranslate"><span class="pre">--host</span></code>: <code class="docutils literal notranslate"><span class="pre">0.0.0.0</span></code> : The IP for the Server to listen</p>
+<p><code class="docutils literal notranslate"><span class="pre">--port</span></code> : <code class="docutils literal notranslate"><span class="pre">8080</span></code> : The port for the Server to be bound to</p>
+<p><code class="docutils literal notranslate"><span class="pre">--template_folder</span></code> : <code class="docutils literal notranslate"><span class="pre">templates</span></code> : The Flask template folder to</p>
+<p><code class="docutils literal notranslate"><span class="pre">--cml_dir</span></code> : <code class="docutils literal notranslate"><span class="pre">cml</span></code> : The cooperative machine learning directory for Nova</p>
+<p><code class="docutils literal notranslate"><span class="pre">--data_dir</span></code> : <code class="docutils literal notranslate"><span class="pre">data</span></code> : Directory where the Nova data resides</p>
+<p><code class="docutils literal notranslate"><span class="pre">--cache_dir</span></code> : <code class="docutils literal notranslate"><span class="pre">cache</span></code> : Cache directory for Models and other downloadable content</p>
+<p><code class="docutils literal notranslate"><span class="pre">--tmp_dir</span></code> : <code class="docutils literal notranslate"><span class="pre">tmp</span></code> : Directory to store data for temporary usage</p>
+<p><code class="docutils literal notranslate"><span class="pre">--log_dir</span></code> : <code class="docutils literal notranslate"><span class="pre">log</span></code> : Directory to store logfiles.</p>
+<p>All directory variables can be also set as system wide environment variables using the following variable names:</p>
+<p><code class="docutils literal notranslate"><span class="pre">NOVA_CML_DIR</span></code>, <code class="docutils literal notranslate"><span class="pre">NOVA_DATA_DIR</span></code>, <code class="docutils literal notranslate"><span class="pre">NOVA_CACHE_DIR</span></code>, <code class="docutils literal notranslate"><span class="pre">NOVA_TMP_DIR</span></code>, <code class="docutils literal notranslate"><span class="pre">NOVA_LOG_DIR</span></code></p>
+<p>If a directory is set via a system variable but also passed as command line argument when starting nova-server, the command line argument will overwrite the system variable.</p>
+<p>If the server started successfully your console output should look like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Starting</span> <span class="n">nova</span><span class="o">-</span><span class="n">backend</span> <span class="n">server</span><span class="o">...</span>
+<span class="n">HOST</span><span class="p">:</span> <span class="mf">0.0.0.0</span>
+<span class="n">PORT</span><span class="p">:</span> <span class="mi">8080</span>
+<span class="n">NOVA_CML_DIR</span> <span class="p">:</span> <span class="n">cml</span>
+<span class="n">NOVA_DATA_DIR</span> <span class="p">:</span> <span class="n">data</span>
+<span class="n">NOVA_CACHE_DIR</span> <span class="p">:</span> <span class="n">cache</span>
+<span class="n">NOVA_TMP_DIR</span> <span class="p">:</span> <span class="n">tmp</span>
+<span class="n">NOVA_LOG_DIR</span> <span class="p">:</span> <span class="n">log</span>
+<span class="o">...</span><span class="n">done</span>
+</pre></div>
+</div>
+</section>
+</section>
 </section>
 
 
@@ -93,7 +147,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="../index.html" class="btn btn-neutral float-left" title="NovaServer documentation!" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="installation.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="installation.html" class="btn btn-neutral float-right" title="&lt;no title&gt;" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

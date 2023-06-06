@@ -42,14 +42,12 @@
               <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/introduction.html">Introduction</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/usage.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../modules/overview_link.html">overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../modules/whisperx_link.html">WhisperX</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Documentation:</span></p>
 <ul>
@@ -131,7 +129,7 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">request_form</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Set Options</span>
             <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Setting options...&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;optStr&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">request_form</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;optStr&quot;</span><span class="p">):</span>
                 <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">dict</span><span class="p">(</span>
                         <span class="n">option</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">option</span> <span class="ow">in</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;optStr&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)</span>
                 <span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>

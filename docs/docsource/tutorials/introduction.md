@@ -35,7 +35,7 @@ NOVA-Server takes the following optional arguments as input:
 
 ```--cml_dir``` : ```cml``` : The cooperative machine learning directory for Nova 
 
-```--data_dir``` : ```data``` : Directory where the NOVA data resides
+```--data_dir``` : ```data``` : Directory where the Nova data resides
 
 ```--cache_dir``` : ```cache``` : Cache directory for Models and other downloadable content 
 

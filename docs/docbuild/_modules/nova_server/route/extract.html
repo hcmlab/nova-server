@@ -42,14 +42,12 @@
               <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/introduction.html">Introduction</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/usage.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../modules/overview_link.html">overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../modules/whisperx_link.html">WhisperX</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Documentation:</span></p>
 <ul>
@@ -94,7 +92,6 @@
     <span class="n">import_utils</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">nova_server.utils.key_utils</span> <span class="kn">import</span> <span class="n">get_key_from_request_form</span>
-<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">current_app</span>
 <span class="kn">from</span> <span class="nn">nova_server.utils.thread_utils</span> <span class="kn">import</span> <span class="n">THREADS</span>
 <span class="kn">from</span> <span class="nn">nova_server.utils.status_utils</span> <span class="kn">import</span> <span class="n">update_progress</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span><span class="p">,</span> <span class="n">PureWindowsPath</span>
@@ -108,8 +105,8 @@
 <span class="kn">import</span> <span class="nn">ffmpegio</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">nova_server.utils</span> <span class="kn">import</span> <span class="n">db_utils</span>
-
-
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">current_app</span>
+<span class="kn">import</span> <span class="nn">os</span>
 <span class="n">extract</span> <span class="o">=</span> <span class="n">Blueprint</span><span class="p">(</span><span class="s2">&quot;extract&quot;</span><span class="p">,</span> <span class="vm">__name__</span><span class="p">)</span>
 
 
@@ -118,8 +115,8 @@
     <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;POST&quot;</span><span class="p">:</span>
         <span class="n">request_form</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">get_key_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
-        <span class="n">thread</span> <span class="o">=</span> <span class="n">extract_data</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">current_app</span><span class="o">.</span><span class="n">_get_current_object</span><span class="p">())</span>
-        <span class="n">status_utils</span><span class="o">.</span><span class="n">add_new_job</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="n">thread</span> <span class="o">=</span> <span class="n">extract_data</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
+        <span class="n">status_utils</span><span class="o">.</span><span class="n">add_new_job</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">request_form</span><span class="o">=</span><span class="n">request_form</span><span class="p">)</span>
         <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">}</span>
         <span class="n">thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
         <span class="n">THREADS</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">thread</span>
@@ -127,13 +124,14 @@
 
 
 <span class="nd">@thread_utils</span><span class="o">.</span><span class="n">ml_thread_wrapper</span>
-<span class="k">def</span> <span class="nf">extract_data</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">app_context</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">extract_data</span><span class="p">(</span><span class="n">request_form</span><span class="p">):</span>
 
     <span class="c1"># Initialize</span>
+    <span class="n">cml_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;NOVA_CML_DIR&quot;</span><span class="p">]</span>
+    <span class="n">data_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;NOVA_DATA_DIR&quot;</span><span class="p">]</span>
+
     <span class="n">key</span> <span class="o">=</span> <span class="n">get_key_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
     <span class="n">logger</span> <span class="o">=</span> <span class="n">log_utils</span><span class="o">.</span><span class="n">get_logger_for_thread</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-    <span class="n">cml_dir</span> <span class="o">=</span> <span class="n">app_context</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;CML_DIR&quot;</span><span class="p">]</span>
-    <span class="n">data_dir</span> <span class="o">=</span> <span class="n">app_context</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;DATA_DIR&quot;</span><span class="p">]</span>
 
     <span class="n">chain_file_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">cml_dir</span><span class="p">)</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span>
         <span class="n">PureWindowsPath</span><span class="p">(</span><span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;chainFilePath&quot;</span><span class="p">])</span>
@@ -143,6 +141,9 @@
     <span class="n">log_conform_request</span><span class="p">[</span><span class="s2">&quot;password&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;---&quot;</span>
 
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Action &#39;Extract&#39; started.&quot;</span><span class="p">)</span>
+    <span class="n">status_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">status_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">)</span>
+
+
     <span class="n">chain</span> <span class="o">=</span> <span class="n">Chain</span><span class="p">()</span>
 
     <span class="c1"># Load chain</span>
@@ -254,6 +255,7 @@
             <span class="c1"># Last element of chain</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Extract data...&quot;</span><span class="p">)</span>
+                <span class="n">update_progress</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="s2">&quot;Extracting&quot;</span><span class="p">)</span>
                 <span class="n">data</span> <span class="o">=</span> <span class="n">extractor</span><span class="o">.</span><span class="n">process_data</span><span class="p">(</span><span class="n">ds_iter</span><span class="p">)</span>
                 <span class="n">stream_dict</span> <span class="o">=</span> <span class="n">extractor</span><span class="o">.</span><span class="n">to_stream</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
                 <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;...done&quot;</span><span class="p">)</span>
@@ -323,16 +325,14 @@
                              <span class="n">stream_type</span> <span class="o">=</span> <span class="n">data_type</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span>
                              <span class="n">is_valid</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
                              <span class="n">sr</span> <span class="o">=</span> <span class="n">sr</span><span class="p">,</span>
-                             <span class="n">dimlables</span> <span class="o">=</span> <span class="p">[]</span>
+                             <span class="n">dim_labels</span><span class="o">=</span> <span class="p">[]</span>
                          <span class="p">)</span>
 
                     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;...done&quot;</span><span class="p">)</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Extraction completed!&quot;</span><span class="p">)</span>
+        <span class="n">update_progress</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="s2">&quot;Done&quot;</span><span class="p">)</span>
         <span class="n">status_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">status_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">FINISHED</span><span class="p">)</span>
-
-        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Action &#39;Extract&#39; finished.&quot;</span><span class="p">)</span>
-        <span class="c1"># TODO: Start legacy ssi chain support</span>
 </pre></div>
 
            </div>

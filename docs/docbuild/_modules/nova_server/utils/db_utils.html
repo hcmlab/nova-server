@@ -42,14 +42,12 @@
               <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/introduction.html">Introduction</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/usage.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../modules/overview_link.html">overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../modules/whisperx_link.html">WhisperX</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Documentation:</span></p>
 <ul>
@@ -123,7 +121,7 @@
     <span class="n">stream_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">is_valid</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
     <span class="n">sr</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-    <span class="n">dimlables</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">dim_labels</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="c1"># TODO check if we really need to establish a new connection to the database</span>
     <span class="n">db_config_dict</span> <span class="o">=</span> <span class="p">{</span>
@@ -143,7 +141,7 @@
         <span class="n">stream_type</span><span class="o">=</span><span class="n">stream_type</span><span class="p">,</span>
         <span class="n">is_valid</span><span class="o">=</span><span class="n">is_valid</span><span class="p">,</span>
         <span class="n">sr</span><span class="o">=</span><span class="n">sr</span><span class="p">,</span>
-        <span class="n">dimlabels</span><span class="o">=</span><span class="n">dimlables</span><span class="p">,</span>
+        <span class="n">dimlabels</span><span class="o">=</span><span class="n">dim_labels</span><span class="p">,</span>
         <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span></div>
 
@@ -167,9 +165,9 @@
     <span class="n">session</span> <span class="o">=</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;sessions&quot;</span><span class="p">]</span>
 
     <span class="c1"># Format data correctly</span>
-    <span class="n">scheme_dtype_names</span> <span class="o">=</span> <span class="n">anno</span><span class="o">.</span><span class="n">scheme</span><span class="o">.</span><span class="n">get_dtype</span><span class="p">()[</span><span class="s1">&#39;names&#39;</span><span class="p">]</span>
+    <span class="n">scheme_dtype_names</span> <span class="o">=</span> <span class="n">anno</span><span class="o">.</span><span class="n">scheme</span><span class="o">.</span><span class="n">get_dtype</span><span class="p">()</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">names</span>
     <span class="n">anno_data</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">scheme_dtype_names</span><span class="p">,</span> <span class="n">ad</span><span class="p">))</span>
+        <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">scheme_dtype_names</span><span class="p">,</span> <span class="n">ad</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span>
         <span class="k">for</span> <span class="n">ad</span>
         <span class="ow">in</span> <span class="n">anno</span><span class="o">.</span><span class="n">data</span>
     <span class="p">]</span>
@@ -182,212 +180,6 @@
         <span class="n">annotator</span><span class="o">=</span><span class="n">anno</span><span class="o">.</span><span class="n">annotator</span><span class="p">,</span>
         <span class="n">role</span><span class="o">=</span><span class="n">anno</span><span class="o">.</span><span class="n">role</span><span class="p">,</span>
         <span class="n">annos</span><span class="o">=</span><span class="n">anno_data</span><span class="p">,</span>
-    <span class="p">)</span></div>
-
-    <span class="c1"># if request_form[&quot;schemeType&quot;] == &quot;DISCRETE&quot;:</span>
-    <span class="c1">#     write_discrete_to_db(request_form, anno, db_handler, logger)</span>
-    <span class="c1"># elif request_form[&quot;schemeType&quot;] == &quot;FREE&quot;:</span>
-    <span class="c1">#     write_freeform_to_db(request_form, anno, db_handler, logger)</span>
-    <span class="c1"># elif request_form[&quot;schemeType&quot;] == &quot;CONTINUOUS&quot;:</span>
-    <span class="c1">#     write_continuous_to_db(request_form, anno, db_handler, logger)</span>
-    <span class="c1"># else:</span>
-    <span class="c1">#     raise NotImplementedError()</span>
-    <span class="c1"># elif request_form[&quot;schemeType&quot;] == &quot;POINT&quot;:</span>
-    <span class="c1">#     pass  # todo</span>
-    <span class="c1"># elif (</span>
-    <span class="c1">#     request_form[&quot;schemeType&quot;] == &quot;DISCRETE_POLYGON&quot;</span>
-    <span class="c1">#     or request_form[&quot;schemeType&quot;] == &quot;POLYGON&quot;</span>
-    <span class="c1"># ):</span>
-    <span class="c1">#     write_polygons_to_db(request_form, anno, db_handler, logger)</span>
-
-
-<div class="viewcode-block" id="write_freeform_to_db"><a class="viewcode-back" href="../../../api/nova-server/nova_server.utils.db_utils.html#nova_server.utils.db_utils.write_freeform_to_db">[docs]</a><span class="k">def</span> <span class="nf">write_freeform_to_db</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">anno</span><span class="p">:</span> <span class="n">Anno</span><span class="p">,</span> <span class="n">db_handler</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Args:</span>
-<span class="sd">        request_form ():</span>
-<span class="sd">        results (dict): {</span>
-<span class="sd">            &#39;from_to&#39; : {</span>
-<span class="sd">                &lt;role&gt;.&lt;stream&gt;: {</span>
-<span class="sd">                    &#39;name&#39;: &lt;text&gt;, &#39;conf&#39;: &lt;confidence&gt;</span>
-<span class="sd">                }</span>
-<span class="sd">            }</span>
-<span class="sd">        }</span>
-<span class="sd">        db_handler ():</span>
-<span class="sd">        logger ():</span>
-
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">annotations</span> <span class="o">=</span> <span class="p">{}</span>
-
-
-    <span class="k">for</span> <span class="n">frame</span><span class="p">,</span> <span class="n">results</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="n">frame_info</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span>
-        <span class="n">frame_from</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">frame_info</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
-        <span class="n">frame_to</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">frame_info</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-        <span class="k">for</span> <span class="n">stream_id</span><span class="p">,</span> <span class="n">anno</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-
-            <span class="n">conf</span> <span class="o">=</span> <span class="n">anno</span><span class="p">[</span><span class="s2">&quot;conf&quot;</span><span class="p">]</span>
-            <span class="n">name</span> <span class="o">=</span> <span class="n">anno</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
-
-            <span class="k">if</span> <span class="n">stream_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">annotations</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="n">annotations</span><span class="p">[</span><span class="n">stream_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-
-            <span class="n">annotations</span><span class="p">[</span><span class="n">stream_id</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="p">{</span><span class="s2">&quot;from&quot;</span><span class="p">:</span> <span class="n">frame_from</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">:</span> <span class="n">frame_to</span><span class="p">,</span> <span class="s2">&quot;conf&quot;</span><span class="p">:</span> <span class="n">conf</span><span class="p">,</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">name</span><span class="p">}</span>
-            <span class="p">)</span>
-
-    <span class="k">for</span> <span class="n">anno_id</span><span class="p">,</span> <span class="n">anno</span> <span class="ow">in</span> <span class="n">annotations</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="c1"># TODO does not work with flattened roles</span>
-        <span class="n">role</span><span class="p">,</span> <span class="n">stream</span> <span class="o">=</span> <span class="n">anno_id</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
-
-        <span class="n">db_handler</span><span class="o">.</span><span class="n">set_annos</span><span class="p">(</span>
-            <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="p">,</span>
-            <span class="n">scheme</span><span class="o">=</span><span class="n">scheme</span><span class="p">,</span>
-            <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">,</span>
-            <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
-            <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span>
-            <span class="n">annos</span><span class="o">=</span><span class="n">anno</span><span class="p">,</span>
-        <span class="p">)</span></div>
-
-<div class="viewcode-block" id="write_discrete_to_db"><a class="viewcode-back" href="../../../api/nova-server/nova_server.utils.db_utils.html#nova_server.utils.db_utils.write_discrete_to_db">[docs]</a><span class="k">def</span> <span class="nf">write_discrete_to_db</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">db_handler</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Args:</span>
-<span class="sd">        request_form ():</span>
-<span class="sd">        results (dict): {</span>
-<span class="sd">            &#39;from_to&#39; : {</span>
-<span class="sd">                &lt;role&gt;.&lt;stream&gt;: {</span>
-<span class="sd">                    &#39;name&#39;: &lt;text&gt;, &#39;conf&#39;: &lt;confidence&gt;</span>
-<span class="sd">                }</span>
-<span class="sd">            }</span>
-<span class="sd">        }</span>
-<span class="sd">        db_handler ():</span>
-<span class="sd">        logger ():</span>
-
-<span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="n">annotations</span> <span class="o">=</span> <span class="p">{}</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Temp fix&quot;&quot;&quot;</span>
-
-    <span class="n">results</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;values&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="n">results</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;confidences&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-
-    <span class="k">for</span> <span class="n">frame</span><span class="p">,</span> <span class="n">results</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="n">frame_info</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span>
-        <span class="n">frame_from</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">frame_info</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
-        <span class="n">frame_to</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">frame_info</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-        <span class="k">for</span> <span class="n">stream_id</span><span class="p">,</span> <span class="n">anno</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-
-            <span class="n">conf</span> <span class="o">=</span> <span class="n">anno</span><span class="p">[</span><span class="s2">&quot;conf&quot;</span><span class="p">]</span>
-            <span class="nb">id</span> <span class="o">=</span> <span class="n">anno</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
-
-            <span class="k">if</span> <span class="n">stream_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">annotations</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
-                <span class="n">annotations</span><span class="p">[</span><span class="n">stream_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-
-            <span class="n">annotations</span><span class="p">[</span><span class="n">stream_id</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                <span class="p">{</span><span class="s2">&quot;from&quot;</span><span class="p">:</span> <span class="n">frame_from</span><span class="p">,</span> <span class="s2">&quot;to&quot;</span><span class="p">:</span> <span class="n">frame_to</span><span class="p">,</span> <span class="s2">&quot;conf&quot;</span><span class="p">:</span> <span class="n">conf</span><span class="p">,</span> <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="nb">id</span><span class="p">}</span>
-            <span class="p">)</span>
-
-    <span class="k">for</span> <span class="n">anno_id</span><span class="p">,</span> <span class="n">anno</span> <span class="ow">in</span> <span class="n">annotations</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="c1"># TODO does not work with flattened roles</span>
-        <span class="n">role</span><span class="p">,</span> <span class="n">stream</span> <span class="o">=</span> <span class="n">anno_id</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
-
-        <span class="n">db_handler</span><span class="o">.</span><span class="n">set_annos</span><span class="p">(</span>
-            <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="p">,</span>
-            <span class="n">scheme</span><span class="o">=</span><span class="n">scheme</span><span class="p">,</span>
-            <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">,</span>
-            <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
-            <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span>
-            <span class="n">annos</span><span class="o">=</span><span class="n">anno</span><span class="p">,</span>
-        <span class="p">)</span></div>
-
-
-<span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">def write_discrete_to_db(request_form, results: dict, db_handler, logger):</span>
-<span class="sd">    # TODO: We only take one role into account in this case. Fix</span>
-<span class="sd">    # role = roles.split(&#39;;&#39;)[0]</span>
-<span class="sd">    role = results[&quot;roles&quot;]</span>
-<span class="sd">    frame_size = nova_data_utils.parse_time_string_to_ms(request_form[&quot;frameSize&quot;])</span>
-<span class="sd">    mongo_scheme = db_handler.get_mongo_scheme(scheme, database)</span>
-<span class="sd">    annos = []</span>
-<span class="sd">    start_frame = 0</span>
-
-<span class="sd">    if request_form[&quot;startTime&quot;] != &quot;0&quot;:</span>
-<span class="sd">        annos_db = db_handler.get_annos(</span>
-<span class="sd">            dataset=database,</span>
-<span class="sd">            scheme=scheme,</span>
-<span class="sd">            session=session,</span>
-<span class="sd">            annotator=annotator,</span>
-<span class="sd">            roles=role,</span>
-<span class="sd">        )</span>
-
-<span class="sd">        start_frame = float(request_form[&quot;startTime&quot;]) / 1000</span>
-<span class="sd">        annos = list(filter(lambda x: float(x[&quot;from&quot;]) &lt; start_frame, annos_db))</span>
-
-<span class="sd">    last_label = None</span>
-<span class="sd">    current_label_start = 1</span>
-
-<span class="sd">    values = results[&quot;values&quot;]</span>
-
-<span class="sd">    for id, value in enumerate(values):</span>
-<span class="sd">        # current label is different from the one before</span>
-<span class="sd">        if not value == last_label and last_label is not None:</span>
-<span class="sd">            frame_from = str(</span>
-<span class="sd">                start_frame + ((current_label_start * frame_size) / 1000.0)</span>
-<span class="sd">            )</span>
-<span class="sd">            frame_to = str(start_frame + ((id * frame_size) / 1000.0))</span>
-<span class="sd">            if last_label &lt; len(mongo_scheme[0][&quot;labels&quot;]):</span>
-<span class="sd">                annos.append(</span>
-<span class="sd">                    {</span>
-<span class="sd">                        &quot;from&quot;: frame_from,</span>
-<span class="sd">                        &quot;to&quot;: frame_to,</span>
-<span class="sd">                        &quot;conf&quot;: results[&quot;confidences&quot;][id],</span>
-<span class="sd">                        &quot;id&quot;: int(last_label),</span>
-<span class="sd">                    }</span>
-<span class="sd">                )</span>
-<span class="sd">            current_label_start = id</span>
-<span class="sd">        last_label = value</span>
-
-<span class="sd">    db_handler.set_annos(</span>
-<span class="sd">        database=database,</span>
-<span class="sd">        scheme=scheme,</span>
-<span class="sd">        session=session,</span>
-<span class="sd">        annotator=annotator,</span>
-<span class="sd">        role=role,</span>
-<span class="sd">        annos=annos,</span>
-<span class="sd">    )</span>
-<span class="sd">    &#39;&#39;&#39;</span>
-
-<div class="viewcode-block" id="write_continuous_to_db"><a class="viewcode-back" href="../../../api/nova-server/nova_server.utils.db_utils.html#nova_server.utils.db_utils.write_continuous_to_db">[docs]</a><span class="k">def</span> <span class="nf">write_continuous_to_db</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">results</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">db_handler</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
-    <span class="n">role</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;roles&quot;</span><span class="p">]</span>
-    <span class="c1"># role = roles.split(&#39;;&#39;)[0]</span>
-    <span class="n">annos</span> <span class="o">=</span> <span class="p">[]</span>
-
-    <span class="k">if</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;startTime&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;0&quot;</span><span class="p">:</span>
-        <span class="n">annos_db</span> <span class="o">=</span> <span class="n">db_handler</span><span class="o">.</span><span class="n">get_annos</span><span class="p">(</span>
-            <span class="n">dataset</span><span class="o">=</span><span class="n">database</span><span class="p">,</span>
-            <span class="n">scheme</span><span class="o">=</span><span class="n">scheme</span><span class="p">,</span>
-            <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">,</span>
-            <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
-            <span class="n">roles</span><span class="o">=</span><span class="n">roles</span><span class="p">,</span>
-        <span class="p">)</span>
-
-        <span class="n">start_frame</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span>
-            <span class="nb">int</span><span class="p">(</span><span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;startTime&quot;</span><span class="p">])</span> <span class="o">/</span> <span class="nb">int</span><span class="p">(</span><span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;frameSize&quot;</span><span class="p">][:</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span>
-        <span class="p">)</span>
-        <span class="n">annos</span> <span class="o">=</span> <span class="n">annos_db</span><span class="p">[:</span><span class="n">start_frame</span><span class="p">]</span>
-
-    <span class="c1"># normalized = (results[&quot;values&quot;] - min(results[&quot;values&quot;])) / (max(results[&quot;values&quot;]) - min(results[&quot;values&quot;]))</span>
-
-    <span class="k">for</span> <span class="n">value</span><span class="p">,</span> <span class="n">confidence</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;values&quot;</span><span class="p">],</span> <span class="n">results</span><span class="p">[</span><span class="s2">&quot;confidences&quot;</span><span class="p">]):</span>
-        <span class="n">annos</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;score&quot;</span><span class="p">:</span> <span class="n">value</span><span class="p">,</span> <span class="s2">&quot;conf&quot;</span><span class="p">:</span> <span class="n">confidence</span><span class="p">})</span>
-
-    <span class="n">db_handler</span><span class="o">.</span><span class="n">set_annos</span><span class="p">(</span>
-        <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="p">,</span>
-        <span class="n">scheme</span><span class="o">=</span><span class="n">scheme</span><span class="p">,</span>
-        <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">,</span>
-        <span class="n">annotator</span><span class="o">=</span><span class="n">annotator</span><span class="p">,</span>
-        <span class="n">role</span><span class="o">=</span><span class="n">role</span><span class="p">,</span>
-        <span class="n">annos</span><span class="o">=</span><span class="n">annos</span><span class="p">,</span>
     <span class="p">)</span></div>
 
 
@@ -459,65 +251,65 @@
         <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="separate_doc"><a class="viewcode-back" href="../../../api/nova-server/nova_server.utils.db_utils.html#nova_server.utils.db_utils.separate_doc">[docs]</a><span class="k">def</span> <span class="nf">separate_doc</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
-    <span class="n">left</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span>
-    <span class="n">left</span><span class="p">[</span><span class="s2">&quot;_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bson</span><span class="o">.</span><span class="n">objectid</span><span class="o">.</span><span class="n">ObjectId</span><span class="p">()</span>
-    <span class="n">right</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span>
-    <span class="n">right</span><span class="p">[</span><span class="s2">&quot;_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">bson</span><span class="o">.</span><span class="n">objectid</span><span class="o">.</span><span class="n">ObjectId</span><span class="p">()</span>
-    <span class="n">half_count</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">doc</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
-    <span class="n">left</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">left</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">:</span><span class="n">half_count</span><span class="p">]</span>
-    <span class="n">right</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">right</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">][</span><span class="n">half_count</span><span class="p">:]</span>
-
-    <span class="n">result_list</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bson</span><span class="o">.</span><span class="n">BSON</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">left</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="n">MAX_MONGO_DB_DOC_SIZE</span><span class="p">:</span>
-        <span class="n">result_list</span> <span class="o">+=</span> <span class="n">separate_doc</span><span class="p">(</span><span class="n">left</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">result_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">left</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bson</span><span class="o">.</span><span class="n">BSON</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">right</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="n">MAX_MONGO_DB_DOC_SIZE</span><span class="p">:</span>
-        <span class="n">result_list</span> <span class="o">+=</span> <span class="n">separate_doc</span><span class="p">(</span><span class="n">right</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">result_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">right</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">result_list</span></div>
-
-
-<div class="viewcode-block" id="update_polygon_doc"><a class="viewcode-back" href="../../../api/nova-server/nova_server.utils.db_utils.html#nova_server.utils.db_utils.update_polygon_doc">[docs]</a><span class="k">def</span> <span class="nf">update_polygon_doc</span><span class="p">(</span><span class="n">data_doc</span><span class="p">,</span> <span class="n">polygons</span><span class="p">,</span> <span class="n">confidences</span><span class="p">,</span> <span class="n">start_frame</span><span class="p">):</span>
-    <span class="n">current_frame</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
-    <span class="k">for</span> <span class="n">frame_id</span><span class="p">,</span> <span class="n">frame</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">data_doc</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">]):</span>
-        <span class="k">if</span> <span class="n">frame_id</span> <span class="o">&gt;=</span> <span class="n">start_frame</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">polygons</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">data_doc</span>
-        <span class="k">if</span> <span class="n">frame_id</span> <span class="o">&gt;=</span> <span class="n">start_frame</span><span class="p">:</span>
-            <span class="n">polygons_per_frame</span> <span class="o">=</span> <span class="n">polygons</span><span class="p">[</span><span class="n">frame_id</span> <span class="o">-</span> <span class="n">start_frame</span><span class="p">]</span>
-            <span class="k">for</span> <span class="n">label_id</span><span class="p">,</span> <span class="n">polygons_per_label_type</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">polygons_per_frame</span><span class="p">):</span>
-                <span class="k">for</span> <span class="n">polygon_id</span><span class="p">,</span> <span class="n">polygon</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">polygons_per_label_type</span><span class="p">):</span>
-                    <span class="n">label</span> <span class="o">=</span> <span class="n">label_id</span> <span class="o">+</span> <span class="mi">1</span>
-                    <span class="n">points_for_db</span> <span class="o">=</span> <span class="p">[]</span>
-                    <span class="n">points</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
-                        <span class="n">polygon</span><span class="p">,</span> <span class="n">newshape</span><span class="o">=</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">polygon</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="mi">2</span><span class="p">]</span>
-                    <span class="p">)</span>
-                    <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">points</span><span class="p">:</span>
-                        <span class="n">points_for_db</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">point</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">point</span><span class="p">[</span><span class="mi">1</span><span class="p">])})</span>
-
-                    <span class="c1"># delete the content of the current frame, the new prediction values have to be set</span>
-                    <span class="k">if</span> <span class="n">current_frame</span> <span class="o">!=</span> <span class="n">frame_id</span><span class="p">:</span>
-                        <span class="n">current_frame</span> <span class="o">=</span> <span class="n">frame_id</span>
-                        <span class="n">data_doc</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">][</span><span class="n">frame_id</span><span class="p">][</span><span class="s2">&quot;polygons&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-
-                    <span class="n">data_doc</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">][</span><span class="n">frame_id</span><span class="p">][</span><span class="s2">&quot;polygons&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-                        <span class="p">{</span>
-                            <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span>
-                            <span class="s2">&quot;confidence&quot;</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span>
-                                <span class="n">confidences</span><span class="p">[</span><span class="n">frame_id</span> <span class="o">-</span> <span class="n">start_frame</span><span class="p">][</span><span class="n">label_id</span><span class="p">][</span>
-                                    <span class="n">polygon_id</span>
-                                <span class="p">],</span>
-                                <span class="mi">2</span><span class="p">,</span>
-                            <span class="p">),</span>
-                            <span class="s2">&quot;points&quot;</span><span class="p">:</span> <span class="n">points_for_db</span><span class="p">,</span>
-                        <span class="p">}</span>
-                    <span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">data_doc</span></div>
+<span class="c1"># def separate_doc(doc) -&gt; list:</span>
+<span class="c1">#     left = copy.deepcopy(doc)</span>
+<span class="c1">#     left[&quot;_id&quot;] = bson.objectid.ObjectId()</span>
+<span class="c1">#     right = copy.deepcopy(doc)</span>
+<span class="c1">#     right[&quot;_id&quot;] = bson.objectid.ObjectId()</span>
+<span class="c1">#     half_count = int(len(doc[&quot;labels&quot;]) / 2)</span>
+<span class="c1">#     left[&quot;labels&quot;] = left[&quot;labels&quot;][0:half_count]</span>
+<span class="c1">#     right[&quot;labels&quot;] = right[&quot;labels&quot;][half_count:]</span>
+<span class="c1">#</span>
+<span class="c1">#     result_list = []</span>
+<span class="c1">#     if len(bson.BSON.encode(left)) &gt;= MAX_MONGO_DB_DOC_SIZE:</span>
+<span class="c1">#         result_list += separate_doc(left)</span>
+<span class="c1">#     else:</span>
+<span class="c1">#         result_list.append(left)</span>
+<span class="c1">#</span>
+<span class="c1">#     if len(bson.BSON.encode(right)) &gt;= MAX_MONGO_DB_DOC_SIZE:</span>
+<span class="c1">#         result_list += separate_doc(right)</span>
+<span class="c1">#     else:</span>
+<span class="c1">#         result_list.append(right)</span>
+<span class="c1">#</span>
+<span class="c1">#     return result_list</span>
+<span class="c1">#</span>
+<span class="c1">#</span>
+<span class="c1"># def update_polygon_doc(data_doc, polygons, confidences, start_frame):</span>
+<span class="c1">#     current_frame = -1</span>
+<span class="c1">#     for frame_id, frame in enumerate(data_doc[&quot;labels&quot;]):</span>
+<span class="c1">#         if frame_id &gt;= start_frame + len(polygons):</span>
+<span class="c1">#             return data_doc</span>
+<span class="c1">#         if frame_id &gt;= start_frame:</span>
+<span class="c1">#             polygons_per_frame = polygons[frame_id - start_frame]</span>
+<span class="c1">#             for label_id, polygons_per_label_type in enumerate(polygons_per_frame):</span>
+<span class="c1">#                 for polygon_id, polygon in enumerate(polygons_per_label_type):</span>
+<span class="c1">#                     label = label_id + 1</span>
+<span class="c1">#                     points_for_db = []</span>
+<span class="c1">#                     points = np.reshape(</span>
+<span class="c1">#                         polygon, newshape=[int(polygon.shape[0] / 2), 2]</span>
+<span class="c1">#                     )</span>
+<span class="c1">#                     for point in points:</span>
+<span class="c1">#                         points_for_db.append({&quot;x&quot;: int(point[0]), &quot;y&quot;: int(point[1])})</span>
+<span class="c1">#</span>
+<span class="c1">#                     # delete the content of the current frame, the new prediction values have to be set</span>
+<span class="c1">#                     if current_frame != frame_id:</span>
+<span class="c1">#                         current_frame = frame_id</span>
+<span class="c1">#                         data_doc[&quot;labels&quot;][frame_id][&quot;polygons&quot;] = []</span>
+<span class="c1">#</span>
+<span class="c1">#                     data_doc[&quot;labels&quot;][frame_id][&quot;polygons&quot;].append(</span>
+<span class="c1">#                         {</span>
+<span class="c1">#                             &quot;label&quot;: label,</span>
+<span class="c1">#                             &quot;confidence&quot;: round(</span>
+<span class="c1">#                                 confidences[frame_id - start_frame][label_id][</span>
+<span class="c1">#                                     polygon_id</span>
+<span class="c1">#                                 ],</span>
+<span class="c1">#                                 2,</span>
+<span class="c1">#                             ),</span>
+<span class="c1">#                             &quot;points&quot;: points_for_db,</span>
+<span class="c1">#                         }</span>
+<span class="c1">#                     )</span>
+<span class="c1">#</span>
+<span class="c1">#     return data_doc</span>
 </pre></div>
 
            </div>

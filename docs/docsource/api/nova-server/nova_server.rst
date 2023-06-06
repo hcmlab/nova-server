@@ -7,6 +7,7 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
+   nova_server.data
    nova_server.route
    nova_server.templates
    nova_server.utils
@@ -18,6 +19,7 @@ Submodules
    :maxdepth: 4
 
    nova_server.app
+   nova_server.config
 
 Module contents
 ---------------

@@ -42,14 +42,12 @@
               <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/introduction.html">Introduction</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/usage.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../modules/overview_link.html">overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../modules/whisperx_link.html">WhisperX</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Documentation:</span></p>
 <ul>
@@ -85,6 +83,7 @@
   <h1>Source code for nova_server.route.predict</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;This file contains the general logic for predicting annotations to the nova database&quot;&quot;&quot;</span>
 <span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span><span class="p">,</span> <span class="n">PureWindowsPath</span>
 <span class="kn">from</span> <span class="nn">nova_server.utils</span> <span class="kn">import</span> <span class="n">db_utils</span>
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Blueprint</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">jsonify</span>
@@ -104,7 +103,6 @@
     <span class="n">HcaiNovaDynamicIterable</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">nova_utils.interfaces.server_module</span> <span class="kn">import</span> <span class="n">Trainer</span> <span class="k">as</span> <span class="n">iTrainer</span>
-<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">current_app</span>
 
 <span class="n">predict</span> <span class="o">=</span> <span class="n">Blueprint</span><span class="p">(</span><span class="s2">&quot;predict&quot;</span><span class="p">,</span> <span class="vm">__name__</span><span class="p">)</span>
 
@@ -114,7 +112,7 @@
     <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;POST&quot;</span><span class="p">:</span>
         <span class="n">request_form</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">get_key_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
-        <span class="n">thread</span> <span class="o">=</span> <span class="n">predict_data</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">current_app</span><span class="o">.</span><span class="n">_get_current_object</span><span class="p">())</span>
+        <span class="n">thread</span> <span class="o">=</span> <span class="n">predict_data</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
         <span class="n">status_utils</span><span class="o">.</span><span class="n">add_new_job</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
         <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">}</span>
         <span class="n">thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
@@ -123,11 +121,12 @@
 
 
 <span class="nd">@thread_utils</span><span class="o">.</span><span class="n">ml_thread_wrapper</span>
-<span class="k">def</span> <span class="nf">predict_data</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">app_context</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">predict_data</span><span class="p">(</span><span class="n">request_form</span><span class="p">):</span>
     <span class="n">key</span> <span class="o">=</span> <span class="n">get_key_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
     <span class="n">logger</span> <span class="o">=</span> <span class="n">log_utils</span><span class="o">.</span><span class="n">get_logger_for_thread</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
-    <span class="n">cml_dir</span> <span class="o">=</span> <span class="n">app_context</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;CML_DIR&quot;</span><span class="p">]</span>
-    <span class="n">data_dir</span> <span class="o">=</span> <span class="n">app_context</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;DATA_DIR&quot;</span><span class="p">]</span>
+
+    <span class="n">cml_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;NOVA_CML_DIR&quot;</span><span class="p">]</span>
+    <span class="n">data_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;NOVA_DATA_DIR&quot;</span><span class="p">]</span>
 
     <span class="n">log_conform_request</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
     <span class="n">log_conform_request</span><span class="p">[</span><span class="s2">&quot;password&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;---&quot;</span>
@@ -140,7 +139,7 @@
     <span class="n">trainer</span> <span class="o">=</span> <span class="n">Trainer</span><span class="p">()</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">trainer_file_path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Trainer file not available!&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Trainer file not available: </span><span class="si">{</span><span class="n">trainer_file_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
         <span class="n">status_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">status_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
         <span class="k">return</span> <span class="kc">None</span>
     <span class="k">else</span><span class="p">:</span>
@@ -219,11 +218,8 @@
 
         <span class="c1"># TODO: Refactor to not use request form in upload</span>
         <span class="n">request_form_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
-        <span class="n">request_form_copy</span><span class="p">[</span><span class="s1">&#39;scheme&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;activelistening&#39;</span>
-
         <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">ss_ds_iter</span><span class="o">.</span><span class="n">sessions</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
         <span class="n">request_form_copy</span><span class="p">[</span><span class="s1">&#39;sessions&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ss_ds_iter</span><span class="o">.</span><span class="n">sessions</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">request_form_copy</span><span class="p">[</span><span class="s1">&#39;roles&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ss_ds_iter</span><span class="o">.</span><span class="n">roles</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
         <span class="k">for</span> <span class="n">anno</span> <span class="ow">in</span> <span class="n">annos</span><span class="p">:</span>
             <span class="n">db_utils</span><span class="o">.</span><span class="n">write_annotation_to_db</span><span class="p">(</span><span class="n">request_form_copy</span><span class="p">,</span> <span class="n">anno</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
@@ -232,6 +228,7 @@
     <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Prediction completed!&quot;</span><span class="p">)</span>
     <span class="n">status_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">status_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">FINISHED</span><span class="p">)</span>
 
+<span class="sd">&#39;&#39;&#39;Keep for later reference to implement polygons&#39;&#39;&#39;</span>
     <span class="c1"># model_script.ds_iter = ds_iter</span>
     <span class="c1"># model_script.request_form[&quot;sessions&quot;] = session</span>
     <span class="c1"># model_script.request_form[&quot;roles&quot;] = role</span>

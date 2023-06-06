@@ -45,14 +45,12 @@
               <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../tutorials/introduction.html">Introduction</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../tutorials/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../tutorials/usage.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../tutorials/examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../modules/overview_link.html">overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../modules/whisperx_link.html">WhisperX</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Documentation:</span></p>
 <ul class="current">
@@ -142,6 +140,15 @@
 <span class="sig-name descname"><span class="pre">load_header</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_utils/ssi_utils/ssi_anno_utils.html#Anno.load_header"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.Anno.load_header" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.Anno.set_data">
+<span class="sig-name descname"><span class="pre">set_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">data:</span> <span class="pre">[&lt;built-in</span> <span class="pre">function</span> <span class="pre">array&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'list'&gt;]</span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/nova_utils/ssi_utils/ssi_anno_utils.html#Anno.set_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.Anno.set_data" title="Permalink to this definition"></a></dt>
+<dd><p>Helper function to add data to an existing annotation. This function checks the format of the array and sets additional attributes (e.g. min and max value if necesary).
+Needs to be called after the scheme has been set initialized. If the input is passed as a list the function will try to convert it to an np.array.
+:param data: The annotation data to set
+:type data: np.array, list</p>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
@@ -151,22 +158,17 @@
 <p>An enumeration.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.CONTINUOUS">
-<span class="sig-name descname"><span class="pre">CONTINUOUS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'formats':</span> <span class="pre">(&lt;class</span> <span class="pre">'numpy.float32'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;),</span> <span class="pre">'names':</span> <span class="pre">('score',</span> <span class="pre">'conf')}</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.CONTINUOUS" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">CONTINUOUS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">dtype([('score',</span> <span class="pre">'&lt;f4'),</span> <span class="pre">('conf',</span> <span class="pre">'&lt;f4')])</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.CONTINUOUS" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.DISCRETE">
-<span class="sig-name descname"><span class="pre">DISCRETE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'formats':</span> <span class="pre">(&lt;class</span> <span class="pre">'numpy.float32'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.int32'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;),</span> <span class="pre">'names':</span> <span class="pre">('from',</span> <span class="pre">'to',</span> <span class="pre">'class',</span> <span class="pre">'conf')}</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.DISCRETE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">DISCRETE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">dtype([('from',</span> <span class="pre">'&lt;f8'),</span> <span class="pre">('to',</span> <span class="pre">'&lt;f8'),</span> <span class="pre">('class',</span> <span class="pre">'&lt;i4'),</span> <span class="pre">('conf',</span> <span class="pre">'&lt;f4')])</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.DISCRETE" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.FREE">
-<span class="sig-name descname"><span class="pre">FREE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'formats':</span> <span class="pre">(&lt;class</span> <span class="pre">'numpy.float64'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float64'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.object_'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;),</span> <span class="pre">'names':</span> <span class="pre">('from',</span> <span class="pre">'to',</span> <span class="pre">'name',</span> <span class="pre">'conf')}</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.FREE" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.dt">
-<span class="sig-name descname"><span class="pre">dt</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{'formats':</span> <span class="pre">(&lt;class</span> <span class="pre">'numpy.float64'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float64'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.object_'&gt;,</span> <span class="pre">&lt;class</span> <span class="pre">'numpy.float32'&gt;),</span> <span class="pre">'names':</span> <span class="pre">('from',</span> <span class="pre">'to',</span> <span class="pre">'name',</span> <span class="pre">'conf')}</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.dt" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">FREE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">dtype([('from',</span> <span class="pre">'&lt;f8'),</span> <span class="pre">('to',</span> <span class="pre">'&lt;f8'),</span> <span class="pre">('name',</span> <span class="pre">'O'),</span> <span class="pre">('conf',</span> <span class="pre">'&lt;f4')])</span></em><a class="headerlink" href="#nova_utils.ssi_utils.ssi_anno_utils.LabelDataType.FREE" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>

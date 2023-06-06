@@ -45,20 +45,19 @@
               <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../tutorials/introduction.html">Introduction</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../tutorials/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../tutorials/usage.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../tutorials/examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../modules/overview_link.html">overview</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../modules/whisperx_link.html">WhisperX</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Documentation:</span></p>
 <ul class="current">
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">nova_server</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="nova_server.html">nova_server package</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="nova_server.html#subpackages">Subpackages</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="nova_server.data.html">nova_server.data package</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nova_server.route.html">nova_server.route package</a></li>
 <li class="toctree-l4"><a class="reference internal" href="nova_server.templates.html">nova_server.templates package</a></li>
 <li class="toctree-l4 current"><a class="current reference internal" href="#">nova_server.utils package</a></li>
@@ -112,12 +111,7 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="nova_server.utils.db_utils.html">nova_server.utils.db_utils module</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="nova_server.utils.db_utils.html#nova_server.utils.db_utils.check_format"><code class="docutils literal notranslate"><span class="pre">check_format()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="nova_server.utils.db_utils.html#nova_server.utils.db_utils.separate_doc"><code class="docutils literal notranslate"><span class="pre">separate_doc()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="nova_server.utils.db_utils.html#nova_server.utils.db_utils.update_polygon_doc"><code class="docutils literal notranslate"><span class="pre">update_polygon_doc()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="nova_server.utils.db_utils.html#nova_server.utils.db_utils.write_annotation_to_db"><code class="docutils literal notranslate"><span class="pre">write_annotation_to_db()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="nova_server.utils.db_utils.html#nova_server.utils.db_utils.write_continuous_to_db"><code class="docutils literal notranslate"><span class="pre">write_continuous_to_db()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="nova_server.utils.db_utils.html#nova_server.utils.db_utils.write_discrete_to_db"><code class="docutils literal notranslate"><span class="pre">write_discrete_to_db()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="nova_server.utils.db_utils.html#nova_server.utils.db_utils.write_freeform_to_db"><code class="docutils literal notranslate"><span class="pre">write_freeform_to_db()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="nova_server.utils.db_utils.html#nova_server.utils.db_utils.write_polygons_to_db"><code class="docutils literal notranslate"><span class="pre">write_polygons_to_db()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="nova_server.utils.db_utils.html#nova_server.utils.db_utils.write_stream_info_to_db"><code class="docutils literal notranslate"><span class="pre">write_stream_info_to_db()</span></code></a></li>
 </ul>
@@ -146,9 +140,11 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="nova_server.utils.key_utils.html">nova_server.utils.key_utils module</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="nova_server.utils.key_utils.html#nova_server.utils.key_utils.get_key_from_request_form"><code class="docutils literal notranslate"><span class="pre">get_key_from_request_form()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="nova_server.utils.key_utils.html#nova_server.utils.key_utils.get_random_name"><code class="docutils literal notranslate"><span class="pre">get_random_name()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="nova_server.utils.log_utils.html">nova_server.utils.log_utils module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="nova_server.utils.log_utils.html#nova_server.utils.log_utils.get_log_conform_request"><code class="docutils literal notranslate"><span class="pre">get_log_conform_request()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="nova_server.utils.log_utils.html#nova_server.utils.log_utils.get_log_path_for_thread"><code class="docutils literal notranslate"><span class="pre">get_log_path_for_thread()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="nova_server.utils.log_utils.html#nova_server.utils.log_utils.get_logfile_name_for_thread"><code class="docutils literal notranslate"><span class="pre">get_logfile_name_for_thread()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="nova_server.utils.log_utils.html#nova_server.utils.log_utils.get_logger_for_thread"><code class="docutils literal notranslate"><span class="pre">get_logger_for_thread()</span></code></a></li>
