@@ -38,7 +38,7 @@ def write_stream_info_to_db(
     stream_type: str,
     is_valid: bool,
     sr: float,
-    dimlables: list = None,
+    dim_labels: list = None,
 ):
     # TODO check if we really need to establish a new connection to the database
     db_config_dict = {
@@ -58,7 +58,7 @@ def write_stream_info_to_db(
         stream_type=stream_type,
         is_valid=is_valid,
         sr=sr,
-        dimlabels=dimlables,
+        dimlabels=dim_labels,
         overwrite=True,
     )
 

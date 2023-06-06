@@ -242,7 +242,7 @@ def extract_data(request_form):
                              stream_type = data_type.name.lower(),
                              is_valid = True,
                              sr = sr,
-                             dimlables = []
+                             dim_labels= []
                          )
 
                     logger.info("...done")
