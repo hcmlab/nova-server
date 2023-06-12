@@ -113,7 +113,7 @@
         <span class="n">request_form</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">get_key_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
         <span class="n">thread</span> <span class="o">=</span> <span class="n">predict_data</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
-        <span class="n">status_utils</span><span class="o">.</span><span class="n">add_new_job</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="n">status_utils</span><span class="o">.</span><span class="n">add_new_job</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">request_form</span><span class="o">=</span><span class="n">request_form</span><span class="p">)</span>
         <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">}</span>
         <span class="n">thread</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
         <span class="n">THREADS</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">thread</span>

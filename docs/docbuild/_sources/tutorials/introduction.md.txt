@@ -12,6 +12,15 @@ While other Python versions may work as well the module is only tested for the f
 You can download the current version of python for your system [here](https://www.python.org/downloads/).
 
 Download the current version off FFMPEG binaries from [here](https://github.com/BtbN/FFmpeg-Builds/releases) for your system and make sure to extract them to a place that is in your system path.
+It is recommended to setup a separate virtual environment to isolate the NOVA server installation from your system python installation. 
+To do so, open a terminal at the directory where your virtual environment should be installed and paste the following command: 
+
+```python -m venv nova-server-venv```
+
+You can then activate the virtual environment like this: 
+
+```.\nova-server-venv\Scripts\activate```
+
 
 ### Setup
 
