@@ -6,6 +6,7 @@ import numpy as np
 
 from hcai_datasets.hcai_nova_dynamic.nova_db_handler import NovaDBHandler
 from nova_utils.ssi_utils.ssi_anno_utils import Anno, SchemeType
+
 MAX_MONGO_DB_DOC_SIZE = 16777216
 database = None
 scheme = None
@@ -50,7 +51,8 @@ def write_stream_info_to_db(
 
     db_handler = NovaDBHandler(db_config_dict=db_config_dict)
     database = request_form["database"]
-
+    if file_ext.startswith("."):
+        file_ext = file_ext[1:]
     db_handler.set_data_streams(
         database=database,
         file_name=file_name,
@@ -64,8 +66,8 @@ def write_stream_info_to_db(
 
 
 def write_annotation_to_db(request_form, anno: Anno, logger):
-    #global database, scheme, session, annotator, roles
-    #check_format(results, logger)
+    # global database, scheme, session, annotator, roles
+    # check_format(results, logger)
 
     # TODO check if we really need to establish a new connection to the database
     # DB Config
@@ -83,12 +85,7 @@ def write_annotation_to_db(request_form, anno: Anno, logger):
 
     # Format data correctly
     scheme_dtype_names = anno.scheme.get_dtype().base.names
-    anno_data = [
-        dict(zip(scheme_dtype_names, ad.item()))
-        for ad
-        in anno.data
-    ]
-
+    anno_data = [dict(zip(scheme_dtype_names, ad.item())) for ad in anno.data]
 
     db_handler.set_annos(
         database=database,
