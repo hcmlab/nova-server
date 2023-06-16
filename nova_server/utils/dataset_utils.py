@@ -36,7 +36,7 @@ def dataset_from_request_form(request_form, data_dir):
         if request_form.get("scheme")
         else None,
         annotator=request_form.get("annotator"),
-        data_streams=request_form.get("streamName", "").split(" ")
+        data_streams=request_form.get("streamName", "").split(";")
         if request_form.get("streamName")
         else None,
         # Sample Config
@@ -50,7 +50,7 @@ def dataset_from_request_form(request_form, data_dir):
         # transformation cannot be applied. fix it!
         flatten_samples=flattenSamples,
         supervised_keys=[
-            request_form.get("streamName", "").split(" ")[0],
+            request_form.get("streamName", "").split(";")[0],
             request_form.get("scheme", "").split(";")[0],
         ],
         # Additional Config
