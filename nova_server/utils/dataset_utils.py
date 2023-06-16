@@ -9,10 +9,10 @@ def dataset_from_request_form(request_form, data_dir):
     :param request_form: the requestform that specifices the parameters of the dataset
     """
     db_config_dict = {
-        "ip": request_form["server"].split(":")[0],
-        "port": int(request_form["server"].split(":")[1]),
-        "user": request_form["username"],
-        "password": request_form["password"],
+        "ip": request_form["dbServer"].split(":")[0],
+        "port": int(request_form["dbServer"].split(":")[1]),
+        "user": request_form["dbUser"],
+        "password": request_form["dbPassword"],
     }
 
     flattenSamples = False
