@@ -43,10 +43,10 @@ def write_stream_info_to_db(
 ):
     # TODO check if we really need to establish a new connection to the database
     db_config_dict = {
-        "ip": request_form["server"].split(":")[0],
-        "port": int(request_form["server"].split(":")[1]),
-        "user": request_form["username"],
-        "password": request_form["password"],
+        "ip": request_form["dbServer"].split(":")[0],
+        "port": int(request_form["dbServer"].split(":")[1]),
+        "user": request_form["dbUser"],
+        "password": request_form["dbPassword"],
     }
 
     db_handler = NovaDBHandler(db_config_dict=db_config_dict)
@@ -72,10 +72,10 @@ def write_annotation_to_db(request_form, anno: Anno, logger):
     # TODO check if we really need to establish a new connection to the database
     # DB Config
     db_config_dict = {
-        "ip": request_form["server"].split(":")[0],
-        "port": int(request_form["server"].split(":")[1]),
-        "user": request_form["username"],
-        "password": request_form["password"],
+        "ip": request_form["dbServer"].split(":")[0],
+        "port": int(request_form["dbServer"].split(":")[1]),
+        "user": request_form["dbUser"],
+        "password": request_form["dbPassword"],
     }
 
     # Database specific options
