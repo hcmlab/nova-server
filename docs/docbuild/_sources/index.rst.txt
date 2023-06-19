@@ -17,8 +17,6 @@ The server api can be used either from the UI itself or as a standalone tool to 
     :caption: Getting started
 
     tutorials/introduction
-    tutorials/installation
-    tutorials/usage
     tutorials/examples
 
 .. toctree::
