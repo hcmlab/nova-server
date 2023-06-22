@@ -127,8 +127,13 @@ def predict_data(request_form):
         ss_ds_iter = ds_iter.to_single_session_iterator()
 
         logger.info("Predict data...")
-        data = predictor.process_data(ss_ds_iter)
-        annos = predictor.to_anno(data)
+        try:
+            data = predictor.process_data(ss_ds_iter)
+            annos = predictor.to_anno(data)
+        except Exception as e:
+            logger.error(str(e))
+            status_utils.update_status(key, status_utils.JobStatus.ERROR)
+            raise e
         logger.info("...done")
 
         logger.info("Saving predictions to database...")
