@@ -1,6 +1,15 @@
 """This file contains the general logic for extracting feature streams to the filesystem"""
 
+import ffmpegio
+import numpy as np
+import os
 from flask import Blueprint, request, jsonify
+from importlib.machinery import SourceFileLoader
+from pathlib import Path, PureWindowsPath
+
+from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
+    HcaiNovaDynamicIterable,
+)
 from nova_server.utils import (
     dataset_utils,
     thread_utils,
@@ -8,27 +17,30 @@ from nova_server.utils import (
     log_utils,
     import_utils,
 )
-from nova_server.utils.key_utils import get_key_from_request_form
-from nova_server.utils.thread_utils import THREADS
-from nova_server.utils.status_utils import update_progress
-from pathlib import Path, PureWindowsPath
-from nova_utils.db_utils.nova_types import DataTypes
-from nova_utils.ssi_utils.ssi_xml_utils import Chain, ChainLink
-from nova_utils.ssi_utils.ssi_stream_utils import Stream, Chunk, FileTypes, NPDataTypes
-from importlib.machinery import SourceFileLoader
-from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
-    HcaiNovaDynamicIterable,
-)
-import ffmpegio
-import numpy as np
 from nova_server.utils import db_utils
-from flask import current_app
-import os
+from nova_server.utils.key_utils import get_key_from_request_form
+from nova_server.utils.status_utils import update_progress
+from nova_server.utils.thread_utils import THREADS
+from nova_utils.db_utils.nova_types import DataTypes
+from nova_utils.ssi_utils.ssi_stream_utils import Stream, Chunk, FileTypes, NPDataTypes
+from nova_utils.ssi_utils.ssi_xml_utils import Chain, ChainLink
+
 extract = Blueprint("extract", __name__)
 
 
 @extract.route("/extract", methods=["POST"])
 def extract_thread():
+    """
+    Start the extraction thread for feature streams.
+     Arguments:
+        None, but expects a POST request with the required form data.
+     Returns:
+        A JSON response with a success status.
+     Raises:
+        None, but returns a JSON response with an error status if there's an issue with the request.
+     Example usage:
+        Send a POST request to the "/extract" endpoint with the required form data.
+    """
     if request.method == "POST":
         request_form = request.form.to_dict()
         key = get_key_from_request_form(request_form)
@@ -42,7 +54,18 @@ def extract_thread():
 
 @thread_utils.ml_thread_wrapper
 def extract_data(request_form):
-
+    """
+    Extract feature streams based on the provided request form.
+     Arguments:
+        request_form (dict): A dictionary containing the request form data.
+     Returns:
+        None
+     Raises:
+        AssertionError: If the loaded chainfile has more than one processing step or if the extraction
+            module does not support further chaining but is not the last link in the chain.
+     Example usage:
+        extract_data(request_form)
+    """
     # Initialize
     cml_dir = os.environ["NOVA_CML_DIR"]
     data_dir = os.environ["NOVA_DATA_DIR"]
@@ -59,7 +82,6 @@ def extract_data(request_form):
 
     logger.info("Action 'Extract' started.")
     status_utils.update_status(key, status_utils.JobStatus.RUNNING)
-
 
     chain = Chain()
 
@@ -189,10 +211,10 @@ def extract_data(request_form):
                         stream_id_sfx = stream_id + "_" + suffix if suffix else stream_id
                         file_name_db = '.'.join(stream_id_sfx.split('.')[1:])
                         out_path = (
-                            Path(ds_iter.nova_data_dir)
-                            / ds_iter.dataset
-                            / ds_iter.sessions[0]
-                            / stream_id_sfx
+                                Path(ds_iter.nova_data_dir)
+                                / ds_iter.dataset
+                                / ds_iter.sessions[0]
+                                / stream_id_sfx
                         )
 
                         logger.info(f"\t - {out_path}")
@@ -222,7 +244,7 @@ def extract_data(request_form):
                         elif data_type == DataTypes.AUDIO:
                             file_ex = '.wav'
                             out_path = out_path.parent / (out_path.name + file_ex)
-                            ffmpegio.audio.write(out_path, int(sr), np.swapaxes(np.hstack(data),0 , -1), overwrite=True)
+                            ffmpegio.audio.write(out_path, int(sr), np.swapaxes(np.hstack(data), 0, -1), overwrite=True)
 
                         # Video Data
                         elif data_type == DataTypes.VIDEO:
@@ -232,18 +254,17 @@ def extract_data(request_form):
                         else:
                             raise NotImplementedError(f"{data_type} is not supported.")
 
-
                         # Add Stream info to Databases
                         # TODO: Add dimlabels from stream
                         db_utils.write_stream_info_to_db(
-                             request_form = request_form,
-                             file_name = file_name_db,
-                             file_ext = file_ex,
-                             stream_type = data_type.name.lower(),
-                             is_valid = True,
-                             sr = sr,
-                             dim_labels= []
-                         )
+                            request_form=request_form,
+                            file_name=file_name_db,
+                            file_ext=file_ex,
+                            stream_type=data_type.name.lower(),
+                            is_valid=True,
+                            sr=sr,
+                            dim_labels=[]
+                        )
 
                     logger.info("...done")
 

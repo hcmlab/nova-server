@@ -1,14 +1,14 @@
 """This file contains the general logic for predicting annotations to the nova database"""
 import copy
 import os
-from pathlib import Path, PureWindowsPath
-from nova_server.utils import db_utils
 from flask import Blueprint, request, jsonify
-from nova_utils.ssi_utils.ssi_xml_utils import Trainer
 from importlib.machinery import SourceFileLoader
-from nova_server.utils.thread_utils import THREADS
-from nova_server.utils.status_utils import update_progress
-from nova_server.utils.key_utils import get_key_from_request_form
+from pathlib import Path, PureWindowsPath
+
+from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
+    HcaiNovaDynamicIterable,
+)
+from nova_server.utils import db_utils
 from nova_server.utils import (
     thread_utils,
     status_utils,
@@ -16,16 +16,36 @@ from nova_server.utils import (
     dataset_utils,
     import_utils,
 )
-from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
-    HcaiNovaDynamicIterable,
-)
+from nova_server.utils.key_utils import get_key_from_request_form
+from nova_server.utils.status_utils import update_progress
+from nova_server.utils.thread_utils import THREADS
 from nova_utils.interfaces.server_module import Trainer as iTrainer
+from nova_utils.ssi_utils.ssi_xml_utils import Trainer
 
 predict = Blueprint("predict", __name__)
 
 
 @predict.route("/predict", methods=["POST"])
 def predict_thread():
+    """
+    Description:
+    This function is a Flask route that handles POST requests for predicting data using a machine learning model.
+     Args:
+        None
+     Returns:
+        A JSON object indicating success.
+     Raises:
+        None
+     Example:
+        @predict.route("/predict", methods=["POST"])
+        def predict_thread():
+            # Function implementation
+     Usage:
+        This function should be used as a Flask route for handling POST requests for predicting data using a
+        machine learning model. The function expects a POST request to the "/predict" route with request form data.
+        The function then initializes the predict_data function and adds a new job to the status utils. Finally,
+        the function returns a JSON object indicating success.
+    """
     if request.method == "POST":
         request_form = request.form.to_dict()
         key = get_key_from_request_form(request_form)
@@ -39,6 +59,25 @@ def predict_thread():
 
 @thread_utils.ml_thread_wrapper
 def predict_data(request_form):
+    """
+    Description:
+    This function is a wrapped thread for predicting data using a machine learning model. It loads the trainer,
+    data, and model, and then processes the data and saves the predictions to the database.
+     Args:
+        request_form (dict): A dictionary containing the request form data.
+     Returns:
+        None
+     Raises:
+        ValueError: If the data cannot be loaded from the database.
+     Example:
+        @thread_utils.ml_thread_wrapper
+        def predict_data(request_form):
+            # Function implementation
+     Usage:
+        This function should be used as a wrapped thread for predicting data using a machine learning model.
+        The function expects a dictionary containing the request form data as its argument. The function
+        then loads the trainer, data, and model, processes the data, and saves the predictions to the database.
+    """
     key = get_key_from_request_form(request_form)
     logger = log_utils.get_logger_for_thread(key)
 
@@ -145,41 +184,42 @@ def predict_data(request_form):
     logger.info("Prediction completed!")
     status_utils.update_status(key, status_utils.JobStatus.FINISHED)
 
-'''Keep for later reference to implement polygons'''
-    # model_script.ds_iter = ds_iter
-    # model_script.request_form["sessions"] = session
-    # model_script.request_form["roles"] = role
-    #
-    # logger.info("Execute preprocessing.")
-    # model_script.preprocess()
-    # logger.info("Preprocessing done.")
-    #
-    # logger.info("Execute prediction.")
-    # model_script.predict()
-    # logger.info("Prediction done.")
-    #
-    # logger.info("Execute postprocessing.")
-    # results = model_script.postprocess()
-    # logger.info("Postprocessing done.")
-    #
-    # logger.info("Execute saving process.")
-    # db_utils.write_annotation_to_db(request_form, results, logger)
-    # logger.info("Saving process done.")
 
-    # 5. In CML case, delete temporary files..
-    # if request_form["deleteFiles"] == "True":
-    #     trainer_name = request_form["trainerName"]
-    #     logger.info("Deleting temporary CML files...")
-    #     out_dir = Path(cml_dir).joinpath(
-    #         PureWindowsPath(request_form["trainerOutputDirectory"])
-    #     )
-    #     os.remove(out_dir / trainer.model_weights_path)
-    #     os.remove(out_dir / trainer.model_script_path)
-    #     for f in model_script.DEPENDENCIES:
-    #         os.remove(trainer_file_path.parent / f)
-    #     trainer_fullname = trainer_name + ".trainer"
-    #     os.remove(out_dir / trainer_fullname)
-    #     logger.info("...done")
+'''Keep for later reference to implement polygons'''
+# model_script.ds_iter = ds_iter
+# model_script.request_form["sessions"] = session
+# model_script.request_form["roles"] = role
+#
+# logger.info("Execute preprocessing.")
+# model_script.preprocess()
+# logger.info("Preprocessing done.")
+#
+# logger.info("Execute prediction.")
+# model_script.predict()
+# logger.info("Prediction done.")
+#
+# logger.info("Execute postprocessing.")
+# results = model_script.postprocess()
+# logger.info("Postprocessing done.")
+#
+# logger.info("Execute saving process.")
+# db_utils.write_annotation_to_db(request_form, results, logger)
+# logger.info("Saving process done.")
+
+# 5. In CML case, delete temporary files..
+# if request_form["deleteFiles"] == "True":
+#     trainer_name = request_form["trainerName"]
+#     logger.info("Deleting temporary CML files...")
+#     out_dir = Path(cml_dir).joinpath(
+#         PureWindowsPath(request_form["trainerOutputDirectory"])
+#     )
+#     os.remove(out_dir / trainer.model_weights_path)
+#     os.remove(out_dir / trainer.model_script_path)
+#     for f in model_script.DEPENDENCIES:
+#         os.remove(trainer_file_path.parent / f)
+#     trainer_fullname = trainer_name + ".trainer"
+#     os.remove(out_dir / trainer_fullname)
+#     logger.info("...done")
 
 # except Exception as e:
 # logger.error('Error:' + str(e))
