@@ -42,7 +42,6 @@
               <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/introduction.html">Introduction</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/usage.html">Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../tutorials/examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Modules</span></p>
@@ -89,6 +88,7 @@
 
 <span class="kn">from</span> <span class="nn">hcai_datasets.hcai_nova_dynamic.nova_db_handler</span> <span class="kn">import</span> <span class="n">NovaDBHandler</span>
 <span class="kn">from</span> <span class="nn">nova_utils.ssi_utils.ssi_anno_utils</span> <span class="kn">import</span> <span class="n">Anno</span><span class="p">,</span> <span class="n">SchemeType</span>
+
 <span class="n">MAX_MONGO_DB_DOC_SIZE</span> <span class="o">=</span> <span class="mi">16777216</span>
 <span class="n">database</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="n">scheme</span> <span class="o">=</span> <span class="kc">None</span>
@@ -133,7 +133,8 @@
 
     <span class="n">db_handler</span> <span class="o">=</span> <span class="n">NovaDBHandler</span><span class="p">(</span><span class="n">db_config_dict</span><span class="o">=</span><span class="n">db_config_dict</span><span class="p">)</span>
     <span class="n">database</span> <span class="o">=</span> <span class="n">request_form</span><span class="p">[</span><span class="s2">&quot;database&quot;</span><span class="p">]</span>
-
+    <span class="k">if</span> <span class="n">file_ext</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">):</span>
+        <span class="n">file_ext</span> <span class="o">=</span> <span class="n">file_ext</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
     <span class="n">db_handler</span><span class="o">.</span><span class="n">set_data_streams</span><span class="p">(</span>
         <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="p">,</span>
         <span class="n">file_name</span><span class="o">=</span><span class="n">file_name</span><span class="p">,</span>
@@ -147,8 +148,8 @@
 
 
 <div class="viewcode-block" id="write_annotation_to_db"><a class="viewcode-back" href="../../../api/nova-server/nova_server.utils.db_utils.html#nova_server.utils.db_utils.write_annotation_to_db">[docs]</a><span class="k">def</span> <span class="nf">write_annotation_to_db</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">anno</span><span class="p">:</span> <span class="n">Anno</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
-    <span class="c1">#global database, scheme, session, annotator, roles</span>
-    <span class="c1">#check_format(results, logger)</span>
+    <span class="c1"># global database, scheme, session, annotator, roles</span>
+    <span class="c1"># check_format(results, logger)</span>
 
     <span class="c1"># TODO check if we really need to establish a new connection to the database</span>
     <span class="c1"># DB Config</span>
@@ -166,12 +167,7 @@
 
     <span class="c1"># Format data correctly</span>
     <span class="n">scheme_dtype_names</span> <span class="o">=</span> <span class="n">anno</span><span class="o">.</span><span class="n">scheme</span><span class="o">.</span><span class="n">get_dtype</span><span class="p">()</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">names</span>
-    <span class="n">anno_data</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">scheme_dtype_names</span><span class="p">,</span> <span class="n">ad</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span>
-        <span class="k">for</span> <span class="n">ad</span>
-        <span class="ow">in</span> <span class="n">anno</span><span class="o">.</span><span class="n">data</span>
-    <span class="p">]</span>
-
+    <span class="n">anno_data</span> <span class="o">=</span> <span class="p">[</span><span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">scheme_dtype_names</span><span class="p">,</span> <span class="n">ad</span><span class="o">.</span><span class="n">item</span><span class="p">()))</span> <span class="k">for</span> <span class="n">ad</span> <span class="ow">in</span> <span class="n">anno</span><span class="o">.</span><span class="n">data</span><span class="p">]</span>
 
     <span class="n">db_handler</span><span class="o">.</span><span class="n">set_annos</span><span class="p">(</span>
         <span class="n">database</span><span class="o">=</span><span class="n">database</span><span class="p">,</span>

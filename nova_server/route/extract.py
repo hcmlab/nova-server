@@ -24,6 +24,7 @@ import numpy as np
 from nova_server.utils import db_utils
 from flask import current_app
 import os
+
 extract = Blueprint("extract", __name__)
 
 
@@ -59,7 +60,6 @@ def extract_data(request_form):
 
     logger.info("Action 'Extract' started.")
     status_utils.update_status(key, status_utils.JobStatus.RUNNING)
-
 
     chain = Chain()
 
@@ -165,16 +165,28 @@ def extract_data(request_form):
                 # TODO implement nova data types in the server module
                 # TODO process data and write tmp session files to disk if necessary
                 logger.info("Extract data...")
-                data = extractor.process_data(ds_iter)
-                ds_iter = extractor.to_ds_iterable(data)
+
+                try:
+                    data = extractor.process_data(ds_iter)
+                    ds_iter = extractor.to_ds_iterable(data)
+                except Exception as e:
+                    logger.error(str(e))
+                    status_utils.update_status(key, status_utils.JobStatus.ERROR)
+                    raise e
+
                 logger.info("...done")
 
             # Last element of chain
             else:
                 logger.info("Extract data...")
                 update_progress(key, "Extracting")
-                data = extractor.process_data(ds_iter)
-                stream_dict = extractor.to_stream(data)
+                try:
+                    data = extractor.process_data(ds_iter)
+                    stream_dict = extractor.to_stream(data)
+                except Exception as e:
+                    logger.error(str(e))
+                    status_utils.update_status(key, status_utils.JobStatus.ERROR)
+                    raise e
                 logger.info("...done")
 
                 # Write to disk and add to database
@@ -186,8 +198,10 @@ def extract_data(request_form):
                     for stream_id, (data_type, sr, data) in stream_dict.items():
 
                         suffix = request_form.get("suffix", "")
-                        stream_id_sfx = stream_id + "_" + suffix if suffix else stream_id
-                        file_name_db = '.'.join(stream_id_sfx.split('.')[1:])
+                        stream_id_sfx = (
+                            stream_id + "_" + suffix if suffix else stream_id
+                        )
+                        file_name_db = ".".join(stream_id_sfx.split(".")[1:])
                         out_path = (
                             Path(ds_iter.nova_data_dir)
                             / ds_iter.dataset
@@ -199,7 +213,7 @@ def extract_data(request_form):
 
                         # SSI-Stream
                         if data_type == DataTypes.FEATURE:
-                            file_ex = '.stream'
+                            file_ex = ".stream"
                             ftype = FileTypes.BINARY
                             sr = sr
                             dim = data.shape[-1] if len(data.shape) > 1 else 1
@@ -218,32 +232,38 @@ def extract_data(request_form):
                             )
                             ssi_stream.save(out_path)
 
-                            # Audio Data
+                        # Audio Data
                         elif data_type == DataTypes.AUDIO:
-                            file_ex = '.wav'
+                            file_ex = ".wav"
                             out_path = out_path.parent / (out_path.name + file_ex)
-                            ffmpegio.audio.write(out_path, int(sr), np.swapaxes(np.hstack(data),0 , -1), overwrite=True)
+                            ffmpegio.audio.write(
+                                out_path,
+                                int(sr),
+                                np.swapaxes(np.hstack(data), 0, -1),
+                                overwrite=True,
+                            )
 
                         # Video Data
                         elif data_type == DataTypes.VIDEO:
-                            file_ex = '.mp4'
+                            file_ex = ".mp4"
                             out_path = out_path.parent / (out_path.name + file_ex)
-                            ffmpegio.video.write(out_path, int(sr), np.vstack(data), overwrite=True)
+                            ffmpegio.video.write(
+                                out_path, int(sr), np.vstack(data), overwrite=True
+                            )
                         else:
                             raise NotImplementedError(f"{data_type} is not supported.")
-
 
                         # Add Stream info to Databases
                         # TODO: Add dimlabels from stream
                         db_utils.write_stream_info_to_db(
-                             request_form = request_form,
-                             file_name = file_name_db,
-                             file_ext = file_ex,
-                             stream_type = data_type.name.lower(),
-                             is_valid = True,
-                             sr = sr,
-                             dim_labels= []
-                         )
+                            request_form=request_form,
+                            file_name=file_name_db,
+                            file_ext=file_ex,
+                            stream_type=data_type.name.lower(),
+                            is_valid=True,
+                            sr=sr,
+                            dim_labels=[],
+                        )
 
                     logger.info("...done")
 
