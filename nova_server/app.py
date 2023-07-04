@@ -10,6 +10,8 @@ import argparse
 import os
 from pathlib import Path
 from waitress import serve
+from nova_server.utils.nostr_utils import runNostrTestReceive
+from nova_server.utils.nostr_utils import runNostrTestSend
 
 
 print("Starting nova-backend server...")
@@ -73,6 +75,15 @@ parser.add_argument(
 )
 
 
+parser.add_argument(
+    "--nostr_key",
+    type=str,
+    default="none",
+    help="Add the servers Nostr Private Key.",
+)
+
+
+
 # TODO: support multiple (data) directories
 args = parser.parse_args()
 default_args = parser.parse_args([])
@@ -116,6 +127,11 @@ os.environ["NOVA_TMP_DIR"] = get_dir_from_arg(
 os.environ["NOVA_LOG_DIR"] = get_dir_from_arg(
     args.log_dir, "NOVA_LOG_DIR", default_args.log_dir
 )
+os.environ["NOVA_NOSTR_KEY"] = args.nostr_key
 print("...done")
+
+#Nostr test functions
+runNostrTestSend()
+runNostrTestReceive()
 
 serve(app, host=host, port=port)
