@@ -1,4 +1,6 @@
 import sys
+from datetime import datetime
+
 import bson
 import copy
 import warnings
@@ -63,6 +65,26 @@ def write_stream_info_to_db(
         dimlabels=dim_labels,
         overwrite=True,
     )
+
+def add_new_session_to_db(request_form, duration):
+    db_config_dict = {
+        "ip": request_form["dbServer"].split(":")[0],
+        "port": int(request_form["dbServer"].split(":")[1]),
+        "user": request_form["dbUser"],
+        "password": request_form["dbPassword"],
+    }
+    db_handler = NovaDBHandler(db_config_dict=db_config_dict)
+    database = request_form["database"]
+    sessionname = request_form["sessions"]
+
+    session = {}
+    session["name"] = sessionname
+    session["location"] = ""
+    session["language"] = ""
+    session["date"] = datetime.now()
+    session["duration"] = duration
+    session["isValid"] = True
+    db_handler.insert_doc_by_prop(session, database,  db_handler.SESSION_COLLECTION)
 
 
 def write_annotation_to_db(request_form, anno: Anno, logger):

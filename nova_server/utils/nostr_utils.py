@@ -1,5 +1,8 @@
+import mimetypes
 import os
+import pathlib
 
+from pynostr.message_pool import EventMessage
 from pynostr.relay_manager import RelayManager
 from pynostr.filters import FiltersList, Filters
 from pynostr.event import EventKind
@@ -8,73 +11,226 @@ import ssl
 from pynostr.event import Event
 from pynostr.message_type import ClientMessageType
 from pynostr.key import PrivateKey
-from nova_server.utils.key_utils import get_random_name
+from pynostr.encrypted_dm import EncryptedDirectMessage
+
+from nova_server.utils import log_utils
+from nova_server.utils.key_utils import get_random_name, get_key_from_request_form
+from nova_server.utils.db_utils import add_new_session_to_db
+from configparser import ConfigParser
 
 import time
 import datetime
+import requests
 
 import uuid
 
-def createKey():
-     private_key = PrivateKey()
-     public_key = private_key.public_key
-     print(f"Private key: {private_key.bech32()}")
-     print(f"Public key: {public_key.bech32()}")
-     return private_key
+sinceLastNostrUpdate = 0
 
-def runNostrTestReceive():
-    kind = 68001
+def createKey():
+    private_key = PrivateKey()
+    public_key = private_key.public_key
+    print(f"Private key: {private_key.bech32()}")
+    print(f"Public key: {public_key.bech32()}")
+    return private_key
+
+
+def nostrReceiveAndManageNewEvents():
+
+    privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
+
     relay_manager = RelayManager(timeout=2)
     relay_manager.add_relay("wss://nostr-pub.wellorder.net")
     relay_manager.add_relay("wss://relay.damus.io")
-    filters = FiltersList([Filters(kinds=[kind], limit=100)])
+
+    global sinceLastNostrUpdate
+    sinceLastNostrUpdate = max(sinceLastNostrUpdate + 1, (datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp())
+    filters = FiltersList([Filters(kinds=[68001, 68002], since=sinceLastNostrUpdate, limit=5)])
     subscription_id = uuid.uuid1().hex
     relay_manager.add_subscription_on_all_relays(subscription_id, filters)
     relay_manager.run_sync()
 
     while relay_manager.message_pool.has_events():
         event_msg = relay_manager.message_pool.get_event()
-        print(event_msg.event.to_dict())
+        sinceLastNostrUpdate = max(event_msg.event.created_at, sinceLastNostrUpdate)
+        event = event_msg.event
+        # Attempt to work with private events, something is stil wrong with decryption
+        # if event.kind == 4:
+       #     dm = EncryptedDirectMessage.from_event(event)
+       #     #dm.decrypt(privkey.hex(), public_key_hex=privkey.public_key.hex())
+       #     dm.decrypt (privkey.hex(),
+       #            recipient_pubkey=privkey.public_key.hex()
+       #            )
+       #     dm_event = dm.cleartext_content
+       #    event = Event.from_dict(dm.cleartext_content)
+
+        # check for Task, for this demo use case only get active when task is speech-to-text
+        if event.kind == 68001 and event.get_tag_list('j')[0][0] == "speech-to-text":
+            print("New Job event: " + str(event.to_dict()))
+            request_form = createRequestFormfromNostrEvent(event)
+            organizeInputData(event, request_form)
+            url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/predict'
+            headers = {'Content-type': 'application/x-www-form-urlencoded'}
+            requests.post(url, headers=headers, data=request_form)
+        elif event.kind == 68002:
+            print("Job Response event: " + str(event.to_dict()))
+
+
     relay_manager.close_all_relay_connections()
 
 
-def runNostrTestSend():
-    privkeystr = os.environ["NOVA_NOSTR_KEY"]
-    if (privkeystr == ""):
-        privkey = createKey()
-    else:
-        privkey = PrivateKey.from_hex(privkeystr)
+def organizeInputData(event, request_form):
+    data_dir = os.environ["NOVA_DATA_DIR"]
+    session = event.id
+    if event.get_tag_list('input')[0][1] == "url":
+        url = event.get_tag_list('input')[0][0]
+        if not os.path.exists(data_dir + '\\nostr_test\\' + session):
+            os.mkdir(data_dir + '\\nostr_test\\' + session)
+        if request_form["streamName"] == 'audiowav':
+            filename = data_dir + '\\nostr_test\\' + session + '\\nostr.audiowav.wav'
+        elif request_form["streamName"] == 'audiomp3':
+            filename = data_dir + '\\nostr_test\\' + session + '\\nostr.audiomp3.mp3'
+        # todo add more formats
+
+        # todo Get duration of file
+        duration = 0.0
+        add_new_session_to_db(request_form, duration)
+        req = requests.get(url)
+        file = open(filename, 'wb')
+        for chunk in req.iter_content(100000):
+            file.write(chunk)
+        file.close()
+
+
+def createRequestFormfromNostrEvent(event):
+
+    #Only call this if config is not available, adjust function to your db
+    #savConfig()
+
+    # Read config.ini file
+    config_object = ConfigParser()
+    config_object.read("nostrconfig.ini")
+    if len(config_object) == 1:
+        dbUser  = input("Please enter a DB User:\n")
+        dbPassword = input("Please enter DB User Password:\n")
+        dbServer = input("Please enter a DB Host:\n")
+        savConfig(dbUser, dbPassword, dbServer, "nostr_test", "nostr", "system")
+        config_object.read("nostrconfig.ini")
+
+    userinfo = config_object["USERINFO"]
+    serverconfig = config_object["SERVERCONFIG"]
+
+    request_form = {}
+    request_form["dbServer"] = serverconfig["dbServer"]
+    request_form["dbUser"] = userinfo["dbUser"]
+    request_form["dbPassword"] = userinfo["dbPassword"]
+    request_form["database"] = serverconfig["database"]
+    request_form["roles"] = serverconfig["roles"]
+    request_form["annotator"] = serverconfig["annotator"]
+    request_form["flattenSamples"] = "false"
+
+    request_form["frameSize"] = 0
+    request_form["stride"] = request_form["frameSize"]
+    request_form["leftContext"] = 0
+    request_form["rightContext"] = 0
+    request_form["nostrEvent"] = str(event.to_dict())
+    request_form["sessions"] = event.id
+
+
+    #defaults might be overwritten by nostr event
+    alignment = "word"
+    request_form["startTime"] = 0
+    request_form["endTime"] = 0
+
+    params = event.get_tag_list('params')
+    for param in params:
+        if param[0] == "range":  # check for paramtype
+            request_form["startTime"] = param[1]
+            request_form["endTime"] = param[2]
+        elif param[0] == "alignment":  # check for paramtype
+            alignment = param[1]
+
+
+    if event.get_tag_list('j')[0][0] == "speech-to-text":
+        #Declare specific model type e.g. whisperx-large
+        if event.get_tag_list('j')[0][1] is not None:
+            model = event.get_tag_list('j')[0][1]
+            modelopt = str(model).split('-')[1]
+        else: modelopt = "base"
+
+        request_form["trainerFilePath"] = "models\\trainer\\free\\transcript\\audio{audio}\\whisperx\\whisperx_transcript.trainer"
+        request_form["scheme"] = "transcript"
+        request_form["schemeType"] = "FREE"
+        request_form["mode"] = "PREDICT"
+        request_form["optStr"] = 'model=' + modelopt +';alignment_mode=' + alignment +';batch_size=2'
+
+        url = event.get_tag_list('input')[0][0]
+        response = requests.get(url)
+        content_type = response.headers['content-type']
+        if content_type == 'audio/x-wav' or str(url).endswith(".wav"):
+            request_form["streamName"] = "audiowav"
+        elif content_type == 'audio/mpeg' or str(url).endswith(".mp3"):
+            request_form["streamName"] = "audiomp3"
+        else: request_form["streamName"] = "invalid"
+    return request_form
+
+
+def sendNostrReplyEvent(anno, originaleventstr):
+    # Once the Job is finished we reply with the results with a 68002 event
+
+    privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
     pubkey = privkey.public_key
 
+    originalevent = Event.from_dict(json.loads(originaleventstr.replace("'", "\"")))
+
     relay_manager = RelayManager(timeout=6)
-    relay_manager.add_relay("wss://nostr-pub.wellorder.net")
-    relay_manager.add_relay("wss://relay.damus.io")
+    relaystosend = originalevent.get_tag_list("relays")[0]
+    #If no relays are given, use default
+    if(len(relaystosend) == 0):
+        relay_manager.add_relay("wss://nostr-pub.wellorder.net")
+        relay_manager.add_relay("wss://relay.damus.io")
+    #else use relays from tags
+    else:
+        for relay in relaystosend:
+            relay_manager.add_relay(relay)
 
     filters = FiltersList([Filters(authors=[pubkey.hex()], limit=100)])
     subscription_id = uuid.uuid1().hex
     relay_manager.add_subscription_on_all_relays(subscription_id, filters)
 
-    # Test Payload
-    randomjobid = get_random_name()
-    # job expires in 48 hours
-    expiration = int(time.time()) + (60 * 60 * 48)  # 48h in seconds
-    event = Event("New AI Processing JobID: " + randomjobid)
-    event.kind = 68001
-    event.add_tag('j', ["speech-to-text", "whisper-tiny"])
-    event.add_tag('input', ["https://www.fit.vutbr.cz/~motlicek/sympatex/f2bjrop1.0.wav", "url"])
-    event.add_tag('bid', ["10", "1000"])
-    #event.add_tag('expiration', expiration) //Bug: Something wrong with the time, but optional
-    #event.add_tag('p', pubkey.hex()) //Bug: Something wrong, but optional
-    event.add_tag('d', randomjobid)
+    content = anno.data
+    event = Event(str(content))
+    event.kind = 68002
+    event.add_tag('request', str(originalevent.to_dict()).replace("'", "\""))
+    event.add_tag('e', originalevent.id)
+    event.add_tag('p', originalevent.pubkey)
+    event.add_tag('status', "success")
+    event.add_tag('amount', originalevent.get_tag_list("bid")[0][1])
     event.sign(privkey.hex())
-
 
     relay_manager.publish_event(event)
     relay_manager.run_sync()
-    time.sleep(5)  # allow the messages to send
-    #while relay_manager.message_pool.has_ok_notices():
-    #    ok_msg = relay_manager.message_pool.get_ok_notice()
-    #    print(ok_msg)
-    #while relay_manager.message_pool.has_events():
-    #    event_msg = relay_manager.message_pool.get_event()
-    #    print(event_msg.event.to_dict())
+    time.sleep(5)
+    relay_manager.close_all_relay_connections()
+    return event.to_dict()
+
+
+def savConfig(dbUser, dbPassword, dbServer, database, role, annotator):
+    # Get the configparser object
+    config_object = ConfigParser()
+
+    # Assume we need 2 sections in the config file, let's call them USERINFO and SERVERCONFIG
+    config_object["USERINFO"] = {
+        "dbUser": dbUser,
+        "dbPassword": dbPassword
+    }
+
+    config_object["SERVERCONFIG"] = {
+        "dbServer": dbServer,
+        "database": database,
+        "roles": role,
+        "annotator": annotator
+    }
+
+    # Write the above sections to config.ini file
+    with open('nostrconfig.ini', 'w') as conf:
+        config_object.write(conf)

@@ -1,3 +1,6 @@
+from threading import Thread
+from time import sleep
+
 from flask import Flask
 from nova_server.route.train import train
 from nova_server.route.extract import extract
@@ -6,12 +9,12 @@ from nova_server.route.log import log
 from nova_server.route.ui import ui
 from nova_server.route.cancel import cancel
 from nova_server.route.predict import predict
+from nova_server.route.nostr import nostr
 import argparse
 import os
 from pathlib import Path
 from waitress import serve
-from nova_server.utils.nostr_utils import runNostrTestReceive
-from nova_server.utils.nostr_utils import runNostrTestSend
+from nova_server.utils.nostr_utils import nostrReceiveAndManageNewEvents
 
 
 print("Starting nova-backend server...")
@@ -23,6 +26,7 @@ app.register_blueprint(log)
 app.register_blueprint(status)
 app.register_blueprint(ui)
 app.register_blueprint(cancel)
+app.register_blueprint(nostr)
 
 parser = argparse.ArgumentParser(
     description="Commandline arguments to configure the nova backend server"
@@ -90,6 +94,8 @@ default_args = parser.parse_args([])
 
 host = args.host
 port = args.port
+os.environ["NOVA_HOST"] = args.host
+os.environ["NOVA_PORT"] = str(args.port)
 print(f"\tHOST: {host}\n\tPORT: {port}")
 
 # setting environment variables in the following priority from highest to lowest:
@@ -127,11 +133,21 @@ os.environ["NOVA_TMP_DIR"] = get_dir_from_arg(
 os.environ["NOVA_LOG_DIR"] = get_dir_from_arg(
     args.log_dir, "NOVA_LOG_DIR", default_args.log_dir
 )
+
+
 os.environ["NOVA_NOSTR_KEY"] = args.nostr_key
 print("...done")
 
-#Nostr test functions
-runNostrTestSend()
-runNostrTestReceive()
+def checkNostrStatus():
+    while True:
+        nostrReceiveAndManageNewEvents()
+        sleep(10)
+
+# if Nostr key is set, check for new NIP?? events
+if(args.nostr_key != ""):
+    nostrthread = Thread(target=checkNostrStatus)
+    nostrthread.start()
 
 serve(app, host=host, port=port)
+
+
