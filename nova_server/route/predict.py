@@ -31,6 +31,7 @@ def predict_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
         key = get_key_from_request_form(request_form)
+        request_form['jobID'] = key
         thread = predict_data(request_form)
         status_utils.add_new_job(key, request_form=request_form)
         data = {"success": "true"}
@@ -125,8 +126,11 @@ def predict_data(request_form):
     # Iterate over all sessions
     ds_iter: HcaiNovaDynamicIterable
     for ds_iter in iterators:
+
         # TODO: Remove prior creation of separate iterators to reduce redundancy
-        ss_ds_iter = ds_iter.to_single_session_iterator()
+        # TODO: Session is not in session list? Is this (ds_iter.sessions[0]) correct?
+        ss_ds_iter = ds_iter.to_single_session_iterator(ds_iter.sessions[0])
+
 
         logger.info("Predict data...")
         try:
@@ -149,7 +153,7 @@ def predict_data(request_form):
             db_utils.write_annotation_to_db(request_form_copy, anno, logger)
             if request_form["nostrEvent"] is not None:
                 responseevent = nostr_utils.sendNostrReplyEvent(anno, request_form["nostrEvent"])
-                logger.info("Nostr Job fullfilment Event sent. Event:")
+                logger.info("Nostr Job fulfillment Event sent. Event:")
                 logger.info(responseevent)
         logger.info("...done")
 

@@ -47,7 +47,7 @@ def remove_job(job_key):
     try:
         del JOBS[job_key]
     except KeyError:
-        print(f"Key {job_key} is not in the dictionary")
+        print(f"Remove Job: Key {job_key} is not in the dictionary")
 
 
 
@@ -61,7 +61,7 @@ def update_status(job_key, status: JobStatus):
         if status == status.FINISHED or status == status.ERROR:
             JOBS[job_key].end_time = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
     except KeyError:
-        print(f"Key {job_key} is not in the dictionary")
+        print(f"Update Status: Key {job_key} is not in the dictionary")
 
 
 
@@ -70,7 +70,7 @@ def update_progress(job_key, progress: str):
     try:
         JOBS[job_key].progress = progress
     except KeyError:
-        print(f"Key {job_key} is not in the dictionary")
+        print(f"Update Progress: Key {job_key} is not in the dictionary")
 
 
 
@@ -79,7 +79,7 @@ def set_log_path(job_key, log_path):
     try:
         JOBS[job_key].log_path = log_path
     except KeyError:
-        print(f"Key {job_key} is not in the dictionary")
+        print(f"Set Log path: Key {job_key} is not in the dictionary")
 
 
 
@@ -88,7 +88,7 @@ def get_log_path(job_key):
     try:
         return JOBS[str(job_key)].log_path
     except KeyError:
-        print(f"Key {job_key} is not in the dictionary")
+        print(f"Get Log path: Status: Key {job_key} is not in the dictionary")
 
 
 

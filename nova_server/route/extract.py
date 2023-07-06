@@ -6,7 +6,7 @@ from nova_server.utils import (
     thread_utils,
     status_utils,
     log_utils,
-    import_utils,
+    import_utils, nostr_utils,
 )
 from nova_server.utils.key_utils import get_key_from_request_form
 from nova_server.utils.thread_utils import THREADS
@@ -33,6 +33,7 @@ def extract_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
         key = get_key_from_request_form(request_form)
+        request_form['jobID'] = key
         thread = extract_data(request_form)
         status_utils.add_new_job(key, request_form=request_form)
         data = {"success": "true"}
@@ -264,6 +265,10 @@ def extract_data(request_form):
                             sr=sr,
                             dim_labels=[],
                         )
+                        if request_form["nostrEvent"] is not None:
+                            responseevent = nostr_utils.sendNostrReplyEvent(data, request_form["nostrEvent"])
+                            logger.info("Nostr Job fulfillment Event sent. Event:")
+                            logger.info(responseevent)
 
                     logger.info("...done")
 

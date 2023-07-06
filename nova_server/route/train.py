@@ -24,6 +24,7 @@ def train_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
         key = get_key_from_request_form(request_form)
+        request_form['jobID'] = key
         thread = train_model(request_form, current_app._get_current_object())
         status_utils.add_new_job(key)
         data = {"success": "true"}

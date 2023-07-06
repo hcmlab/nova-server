@@ -66,6 +66,20 @@ def write_stream_info_to_db(
         overwrite=True,
     )
 
+
+def db_entry_exists(request_form, value, key, collection):
+    db_config_dict = {
+        "ip": request_form["dbServer"].split(":")[0],
+        "port": int(request_form["dbServer"].split(":")[1]),
+        "user": request_form["dbUser"],
+        "password": request_form["dbPassword"],
+    }
+    db_handler = NovaDBHandler(db_config_dict=db_config_dict)
+    exists = False
+    result = db_handler.get_docs_by_prop(value, key, request_form["database"], collection)
+    if len(result) > 0: exists = True
+    return  exists
+
 def add_new_session_to_db(request_form, duration):
     db_config_dict = {
         "ip": request_form["dbServer"].split(":")[0],
