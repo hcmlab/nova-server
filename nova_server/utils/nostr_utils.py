@@ -194,6 +194,10 @@ def createRequestFormfromNostrEvent(event):
             request_form["endTime"] = param[2]
         elif param[0] == "alignment":  # check for paramtype
             alignment = param[1]
+        elif param[0] == "length":  # check for paramtype
+            length = param[1]
+        elif param[0] == "language":  # check for paramtype
+            language = param[1]
 
     if event.get_tag_list('j')[0][0] == "speech-to-text":
         # Declare specific model type e.g. whisperx-large
@@ -209,6 +213,17 @@ def createRequestFormfromNostrEvent(event):
         request_form["streamName"] = "audio"
         request_form["trainerFilePath"] = 'models\\trainer\\' + str(request_form["schemeType"]).lower() + '\\' + str(request_form["scheme"]) + '\\audio{audio}\\whisperx\\whisperx_transcript.trainer'
         request_form["optStr"] = 'model=' + modelopt + ';alignment_mode=' + alignment + ';batch_size=2'
+
+    elif event.get_tag_list('j')[0][0] == "translation":
+        print("Not supported yet")
+        # whisperx translate?
+        # language requested in BCP 47 format
+
+
+    elif event.get_tag_list('j')[0][0] == "summarization":
+        print("Not supported yet")
+        # call OpenAI API or use a local LLM
+        # add length variableF
 
     return request_form
 
