@@ -9,7 +9,7 @@ from nova_server.route.log import log
 from nova_server.route.ui import ui
 from nova_server.route.cancel import cancel
 from nova_server.route.predict import predict
-from nova_server.route.nostr import nostr
+from nova_server.route.nostr import nostr, nostclientWaitforEvents
 import argparse
 import os
 from pathlib import Path
@@ -140,8 +140,9 @@ print("...done")
 
 def checkNostrStatus():
     while True:
-        nostrReceiveAndManageNewEvents()
-        sleep(10)
+        nostrReceiveAndManageNewEvents() # Server
+        nostclientWaitforEvents() #Client
+        sleep(5)
 
 # if Nostr key is set, check for new NIP?? events
 if(args.nostr_key != ""):
