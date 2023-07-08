@@ -151,4 +151,7 @@ if(args.nostr_key != ""):
 
 serve(app, host=host, port=port)
 
+if(args.nostr_key != ""):
+    nostrthread.join()
+
 

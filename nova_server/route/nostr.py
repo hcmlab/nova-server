@@ -1,19 +1,20 @@
 """This file contains the general logic for predicting annotations to the nova database"""
+import base64
 import copy
+import json
 import os
 import uuid
 import datetime
 import time
 from threading import Thread
 
-from pynostr.encrypted_dm import EncryptedDirectMessage
+import datetime as datetime
+
 from pynostr.event import Event, EventKind
 from pynostr.filters import FiltersList, Filters
 from pynostr.key import PrivateKey, PublicKey
 from pynostr.relay_manager import RelayManager
 
-
-from nova_server.utils import db_utils
 from flask import Blueprint, request, jsonify
 from nova_server.utils.thread_utils import THREADS
 
@@ -26,10 +27,7 @@ from nova_server.utils import (
     import_utils,
     nostr_utils,
 )
-from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
-    HcaiNovaDynamicIterable,
-)
-from nova_utils.interfaces.server_module import Trainer as iTrainer
+
 
 nostr = Blueprint("nostr", __name__)
 
@@ -53,13 +51,13 @@ def nostr_bridge_thread():
         # url = 'https://files.catbox.moe/voxrao.wav'
         data = nostr_bridge_simple_test(
             url=url, expiresinminutes=60,
-            alignment="raw", task=task, rangefrom=0.0, rangeto=0, sats=1,  satsmax=10, lang="de", privatedm=False)
+            alignment="raw", task=task, rangefrom=0.0, rangeto=0, sats=1, satsmax=10, eventToTranslateId = '2591cd2c17a786ecca79e89f8068d28206ffa11f41f06dd9539ace9d505c9ea4', lang="de", privatedm=False)
         return jsonify(data)
 
 
 privkey = PrivateKey.from_hex("c889daba8abe65121ff16fb602fb216d4cd69ca7025f47a9455814a3ed4f9f35")
 IDtoWatch = 0
-def nostr_bridge_simple_test(url, expiresinminutes, alignment, task, rangefrom, rangeto, sats, satsmax, lang, privatedm = False):
+def nostr_bridge_simple_test(url, expiresinminutes, alignment, eventToTranslateId, task, rangefrom, rangeto, sats, satsmax, lang, privatedm = False):
     # Function that sends a default event to test, without any user inputs
 
 
@@ -76,11 +74,11 @@ def nostr_bridge_simple_test(url, expiresinminutes, alignment, task, rangefrom, 
     # Test Payload
 
     expiration = str(int((datetime.datetime.now() + datetime.timedelta(minutes=expiresinminutes)).timestamp()))
-    eventToTranslateId = '2591cd2c17a786ecca79e89f8068d28206ffa11f41f06dd9539ace9d505c9ea4'
+    someidentifier = get_random_name()
     if task == "translation":
         description = "Translate the following Event: " + eventToTranslateId + " to " + lang
     elif task == "speech-to-text":
-         description = "Transcribe the attached media file"
+         description = "Transcribe the attached file. ID: " + someidentifier
 
     event = Event(description)
     event.kind = 68001
@@ -95,7 +93,7 @@ def nostr_bridge_simple_test(url, expiresinminutes, alignment, task, rangefrom, 
         event.add_tag('params', ["range", str(rangefrom), str(rangeto)])
         event.add_tag('params', ["alignment", alignment])  # segment, word, raw
         event.add_tag('i', [url, "url"])
-    event.add_tag('relays', ["wss://nostr-pub.wellorder.net"])
+    event.add_tag('relays', ["wss://nostr-pub.wellorder.net", "wss://relay.damus.io", "wss://relay.snort.social"])
     event.add_tag('bid', [str(sats*1000), str(satsmax*1000)])
     event.add_tag('exp', expiration)
     event.add_tag('p', str(privkey.public_key.hex()))
@@ -105,6 +103,8 @@ def nostr_bridge_simple_test(url, expiresinminutes, alignment, task, rangefrom, 
     IDtoWatch = event.id
     relay_manager.publish_event(event)
     relay_manager.run_sync()
+    print("[Nostr Client] 68001 Event Created at: " + str(event.created_at))
+    print("[Nostr Client] 68001 Event Sender Pubkey: " + privkey.public_key.hex())
     time.sleep(5)  # allow the messages to send
     relay_manager.close_all_relay_connections()
     return event.to_dict()
@@ -112,43 +112,62 @@ def nostr_bridge_simple_test(url, expiresinminutes, alignment, task, rangefrom, 
 
 
 
-sinceLastNostrUpdate = 0
+sinceLastNostrUpdateClient = int((datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp())
 
 def nostclientWaitforEvents():
 
-    global sinceLastNostrUpdate
+    global sinceLastNostrUpdateClient
     global IDtoWatch
-    sinceLastNostrUpdate = max(sinceLastNostrUpdate + 1,
-                               (datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp())
     relay_manager = RelayManager(timeout=3)
     relay_manager.add_relay("wss://nostr-pub.wellorder.net")
-    # relay_manager.add_relay("wss://relay.damus.io")
-    relay_manager.add_relay("wss://relay.snort.social")
+    #relay_manager.add_relay("wss://relay.damus.io")
+    #relay_manager.add_relay("wss://relay.snort.social")
 
-    vendingFilter = Filters(kinds=[68002], since=sinceLastNostrUpdate, limit=5)
-    eFilter = Filters(kinds=[EventKind.REACTION], limit=5, since=sinceLastNostrUpdate)
+    vendingFilter = Filters(kinds=[68002], since=sinceLastNostrUpdateClient, limit=5)
+    eFilter = Filters(kinds=[EventKind.REACTION], limit=5, since=sinceLastNostrUpdateClient)
     eFilter.add_arbitrary_tag('e', [IDtoWatch])
-    filters = FiltersList([vendingFilter, eFilter])
+    dmFilter = Filters(kinds=[EventKind.ENCRYPTED_DIRECT_MESSAGE], limit=5, since=sinceLastNostrUpdateClient)
+    dmFilter.add_arbitrary_tag('p', [privkey.public_key.hex()])
+    filters = FiltersList([vendingFilter, eFilter, dmFilter])
     subscription_id = uuid.uuid1().hex
     relay_manager.add_subscription_on_all_relays(subscription_id, filters)
     relay_manager.run_sync()
 
+
     while relay_manager.message_pool.has_events():
         event_msg = relay_manager.message_pool.get_event()
-        sinceLastNostrUpdate = max(event_msg.event.created_at, sinceLastNostrUpdate)
+        sinceLastNostrUpdateClient  = int(max(event_msg.event.created_at+1, sinceLastNostrUpdateClient))
         event = event_msg.event
+        #The final Result, + we add a follow up translation request in this example
         if event.kind == 68002:
-            print("[Client] Nostr Job Result event: " + str(event.to_dict()))
-            # todo if speech-to-text, now send translation event
+            print("[Nostr Client] Nostr Job Result event: " + str(event.to_dict()))
+
+            request = event.get_tag_list('request')[0][0]
+            requestevent = Event.from_dict(json.loads(request.replace("'", "\"")))
+
+            #just a demo use case, follow up with new event after finished with text-to-speech
+            if requestevent.get_tag_list('j')[0][0] == "speech-to-text":
+                print("[Nostr Client] Start follow up Job, translate transcribed media to German")
+                nostr_bridge_simple_test(
+                    url="", expiresinminutes=60,
+                    alignment="raw", task="translation", rangefrom=0.0, rangeto=0, sats=1, satsmax=10,
+                    eventToTranslateId=event.id, lang="de",
+                    privatedm=False)
         elif event.kind == EventKind.REACTION:
-            # We don't need this, just to see it's there. Our own reaction
-             print("[Client] Received Reaction event: " + str(event.to_dict()))
+             # Server might request payment before doing the job.
+             print("[Nostr Client] Received Reaction event: " + str(event.to_dict()))
              if event.get_tag_list('amount')[0][0] is not None:
                  mSatstoSats = int(int(event.get_tag_list('amount')[0][0]) / 1000)
                  # Todo Do the Zap from here somehow (Currently need to copy the event-id to content in a client
-                 print("[Client]  Send Non-private Zap with " + str(mSatstoSats) + " Sats to " + PublicKey.from_hex(
+                 print("[Nostr Client] Send Non-private Zap with " + str(mSatstoSats) + " Sats to " + PublicKey.from_hex(
                  event.pubkey).npub + " with Content: " + event.id + " to start processing")
+        elif event.kind == EventKind.ENCRYPTED_DIRECT_MESSAGE:
+            #dm = EncryptedDirectMessage.from_event(event)
+            #dm.decrypt(event.pubkey, public_key_hex=privkey.public_key.hex())
+            #print(f"New dm received:{event.date_time()} {dm.cleartext_content}")
+            print("[Nostr Client] Received DM(s), but this python lib can't decrypt it :(. For instructions see Reaction block above.")
     relay_manager.close_all_relay_connections()
+
 
 
 @thread_utils.ml_thread_wrapper

@@ -3,6 +3,7 @@ import os
 import string
 
 from decord import AudioReader, cpu
+from pynostr.encrypted_dm import EncryptedDirectMessage
 from translatepy.translators.google import GoogleTranslate
 import ffmpegio
 from pynostr.relay_manager import RelayManager
@@ -24,63 +25,70 @@ import requests
 
 import uuid
 
-sinceLastNostrUpdate = 0
+sinceLastNostrUpdate = int((datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp())
 
 
 def nostrReceiveAndManageNewEvents():
     privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
 
-
     global sinceLastNostrUpdate
-    sinceLastNostrUpdate = max(sinceLastNostrUpdate + 1,(datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp())
     global waitforJobsPaid
 
-    relay_manager = RelayManager(timeout=3)
+    relay_manager = RelayManager(timeout=2)
     relay_manager.add_relay("wss://nostr-pub.wellorder.net")
-    # relay_manager.add_relay("wss://relay.damus.io")
+    relay_manager.add_relay("wss://relay.damus.io")
     relay_manager.add_relay("wss://relay.snort.social")
 
-    vendingFilter = Filters(kinds=[68001], since=sinceLastNostrUpdate, limit=5)
-    zapFilter = Filters(kinds=[EventKind.ZAPPER], limit =5, since=sinceLastNostrUpdate)
+    #print("[Nostr] Listen to new events since: " + str(sinceLastNostrUpdate))
+
+    vendingFilter = Filters(kinds=[68001], since=sinceLastNostrUpdate, limit=20)
+    zapFilter = Filters(kinds=[EventKind.ZAPPER], limit =20, since=sinceLastNostrUpdate)
     zapFilter.add_arbitrary_tag('p', privkey.public_key.hex())
+    #dmFilter = Filters(kinds=[EventKind.ENCRYPTED_DIRECT_MESSAGE], limit=5, since=sinceLastNostrUpdate)
+    #dmFilter.add_arbitrary_tag('p', [privkey.public_key.hex()])
     filters = FiltersList([vendingFilter, zapFilter])
     subscription_id = uuid.uuid1().hex
     relay_manager.add_subscription_on_all_relays(subscription_id, filters)
     relay_manager.run_sync()
+    #time.sleep(3)  # allow the messages to send
 
     while relay_manager.message_pool.has_events():
         event_msg = relay_manager.message_pool.get_event()
-        sinceLastNostrUpdate = max(event_msg.event.created_at, sinceLastNostrUpdate)
+        sinceLastNostrUpdate = int(max(event_msg.event.created_at+1, sinceLastNostrUpdate))
         event = event_msg.event
         # check for Task, for this demo use case only get active when task is speech-to-text
         if event.kind == 68001 and (event.get_tag_list('j')[0][0] == "speech-to-text" or event.get_tag_list('j')[0][0] == "translation"):
-           # if our npub is whitelisted, we just do the work
-           if isWhitelisted(event.pubkey):
+           # if npub sending the 68001 event is whitelisted, we just do the work
+           if isWhitelisted(event.pubkey, event.get_tag_list('j')[0][0]):
+               print("[Nostr] Whitelisted for task " + event.get_tag_list('j')[0][0] + ". Starting processing..")
                doWork(event)
            # otherwise send payment request
            else:
                 #request_form = createRequestFormfromNostrEvent(event)
                 if event.get_tag_list('j')[0][0] == "translation":
                     PROCESSINGCOSTPERUNIT = 2
-                    print("Payment required: New Nostr translation Job event: " + str(event.to_dict()))
+                    duration = 1  # todo get task duration
+                    print("[Nostr][Payment required] New Nostr translation Job event: " + str(event.to_dict()))
                 elif event.get_tag_list('j')[0][0] == "speech-to-text":
                     PROCESSINGCOSTPERUNIT = 5
-                    print("Payment required: New Nostr speech-to-text Job event: " + str(event.to_dict()))
+                    duration = 1  # todo get task duration
+                    print("[Nostr][Payment required] New Nostr speech-to-text Job event: " + str(event.to_dict()))
                 else:
-                    print("Task " + event.get_tag_list('j')[0][0] + " is currently not supported by this instance")
+                    print("[Nostr] Task " + event.get_tag_list('j')[0][0] + " is currently not supported by this instance")
 
                 #check file length without the work, set it to 1 for now
                 #duration = organizeInputData(event, request_form)
-                duration = 1 #todo get task duration
-                print("Requesting payment for Event: " + event.id)
+
+                print("[Nostr] Requesting payment for Event: " + event.id)
                 sendPaymentRequestEvent(event, PROCESSINGCOSTPERUNIT, duration)
+
 
         elif event.kind == EventKind.ZAPPER:
             # Zaps to us
             lninvoice = event.get_tag_list('bolt11')[0][0]
             invoicesats = ParseBolt11Invoice(lninvoice)
 
-            print("Zap Received: " + str(event.to_dict()))
+            print("[Nostr]Zap Received: " + str(event.to_dict()))
             zapeventdict = event.get_tag_list('description')[0][0]
             zapevent = Event.from_dict(json.loads(zapeventdict.replace("'", "\"")))
 
@@ -88,8 +96,8 @@ def nostrReceiveAndManageNewEvents():
 
 
             if zapevent.content  != '' and isValidHexString:
-                # todo: more checks content is a valid event.id ?
-                print("Valid event reference found...")
+                # todo: more checks content is a valid event.id or dont let user type it..?
+                print("[Nostr] Valid event reference found...")
                 eventid = zapevent.content
 
                 relay_manager2 = RelayManager(timeout=5)
@@ -100,19 +108,16 @@ def nostrReceiveAndManageNewEvents():
                 subscription_id = uuid.uuid1().hex
                 relay_manager2.add_subscription_on_all_relays(subscription_id, filters)
                 relay_manager2.run_sync()
-                #while relay_manager.message_pool.has_events():
-
+                #Get specific reaction event
                 event_msg_event7 = relay_manager2.message_pool.get_event().event
-                sinceLastNostrUpdate = max(event_msg_event7.created_at, sinceLastNostrUpdate)
-                #relay_manager.run_sync()
                 relay_manager2.close_all_relay_connections()
 
                 if(int(event_msg_event7.get_tag_list('amount')[0][0]) <= invoicesats*1000 ):
-                    print("payment-request fullfilled...")
+                    print("[Nostr] Payment-request fulfilled...")
                     event68001id = event_msg_event7.get_tag_list('e')[0][0]
                     relay_manager3 = RelayManager(timeout=5)
                     relay_manager3.add_relay("wss://nostr-pub.wellorder.net")
-                    #relay_manager3.add_relay("wss://relay.damus.io")
+                    relay_manager3.add_relay("wss://relay.damus.io")
                     relay_manager3.add_relay("wss://relay.snort.social")
                     filters = FiltersList([Filters(ids=[event68001id], kinds=[68001], limit=1)])
 
@@ -121,34 +126,41 @@ def nostrReceiveAndManageNewEvents():
                     relay_manager3.run_sync()
 
                     event68001 = relay_manager3.message_pool.get_event().event
-                    print("Original 68001 Job Request event found...")
-                    sinceLastNostrUpdate = max(event68001.created_at, sinceLastNostrUpdate)
+                    print("[Nostr] Original 68001 Job Request event found...")
                     relay_manager3.close_all_relay_connections()
                     doWork(event68001)
 
                 else:
-                   print("Invoice was not paid sufficiently")
-            else:  print("No valid event ID given..")
+                   print("[Nostr] Invoice was not paid sufficiently")
+            else:
+                print("[Nostr] No valid event ID given..")
     relay_manager.close_all_relay_connections()
 
 
-def isWhitelisted(pubkey):
+def isWhitelisted(pubkey, task):
     privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
     #todo store a list of whistlisted npubs that can do free processing
-    whitelsited_npubs = [privkey.public_key.hex()]
+    whitelsited_npubs_speechtotext = []
+    whitelsited_npubs_translation = ["828c4d2b20ae3d679f9ddad0917ff9aa4c98e16612f5b4551faf447c6ce93ed8"]
+    whitelsited_all_tasks = [privkey.public_key.hex()]
 
-    if any(pubkey == c for c in whitelsited_npubs):
-        return True
-    else:
-        return False
+    if(task == "speech-to-text"):
+        if any(pubkey == c for c in whitelsited_npubs_speechtotext) or any(pubkey == c for c in whitelsited_all_tasks):
+            return True
+    elif (task == "translation"):
+        if any(pubkey == c for c in whitelsited_npubs_translation) or any(pubkey == c for c in whitelsited_all_tasks):
+            return True
+
+
+    return False
 
 def doWork(event68001):
     if event68001.kind == 68001:
         if event68001.get_tag_list('j')[0][0] == "translation":
-            print("No payment required: Adding Nostr translation Job event: " + str(event68001.to_dict()))
-            request_form = createRequestFormfromNostrEvent(event68001)
+            print("[Nostr] Adding translation Job event: " + str(event68001.to_dict()))
+            createRequestFormfromNostrEvent(event68001) # this includes translation, should be moved to a script
         elif event68001.get_tag_list('j')[0][0] == "speech-to-text":
-            print("No payment required: Adding Nostr speech-to-text Job event: " + str(event68001.to_dict()))
+            print("[Nostr] Adding Nostr speech-to-text Job event: " + str(event68001.to_dict()))
             request_form = createRequestFormfromNostrEvent(event68001)
             organizeInputData(event68001, request_form)
             url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(
@@ -156,7 +168,7 @@ def doWork(event68001):
             headers = {'Content-type': 'application/x-www-form-urlencoded'}
             requests.post(url, headers=headers, data=request_form)
         else:
-            print("Task " + event68001.get_tag_list('j')[0][0] + " is currently not supported by this instance")
+            print("[Nostr] Task " + event68001.get_tag_list('j')[0][0] + " is currently not supported by this instance")
 
 def organizeInputData(event, request_form):
     data_dir = os.environ["NOVA_DATA_DIR"]
@@ -316,7 +328,7 @@ def createRequestFormfromNostrEvent(event):
 
 
     elif event.get_tag_list('j')[0][0] == "summarization":
-        print("Not supported yet")
+        print("[Nostr] Not supported yet")
         # call OpenAI API or use a local LLM
         # add length variableF
 
@@ -330,19 +342,17 @@ def sendPaymentRequestEvent(originalevent, rate, duration):
 
 
     relay_managers = RelayManager(timeout=6)
-    relaystosend = [] # originalevent.get_tag_list("relays")[0]
+    relaystosend  = originalevent.get_tag_list("relays")[0]
     # If no relays are given, use default
     if (len(relaystosend) == 0):
         relay_managers.add_relay("wss://nostr-pub.wellorder.net")
         relay_managers.add_relay("wss://relay.damus.io")
+        relay_managers.add_relay("wss://relay.snort.io")
     # else use relays from tags
     else:
         for relay in relaystosend:
             relay_managers.add_relay(relay)
 
-    filters = FiltersList([Filters(authors=[pubkey.hex()], limit=100)])
-    subscription_id = uuid.uuid1().hex
-    relay_managers.add_subscription_on_all_relays(subscription_id, filters)
     willingtopay = int(originalevent.get_tag_list("bid")[0][0])
 
    # if(rate*duration * 1000 < willingtopay):
@@ -359,6 +369,28 @@ def sendPaymentRequestEvent(originalevent, rate, duration):
     event.sign(privkey.hex())
 
     relay_managers.publish_event(event)
+    relay_managers.run_sync()
+
+    # Optional, send payment Request via DM (sending works, but this lib can't receive as it seems)
+    receiver_pub = originalevent.pubkey
+    dm = EncryptedDirectMessage()
+    dm.recipient_pubkey=receiver_pub
+    dm.encrypt(privkey.hex(),
+    recipient_pubkey=receiver_pub,
+    cleartext_content="Howdy! In order to start your AI Task ""\"" + originalevent.content + "\""", please send me a non-private Zap (I can't read these yet) for "
+                      + str(rate*duration) + " Sats and enter as zap content in code from following message and I will start processing your job. Please do not reply to this message, I'm just a bot.")
+    dm_event = dm.to_event()
+    dm_event.sign(privkey.hex())
+    relay_managers.publish_event(dm_event)
+    relay_managers.run_sync()
+    # Send message separately so its easier to copy.
+    dm.encrypt(privkey.hex(),
+               recipient_pubkey=receiver_pub,
+               cleartext_content=str(event.id))
+    dm_event = dm.to_event()
+    dm_event.sign(privkey.hex())
+    relay_managers.publish_event(dm_event)
+
     relay_managers.run_sync()
     time.sleep(3)
     relay_managers.close_all_relay_connections()
