@@ -140,7 +140,7 @@ def nostrReceiveAndManageNewEvents():
 def isWhitelisted(pubkey, task):
     privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
     #todo store a list of whistlisted npubs that can do free processing
-    whitelsited_npubs_speechtotext = []
+    whitelsited_npubs_speechtotext = ["828c4d2b20ae3d679f9ddad0917ff9aa4c98e16612f5b4551faf447c6ce93ed8"]
     whitelsited_npubs_translation = ["828c4d2b20ae3d679f9ddad0917ff9aa4c98e16612f5b4551faf447c6ce93ed8"]
     whitelsited_all_tasks = [privkey.public_key.hex()]
 
