@@ -10,10 +10,15 @@ from threading import Thread
 
 import datetime as datetime
 
+
+
 from pynostr.event import Event, EventKind
 from pynostr.filters import FiltersList, Filters
 from pynostr.key import PrivateKey, PublicKey
 from pynostr.relay_manager import RelayManager
+
+#from nostr_sdk import Keys, Client, EventBuilder, nip04_decrypt
+# alternative SDK with rust bindings, maybe use this in the future
 
 from flask import Blueprint, request, jsonify
 from nova_server.utils.thread_utils import THREADS
@@ -51,7 +56,7 @@ def nostr_bridge_thread():
         # url = 'https://files.catbox.moe/voxrao.wav'
         data = nostr_bridge_simple_test(
             url=url, expiresinminutes=60,
-            alignment="raw", task=task, rangefrom=0.0, rangeto=0, sats=1, satsmax=10, eventToTranslateId = '2591cd2c17a786ecca79e89f8068d28206ffa11f41f06dd9539ace9d505c9ea4', lang="de", privatedm=False)
+            alignment="raw", task=task, rangefrom=0.0, rangeto=0.0, sats=1, satsmax=10, eventToTranslateId = '2591cd2c17a786ecca79e89f8068d28206ffa11f41f06dd9539ace9d505c9ea4', lang="de", privatedm=False)
         return jsonify(data)
 
 
@@ -62,7 +67,7 @@ def nostr_bridge_simple_test(url, expiresinminutes, alignment, eventToTranslateI
 
 
     relay_manager = RelayManager(timeout=4)
-    relay_manager.add_relay("wss://nostr-pub.wellorder.net")
+    #relay_manager.add_relay("wss://nostr-pub.wellorder.net")
     relay_manager.add_relay("wss://relay.damus.io")
     relay_manager.add_relay("wss://relay.snort.social")
 
@@ -93,7 +98,7 @@ def nostr_bridge_simple_test(url, expiresinminutes, alignment, eventToTranslateI
         event.add_tag('params', ["range", str(rangefrom), str(rangeto)])
         event.add_tag('params', ["alignment", alignment])  # segment, word, raw
         event.add_tag('i', [url, "url"])
-    event.add_tag('relays', ["wss://nostr-pub.wellorder.net", "wss://relay.damus.io", "wss://relay.snort.social"])
+    event.add_tag('relays', ["wss://relay.damus.io", "wss://relay.snort.social"])
     event.add_tag('bid', [str(sats*1000), str(satsmax*1000)])
     event.add_tag('exp', expiration)
     event.add_tag('p', str(privkey.public_key.hex()))
@@ -119,9 +124,9 @@ def nostclientWaitforEvents():
     global sinceLastNostrUpdateClient
     global IDtoWatch
     relay_manager = RelayManager(timeout=3)
-    relay_manager.add_relay("wss://nostr-pub.wellorder.net")
-    #relay_manager.add_relay("wss://relay.damus.io")
-    #relay_manager.add_relay("wss://relay.snort.social")
+    #relay_manager.add_relay("wss://nostr-pub.wellorder.net")
+    relay_manager.add_relay("wss://relay.damus.io")
+    relay_manager.add_relay("wss://relay.snort.social")
 
     vendingFilter = Filters(kinds=[68002], since=sinceLastNostrUpdateClient, limit=5)
     eFilter = Filters(kinds=[EventKind.REACTION], limit=5, since=sinceLastNostrUpdateClient)
@@ -147,22 +152,31 @@ def nostclientWaitforEvents():
 
             #just a demo use case, follow up with new event after finished with text-to-speech
             if requestevent.get_tag_list('j')[0][0] == "speech-to-text":
-                print("[Nostr Client] Start follow up Job, translate transcribed media to German")
+                lang = "es"
+                print("[Nostr Client] Start follow up Job, translate transcribed media to " + lang)
                 nostr_bridge_simple_test(
                     url="", expiresinminutes=60,
                     alignment="raw", task="translation", rangefrom=0.0, rangeto=0, sats=1, satsmax=10,
-                    eventToTranslateId=event.id, lang="de",
+                    eventToTranslateId=event.id, lang=lang,
                     privatedm=False)
         elif event.kind == EventKind.REACTION:
              # Server might request payment before doing the job.
              print("[Nostr Client] Received Reaction event: " + str(event.to_dict()))
-             if event.get_tag_list('amount')[0][0] is not None:
+             if len(event.get_tag_list('amount')) > 0:
                  mSatstoSats = int(int(event.get_tag_list('amount')[0][0]) / 1000)
                  # Todo Do the Zap from here somehow (Currently need to copy the event-id to content in a client
                  print("[Nostr Client] Send Non-private Zap with " + str(mSatstoSats) + " Sats to " + PublicKey.from_hex(
                  event.pubkey).npub + " with Content: " + event.id + " to start processing")
         elif event.kind == EventKind.ENCRYPTED_DIRECT_MESSAGE:
-            #dm = EncryptedDirectMessage.from_event(event)
+            #try:
+                #msg = nip04_decrypt(privkey.hex(), event.pubkey(), event.content())
+                #print(f"Received new msg: {msg}")
+                #event = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), f"Echo: {msg}").to_event(keys)
+                #client.send_event(event)
+            #except Exception as e:
+             #   print(f"Error during content decryption: {e}")
+
+        #dm = EncryptedDirectMessage.from_event(event)
             #dm.decrypt(event.pubkey, public_key_hex=privkey.public_key.hex())
             #print(f"New dm received:{event.date_time()} {dm.cleartext_content}")
             print("[Nostr Client] Received DM(s), but this python lib can't decrypt it :(. For instructions see Reaction block above.")
@@ -185,7 +199,8 @@ def nostr_bridge(request_form):
     pubkey = privkey.public_key
 
     relay_manager = RelayManager(timeout=6)
-    relay_manager.add_relay("wss://nostr-pub.wellorder.net")
+    #relay_manager.add_relay("wss://nostr-pub.wellorder.net")
+    relay_manager.add_relay("wss://relay.snort.social")
     relay_manager.add_relay("wss://relay.damus.io")
 
     filters = FiltersList([Filters(authors=[pubkey.hex()], limit=100)])
@@ -201,7 +216,7 @@ def nostr_bridge(request_form):
     event.add_tag('j', ["speech-to-text", "whisperx-base"])
     event.add_tag('params', ["range", "0", "5"])
     event.add_tag('i', ["https://www.fit.vutbr.cz/~motlicek/sympatex/f2bjrop1.0.wav", "url"])
-    event.add_tag('relays', ["wss://nostr-pub.wellorder.net", "wss://relay.damus.io"])
+    event.add_tag('relays', ["wss://relay.damus.io", "wss://relay.snort.social"])
     event.add_tag('bid', ["1000", "10000"])
     event.add_tag('exp', expiration)
     event.add_tag('p', str(pubkey.hex()))
