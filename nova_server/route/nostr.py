@@ -51,7 +51,6 @@ def nostr_bridge_thread():
         return jsonify(data)
     elif request.method == "GET":
         task =  "speech-to-text" # "translation"
-        # url = "https://www.fit.vutbr.cz/~motlicek/sympatex/f2bjrop1.0.wav"
         url = 'https://nostr.build/p/nb12277.mov'
         # url = 'https://files.catbox.moe/voxrao.wav'
         data = nostr_bridge_simple_test(

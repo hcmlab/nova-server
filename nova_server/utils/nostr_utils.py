@@ -13,10 +13,7 @@ import json
 from pynostr.event import Event
 from pynostr.key import PrivateKey, PublicKey
 
-from nova_server.utils import log_utils
-from nova_server.utils.key_utils import get_random_name, get_key_from_request_form
 from nova_server.utils.db_utils import add_new_session_to_db, db_entry_exists
-import hcai_datasets.hcai_nova_dynamic.utils.nova_data_utils
 from configparser import ConfigParser
 
 import time
@@ -25,20 +22,30 @@ import requests
 
 import uuid
 
+#TODO
+# check expiry of tasks/available output format/model/ (task is checked already). if not available ignore the job,
+# send reaction on error (send sats back ideally, library meh, same for under payment),
+# clear list of  tasks (IDstoWatch) to watch after some time (timeout if invoice not paid),
+# consider max-sat amount at all,
+# add more output formats (webvtt, srt)
+# refactor translate to own module
+# add summarization task (GPT4all?, OpenAI api?) in own module
+# consider reactions from customers (Kind 07 event)
+# whisper_large-v2 only works once? (base is fine)
+# consider encrypted DMS with tasks (decrypt seems broken in pynostr, or dependecy version of)
+# purge database and files from time to time?
+
 sinceLastNostrUpdate = int((datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp())
 IDstoWatch = []
 
 def nostrReceiveAndManageNewEvents():
-    privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
-
+    #privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
     global sinceLastNostrUpdate
     global IDstoWatch
 
     relay_manager = RelayManager(timeout=2)
-    #relay_manager.add_relay("wss://nostr-pub.wellorder.net")
     relay_manager.add_relay("wss://relay.damus.io")
     relay_manager.add_relay("wss://relay.snort.social")
-
     #print("[Nostr] Listen to new events since: " + str(sinceLastNostrUpdate))
 
     vendingFilter = Filters(kinds=[68001], since=sinceLastNostrUpdate, limit=20)
@@ -52,7 +59,6 @@ def nostrReceiveAndManageNewEvents():
     subscription_id = uuid.uuid1().hex
     relay_manager.add_subscription_on_all_relays(subscription_id, filters)
     relay_manager.run_sync()
-    #time.sleep(3)  # allow the messages to send
 
     while relay_manager.message_pool.has_events():
         event_msg = relay_manager.message_pool.get_event()
@@ -66,7 +72,6 @@ def nostrReceiveAndManageNewEvents():
                doWork(event)
            # otherwise send payment request
            else:
-                #request_form = createRequestFormfromNostrEvent(event)
                 if event.get_tag_list('j')[0][0] == "translation":
                     PROCESSINGCOSTPERUNIT = 2
                     duration = 1  # todo get task duration
@@ -78,8 +83,6 @@ def nostrReceiveAndManageNewEvents():
                 else:
                     print("[Nostr] Task " + event.get_tag_list('j')[0][0] + " is currently not supported by this instance")
 
-                #check file length without the work, set it to 1 for now
-                #duration = organizeInputData(event, request_form)
                 amount = PROCESSINGCOSTPERUNIT * duration * 1000 #*1000 because millisats
                 if len(event.get_tag_list("bid")) > 0:
                     willingtopay = int(event.get_tag_list("bid")[0][0])
@@ -97,28 +100,17 @@ def nostrReceiveAndManageNewEvents():
             # Zaps to us
             lninvoice = event.get_tag_list('bolt11')[0][0]
             invoicesats = ParseBolt11Invoice(lninvoice)
-
             print("[Nostr]Zap Received: " + str(event.to_dict()))
-            #zapeventdict = event.get_tag_list('description')[0][0]
-            #zapevent = Event.from_dict(json.loads(zapeventdict.replace("'", "\"")))
-
-            # isValidHexString = all(c in string.hexdigits for c in zapevent.content)
-
-
-            #if zapevent.content  != '' and isValidHexString:
-             #   # todo: more checks content is a valid event.id or dont let user type it..?
             eventid = event.get_tag_list("e")[0][0]
-            print("[Nostr] Valid event reference found...")
 
+            # Get specific reaction event
             relay_manager2 = RelayManager(timeout=5)
-            #relay_manager2.add_relay("wss://nostr-pub.wellorder.net")
             relay_manager2.add_relay("wss://relay.damus.io")
             relay_manager2.add_relay("wss://relay.snort.social")
             filters = FiltersList([Filters(ids=[eventid], limit=1)])
             subscription_id = uuid.uuid1().hex
             relay_manager2.add_subscription_on_all_relays(subscription_id, filters)
             relay_manager2.run_sync()
-            #Get specific reaction event
             event_msg_event7 = relay_manager2.message_pool.get_event().event
             relay_manager2.close_all_relay_connections()
 
@@ -126,7 +118,6 @@ def nostrReceiveAndManageNewEvents():
                 print("[Nostr] Payment-request fulfilled...")
                 event68001id = event_msg_event7.get_tag_list('e')[0][0]
                 relay_manager3 = RelayManager(timeout=5)
-                #relay_manager3.add_relay("wss://nostr-pub.wellorder.net")
                 relay_manager3.add_relay("wss://relay.damus.io")
                 relay_manager3.add_relay("wss://relay.snort.social")
                 filters = FiltersList([Filters(ids=[event68001id], kinds=[68001], limit=1)])
