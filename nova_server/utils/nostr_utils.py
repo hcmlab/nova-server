@@ -84,13 +84,13 @@ def nostrReceiveAndManageNewEvents():
                 if len(event.get_tag_list("bid")) > 0:
                     willingtopay = int(event.get_tag_list("bid")[0][0])
                     if willingtopay >= amount:
-                        sendJobStatusReaction(event, "payment-requested", willingtopay) # Take what user is willing to pay, min server rate
+                        sendJobStatusReaction(event, "payment-required", willingtopay) # Take what user is willing to pay, min server rate
                     else:
                         sendJobStatusReaction(event, "payment-rejected", amount) # Reject and tell user minimum amount
 
                 else:     # If there is no bid, just request server rate from user
                     print("[Nostr] Requesting payment for Event: " + event.id)
-                    sendJobStatusReaction(event, "payment-requested", amount)
+                    sendJobStatusReaction(event, "payment-required", amount)
 
 
         elif event.kind == EventKind.ZAPPER:
@@ -138,8 +138,10 @@ def nostrReceiveAndManageNewEvents():
                 event68001 = relay_manager3.message_pool.get_event().event
                 print("[Nostr] Original 68001 Job Request event found...")
                 relay_manager3.close_all_relay_connections()
+                sendJobStatusReaction(event68001, "payment-accepted")
                 doWork(event68001)
             else:
+               sendJobStatusReaction(event68001, "payment-rejected", invoicesats*1000)
                print("[Nostr] Invoice was not paid sufficiently")
 
         elif event.kind == EventKind.REACTION:
@@ -339,16 +341,19 @@ def createRequestFormfromNostrEvent(event):
 def sendJobStatusReaction(originalevent, status, amount = 0):
 
     reaction = '+'
+
     if status == "processing-started":
-        reaction = "&#U+1F44D" #Thumbs up
+        reaction = "U+1F44D" #Thumbs up
     elif status == "processing-finished":
-        reaction = '&#U+1F919'  # Shaka
+        reaction = 'U+1F919'  # Shaka
     elif status == "payment-required":
-        reaction = '&#U+26A1' #LNBolt
+        reaction = 'U+1F9E1' #Orange heart
+    elif status == "payment-accepted":
+        reaction = 'U+1F917'   # Hugging face
     elif status == "payment-rejected":
-        reaction = '&#U+1F648'   # See no evil
+        reaction = 'U+1F648'   # See no evil
     elif status == "processing-failed":
-        reaction = '&#U+1F44E'  # Thumbs down
+        reaction = 'U+1F44E'  # Thumbs down
 
     privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
     pubkey = privkey.public_key
@@ -374,7 +379,7 @@ def sendJobStatusReaction(originalevent, status, amount = 0):
     event.add_tag('e', originalevent.id)
     event.add_tag('p', originalevent.pubkey)
     event.add_tag('status', status)
-    if status == "payment-requested" or status == "payment-rejected":
+    if status == "payment-required" or status == "payment-rejected":
         event.add_tag('amount', str(amount))
     event.sign(privkey.hex())
 
@@ -382,7 +387,7 @@ def sendJobStatusReaction(originalevent, status, amount = 0):
     relay_managers.run_sync()
     time.sleep(3)
     #if this is a payment request, listen to events that contain the event id in the e tag to check if event is zapped
-    if status == "payment-requested":
+    if status == "payment-required":
         IDstoWatch.append(event.id)
     relay_managers.close_all_relay_connections()
     print("[Nostr] Sent Kind 07 Reaction: " +  status + " " +  str(event.to_dict()))
