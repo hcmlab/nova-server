@@ -152,9 +152,7 @@ def predict_data(request_form):
         for anno in annos:
             db_utils.write_annotation_to_db(request_form_copy, anno, logger)
             if request_form["nostrEvent"] is not None:
-                responseevent = nostr_utils.sendNostrReplyEvent(anno.data, request_form["nostrEvent"])
-                logger.info("Nostr Job Result Event sent. Event:")
-                logger.info(responseevent)
+                nostr_utils.sendNostrReplyEvent(anno.data, request_form["nostrEvent"])
         logger.info("...done")
 
     logger.info("Prediction completed!")

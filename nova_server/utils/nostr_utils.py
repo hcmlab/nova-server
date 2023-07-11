@@ -39,7 +39,7 @@ def nostrReceiveAndManageNewEvents():
     relay_manager.add_relay("wss://relay.damus.io")
     relay_manager.add_relay("wss://relay.snort.social")
 
-    print("[Nostr] Listen to new events since: " + str(sinceLastNostrUpdate))
+    #print("[Nostr] Listen to new events since: " + str(sinceLastNostrUpdate))
 
     vendingFilter = Filters(kinds=[68001], since=sinceLastNostrUpdate, limit=20)
     zapFilter = Filters(kinds=[EventKind.ZAPPER], limit =20, since=sinceLastNostrUpdate)
@@ -145,26 +145,6 @@ def nostrReceiveAndManageNewEvents():
         elif event.kind == EventKind.REACTION:
             print("[Nostr]Reaction Received: " + str(event.to_dict()))
     relay_manager.close_all_relay_connections()
-
-
-def isWhitelisted(pubkey, task):
-    privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
-    #Store a list of whistlisted npubs that can do free processing
-    whitelsited_all_tasks = [privkey.public_key.hex()]
-    # Store  ists of whistlisted npubs that can do free processing for specific tasks
-    whitelsited_npubs_speechtotext = ["828c4d2b20ae3d679f9ddad0917ff9aa4c98e16612f5b4551faf447c6ce93ed8", "fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52"] # remove this to test LN Zaps
-    whitelsited_npubs_translation = ["828c4d2b20ae3d679f9ddad0917ff9aa4c98e16612f5b4551faf447c6ce93ed8", "fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52"]
-
-
-    if(task == "speech-to-text"):
-        if any(pubkey == c for c in whitelsited_npubs_speechtotext) or any(pubkey == c for c in whitelsited_all_tasks):
-            return True
-    elif (task == "translation"):
-        if any(pubkey == c for c in whitelsited_npubs_translation) or any(pubkey == c for c in whitelsited_all_tasks):
-            return True
-
-
-    return False
 
 def doWork(event68001):
     if event68001.kind == 68001:
@@ -362,11 +342,11 @@ def sendJobStatusReaction(originalevent, status, amount = 0):
     if status == "processing-started":
         reaction = "&#U+1F44D" #Thumbs up
     elif status == "processing-finished":
-        reaction = '&#U+1F44D'  # Thumbs up
+        reaction = '&#U+1F919'  # Shaka
     elif status == "payment-required":
         reaction = '&#U+26A1' #LNBolt
     elif status == "payment-rejected":
-        reaction = '&#U+1F44E'   # Thumbs down
+        reaction = '&#U+1F648'   # See no evil
     elif status == "processing-failed":
         reaction = '&#U+1F44E'  # Thumbs down
 
@@ -405,6 +385,8 @@ def sendJobStatusReaction(originalevent, status, amount = 0):
     if status == "payment-requested":
         IDstoWatch.append(event.id)
     relay_managers.close_all_relay_connections()
+    print("[Nostr] Sent Kind 07 Reaction: " +  status + " " +  str(event.to_dict()))
+
     return event.to_dict()
 
 def sendNostrReplyEvent(content, originaleventstr):
@@ -432,6 +414,12 @@ def sendNostrReplyEvent(content, originaleventstr):
     filters = FiltersList([Filters(authors=[pubkey.hex()], limit=100)])
     subscription_id = uuid.uuid1().hex
     relay_managers.add_subscription_on_all_relays(subscription_id, filters)
+    if len(originalevent.get_tag_list("o") ) > 0:
+        if originalevent.get_tag_list("o")[0][0] == "text/plain":
+            content = (content["name"])
+            content = str(content).replace("\n", "")
+
+
 
     event = Event(str(content))
     event.kind = 68002
@@ -439,7 +427,8 @@ def sendNostrReplyEvent(content, originaleventstr):
     event.add_tag('e', originalevent.id)
     event.add_tag('p', originalevent.pubkey)
     event.add_tag('status', "success")
-    event.add_tag('amount', originalevent.get_tag_list("bid")[0][1])
+    if len(originalevent.get_tag_list("bid")) > 1:
+        event.add_tag('amount', originalevent.get_tag_list("bid")[0][1]) # this should be the actual price.
     event.sign(privkey.hex())
 
     relay_managers.publish_event(event)
@@ -447,6 +436,7 @@ def sendNostrReplyEvent(content, originaleventstr):
     time.sleep(5)
     relay_managers.close_all_relay_connections()
     sendJobStatusReaction(originalevent, "processing-finished")
+    print("[Nostr] 68002 Job Response event sent: " + str(event.to_dict()))
     return event.to_dict()
 
 
@@ -493,4 +483,23 @@ def getIndexOfFirstLetter(ip):
             index = index +1
 
     return len(input);
+
+
+def isWhitelisted(pubkey, task):
+    privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
+    #Store a list of whistlisted npubs that can do free processing
+    whitelsited_all_tasks = [privkey.public_key.hex()]
+    # Store  ists of whistlisted npubs that can do free processing for specific tasks
+    whitelsited_npubs_speechtotext = ["fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52"] # remove this to test LN Zaps
+    whitelsited_npubs_translation = ["828c4d2b20ae3d679f9ddad0917ff9aa4c98e16612f5b4551faf447c6ce93ed8", "fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52"]
+
+
+    if(task == "speech-to-text"):
+        if any(pubkey == c for c in whitelsited_npubs_speechtotext) or any(pubkey == c for c in whitelsited_all_tasks):
+            return True
+    elif (task == "translation"):
+        if any(pubkey == c for c in whitelsited_npubs_translation) or any(pubkey == c for c in whitelsited_all_tasks):
+            return True
+    return False
+
 
