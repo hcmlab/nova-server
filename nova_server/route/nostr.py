@@ -36,7 +36,7 @@ from nova_server.utils import (
 
 nostr = Blueprint("nostr", __name__)
 
-
+#TODO HINT: Only use this path with a whitelisted privkey, as zapping events is not implemented in the lib/code
 
 @nostr.route("/nostr", methods=['POST', 'GET'])
 def nostr_bridge_thread():

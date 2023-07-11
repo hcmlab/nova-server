@@ -25,14 +25,17 @@ import uuid
 #TODO
 # check expiry of tasks/available output format/model/ (task is checked already). if not available ignore the job,
 # send reaction on error (send sats back ideally, library meh, same for under payment),
+# send reaction processing-scheduled when task is waiting for previous task to finish, max limit to wait?
+# store whitelist (and maybe a blacklist) in a config/db
 # clear list of  tasks (IDstoWatch) to watch after some time (timeout if invoice not paid),
 # consider max-sat amount at all,
+# consider reactions from customers (Kind 07 event)
+# consider encrypted DMS with tasks (decrypt seems broken in pynostr, or dependecy version of)
 # add more output formats (webvtt, srt)
 # refactor translate to own module
 # add summarization task (GPT4all?, OpenAI api?) in own module
-# consider reactions from customers (Kind 07 event)
 # whisper_large-v2 only works once? (base is fine)
-# consider encrypted DMS with tasks (decrypt seems broken in pynostr, or dependecy version of)
+
 # purge database and files from time to time?
 
 sinceLastNostrUpdate = int((datetime.datetime.now() - datetime.timedelta(minutes=1)).timestamp())
@@ -486,8 +489,11 @@ def isWhitelisted(pubkey, task):
     #Store a list of whistlisted npubs that can do free processing
     whitelsited_all_tasks = [privkey.public_key.hex()]
     # Store  ists of whistlisted npubs that can do free processing for specific tasks
-    whitelsited_npubs_speechtotext = ["fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52"] # remove this to test LN Zaps
-    whitelsited_npubs_translation = ["828c4d2b20ae3d679f9ddad0917ff9aa4c98e16612f5b4551faf447c6ce93ed8", "fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52"]
+    pablo7z = "fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52"
+    localnostrtest ="828c4d2b20ae3d679f9ddad0917ff9aa4c98e16612f5b4551faf447c6ce93ed8"
+    #PublicKey.from_npub("npub...").hex()
+    whitelsited_npubs_speechtotext = [pablo7z] # remove this to test LN Zaps
+    whitelsited_npubs_translation = [localnostrtest, pablo7z]
 
 
     if(task == "speech-to-text"):
