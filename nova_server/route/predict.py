@@ -9,14 +9,13 @@ from importlib.machinery import SourceFileLoader
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
 from nova_server.utils.key_utils import get_key_from_request_form
-from nova_server.utils.nostr_utils import sendNostrReplyEvent
 from nova_server.utils import (
     thread_utils,
     status_utils,
     log_utils,
     dataset_utils,
     import_utils,
-    nostr_utils,
+    nostr_utils
 )
 from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
     HcaiNovaDynamicIterable,
@@ -152,7 +151,7 @@ def predict_data(request_form):
         for anno in annos:
             db_utils.write_annotation_to_db(request_form_copy, anno, logger)
             if request_form["nostrEvent"] is not None:
-                nostr_utils.sendNostrReplyEvent(anno.data, request_form["nostrEvent"])
+                nostr_utils.CheckEventStatus(anno.data, str(request_form["nostrEvent"]))
         logger.info("...done")
 
     logger.info("Prediction completed!")

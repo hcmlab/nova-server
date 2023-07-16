@@ -6,7 +6,8 @@ from nova_server.utils import (
     thread_utils,
     status_utils,
     log_utils,
-    import_utils, nostr_utils,
+    import_utils,
+    nostr_utils,
 )
 from nova_server.utils.key_utils import get_key_from_request_form
 from nova_server.utils.thread_utils import THREADS
@@ -267,7 +268,6 @@ def extract_data(request_form):
                         )
                         if request_form["nostrEvent"] is not None:
                             responseevent = nostr_utils.sendNostrReplyEvent(data, request_form["nostrEvent"])
-                            logger.info("Nostr Job fulfillment Event sent. Event:")
                             logger.info(responseevent)
 
                     logger.info("...done")

@@ -128,7 +128,7 @@ def nostclientWaitforEvents():
     relay_manager.add_relay("wss://relay.snort.social")
 
     vendingFilter = Filters(kinds=[68002], since=sinceLastNostrUpdateClient, limit=5)
-    eFilter = Filters(kinds=[EventKind.REACTION], limit=5, since=sinceLastNostrUpdateClient)
+    eFilter = Filters(kinds=[68003], limit=5, since=sinceLastNostrUpdateClient)
     eFilter.add_arbitrary_tag('e', [IDtoWatch])
     dmFilter = Filters(kinds=[EventKind.ENCRYPTED_DIRECT_MESSAGE], limit=5, since=sinceLastNostrUpdateClient)
     dmFilter.add_arbitrary_tag('p', [privkey.public_key.hex()])
@@ -158,7 +158,7 @@ def nostclientWaitforEvents():
                     alignment="raw", task="translation", rangefrom=0.0, rangeto=0, sats=1, satsmax=10,
                     eventToTranslateId=event.id, lang=lang,
                     privatedm=False)
-        elif event.kind == EventKind.REACTION:
+        elif event.kind == 68003:
              # Server might request payment before doing the job.
              print("[Nostr Client] Received Reaction event: " + str(event.to_dict()))
              if len(event.get_tag_list('amount')) > 0:
