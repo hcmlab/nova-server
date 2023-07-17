@@ -115,7 +115,7 @@ def nostrReceiveAndManageNewEvents():
                 sendJobStatusReaction(event, "user-blocked-from-service")
                 print("Request by blacklisted user, skipped")
 
-            elif checkTaskisSupported(event.get_tag_list('j')[0][0],event.get_tag_list('i')[0][0],event.get_tag_list('i')[0][1], event.content):
+            elif checkTaskisSupported(event):
                if isWhiteListed(event.pubkey, event.get_tag_list('j')[0][0]):
                    print("[Nostr] Whitelisted for task " + event.get_tag_list('j')[0][0] + ". Starting processing..")
                    doWork(event, True)
@@ -233,17 +233,26 @@ def doWork(event68001, isPaid, amount = 0):
             print("[Nostr] Task " + event68001.get_tag_list('j')[0][0] + " is currently not supported by this instance")
 
 
-def checkTaskisSupported(task, url, inputtype, content):
+def checkTaskisSupported(event):
+
+    task = event.get_tag_list('j')[0][0]
+    url =  event.get_tag_list('i')[0][0]
+    inputtype = event.get_tag_list('i')[0][1]
+    content =  event.content
+
     if task != "speech-to-text" and task != "translation": # The Tasks this DVM supports (can be extended)
         return False
     if task == "translation" and (inputtype != "event" and inputtype != "job"): # The input types per task
         return False
-    if task == "translation" and len(content) > 4999:
+    if task == "translation" and len(content) > 4999: # Google Services have a limit of 5000 signs
         return False
     if task == "speech-to-text" and inputtype != "url": # The input types per task
         return False
     if inputtype == 'url' and not CheckUrlisReadable(url):
         return False
+    if len(event.get_tag_list('output')) > 0: #if output tag is set check for available formats, else use server default output
+        if event.get_tag_list('output')[0][0] != "text/plain": #or..
+            return False
 
     return True
 
