@@ -1,6 +1,4 @@
-import mimetypes
 import os
-import string
 import urllib
 from urllib.parse import urlparse
 
@@ -16,7 +14,7 @@ from pynostr.filters import FiltersList, Filters
 from pynostr.event import EventKind
 import json
 from pynostr.event import Event
-from pynostr.key import PrivateKey, PublicKey
+from pynostr.key import PrivateKey
 from dataclasses import dataclass
 import emoji
 
@@ -39,7 +37,7 @@ import uuid
 # clear list of  tasks (JobstoWatch) to watch after some time (timeout if invoice not paid),
 # consider max-sat amount at all,
 # consider reactions from customers (Kind 68003 event)
-# consider encrypted DMS with tasks (decrypt seems broken in pynostr, or dependecy version of)
+# consider encrypted DMS with tasks (decrypt seems broken in pynostr, or dependency version of)
 # add more output formats (webvtt, srt)
 # refactor translate to own module
 # add summarization task (GPT4all?, OpenAI api?) in own module
@@ -51,8 +49,8 @@ sinceLastNostrUpdate = int(datetime.datetime.now().timestamp())
 
 class ResultConfig:
     AUTOPROCESS_MIN_AMOUNT: int = 1000000000000   #  auto start processing if min Sat amount is given
-    AUTOPROCESS_MAX_AMOUNT: int = 0   # if this is 0 and min is very big, autoprocess will not trigger
-    SHOWRESULTBEFOREPAYMENT: bool = False #if this flag is true show results even when not paid (in the end, right after autoprocess)
+    AUTOPROCESS_MAX_AMOUNT: int = 500   # if this is 0 and min is very big, autoprocess will not trigger
+    SHOWRESULTBEFOREPAYMENT: bool = True #if this flag is true show results even when not paid (in the end, right after autoprocess)
     COSTPERUNIT_TRANSLATION: int = 2 # Still need to multiply this by duration
     COSTPERUNIT_SPEECHTOTEXT: int = 5# Still need to multiply this by duration
 
@@ -68,6 +66,7 @@ class JobToWatch:
     amount: int
     status: str
     result: str
+    isProcessed: bool
 
 JobstoWatch = []
 
@@ -191,10 +190,10 @@ def nostrReceiveAndManageNewEvents():
                         index = indices[0]
                     if(index > -1):
                         #todo also remove ids after x time of waiting, need to store pairs of id / timestamp for that
-                        if (JobstoWatch[index]).status == "success":
+                        if (JobstoWatch[index]).isProcessed:  #If payment-required appears after processing
                             JobstoWatch[index].isPaid = True
                             CheckEventStatus(JobstoWatch[index].result, str(event68001.to_dict()))
-                        elif (JobstoWatch[index]).status == "payment-required":
+                        elif not (JobstoWatch[index]).isProcessed:  #If payment-required appears before processing
                             JobstoWatch.pop(index)
                             doWork(event68001, True)
                 else:
@@ -502,9 +501,9 @@ def sendJobStatusReaction(originalevent, status, isPaid = True,  amount = 0):
     elif status == "payment-rejected":
         reaction = emoji.emojize(":see_no_evil_monkey:")
     elif status == "user-blocked-from-service":
-        reaction =  emoji.emojize(":see_no_evil_monkey:")
+        reaction = emoji.emojize(":see_no_evil_monkey:")
     else:
-        reaction =  emoji.emojize(":see_no_evil_monkey:")
+        reaction = emoji.emojize(":see_no_evil_monkey:")
 
 
 
@@ -540,7 +539,7 @@ def sendJobStatusReaction(originalevent, status, isPaid = True,  amount = 0):
                 break
 
     if status == "payment-required" or (status == "started" and not isPaid):
-        JobstoWatch.append(JobToWatch(id=originalevent.id, timestamp=originalevent.created_at,  amount=amount, isPaid=isPaid, status=status, result=""))
+        JobstoWatch.append(JobToWatch(id=originalevent.id, timestamp=originalevent.created_at,  amount=amount, isPaid=isPaid, status=status, result="", isProcessed=False))
         print(str(JobstoWatch))
     if status == "payment-required" or (status == "started" and not isPaid) or  (status == "success" and not isPaid):
         event.add_tag('amount', str(amount))
@@ -565,14 +564,14 @@ def CheckEventStatus(content, originaleventstr : str):
             isPaid = x.isPaid
             amount = x.amount
             x.result = content
-            x.status = "success"
+            x.isProcessed = True
             if ResultConfig.SHOWRESULTBEFOREPAYMENT and not isPaid:
                 sendNostrReplyEvent(content, originaleventstr)
-                sendJobStatusReaction(originalevent, "success", amount)
+                sendJobStatusReaction(originalevent, "success", amount) #or payment-required, or both?
             elif not ResultConfig.SHOWRESULTBEFOREPAYMENT and not isPaid:
-                sendJobStatusReaction(originalevent, "success", amount)
+                sendJobStatusReaction(originalevent, "success", amount) #or payment-required, or both?
 
-            if  ResultConfig.SHOWRESULTBEFOREPAYMENT and isPaid:
+            if ResultConfig.SHOWRESULTBEFOREPAYMENT and isPaid:
                 JobstoWatch.remove(x)
             elif not ResultConfig.SHOWRESULTBEFOREPAYMENT and isPaid:
                 JobstoWatch.remove(x)
@@ -587,20 +586,11 @@ def CheckEventStatus(content, originaleventstr : str):
         sendJobStatusReaction(originalevent, "success")
 
 
-
-
-
-
-
-
-
-
 def sendNostrReplyEvent(content, originaleventstr):
-    # Once the Job is finished we reply with the results with a 68002 event
 
+    # Once the Job is finished we reply with the results with a 68002 event
     privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
     pubkey = privkey.public_key
-
     originalevent = Event.from_dict(json.loads(originaleventstr.replace("'", "\"")))
 
     relay_managers = RelayManager(timeout=6)
@@ -619,14 +609,12 @@ def sendNostrReplyEvent(content, originaleventstr):
     filters = FiltersList([Filters(authors=[pubkey.hex()], limit=100)])
     subscription_id = uuid.uuid1().hex
     relay_managers.add_subscription_on_all_relays(subscription_id, filters)
-    if len(originalevent.get_tag_list("output") ) > 0:
+    if len(originalevent.get_tag_list("output")) > 0:
         if originalevent.get_tag_list("output")[0][0] == "text/plain":
             result = ""
             for name in content["name"]:
-                clearname = str(name).lstrip("\'").rstrip("\'")
-                result = result + clearname
-
-            #content = str(content["name"]).lstrip("\'").rstrip("\'")
+                clearedName = str(name).lstrip("\'").rstrip("\'")
+                result = result + clearedName
             content = str(result).replace("\n", "").replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
 
     event = Event(str(content))
@@ -635,8 +623,6 @@ def sendNostrReplyEvent(content, originaleventstr):
     event.add_tag('e', originalevent.id)
     event.add_tag('p', originalevent.pubkey)
     event.add_tag('status', "success")
-    #if len(originalevent.get_tag_list("bid")) > 1:
-      #  event.add_tag('amount', originalevent.get_tag_list("bid")[0][0]) # this should be the actual price.
     event.sign(privkey.hex())
 
 
@@ -696,7 +682,7 @@ def getIndexOfFirstLetter(ip):
 
 
 def isBlackListed(pubkey):
-    # Store  ists of blaclisted npubs that can no do processing
+    # Store  lists of blaclisted npubs that can no do processing
     # blacklisting and whitelsting should be moved to a database and probably get some expiry
     blacklisted_all_tasks = []
     if any(pubkey == c for c in blacklisted_all_tasks):
