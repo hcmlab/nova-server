@@ -1,3 +1,4 @@
+import base64
 import os
 import urllib
 from urllib.parse import urlparse
@@ -14,7 +15,7 @@ from pynostr.filters import FiltersList, Filters
 from pynostr.event import EventKind
 import json
 from pynostr.event import Event
-from pynostr.key import PrivateKey
+from pynostr.key import PrivateKey, PublicKey
 from dataclasses import dataclass
 import emoji
 
@@ -41,7 +42,6 @@ import uuid
 # add more output formats (webvtt, srt)
 # refactor translate to own module
 # add summarization task (GPT4all?, OpenAI api?) in own module
-# whisper_large-v2 only works once? (base is fine)
 
 # purge database and files from time to time?
 
@@ -49,12 +49,12 @@ sinceLastNostrUpdate = int(datetime.datetime.now().timestamp())
 
 class ResultConfig:
     AUTOPROCESS_MIN_AMOUNT: int = 1000000000000   #  auto start processing if min Sat amount is given
-    AUTOPROCESS_MAX_AMOUNT: int = 500   # if this is 0 and min is very big, autoprocess will not trigger
-    SHOWRESULTBEFOREPAYMENT: bool = True #if this flag is true show results even when not paid (in the end, right after autoprocess)
+    AUTOPROCESS_MAX_AMOUNT: int = 0   # if this is 0 and min is very big, autoprocess will not trigger
+    SHOWRESULTBEFOREPAYMENT: bool = True  #if this flag is true show results even when not paid (in the end, right after autoprocess)
     COSTPERUNIT_TRANSLATION: int = 2 # Still need to multiply this by duration
     COSTPERUNIT_SPEECHTOTEXT: int = 5# Still need to multiply this by duration
-
-
+    COSTPERUNIT_IMAGEPROCESSING: int = 100# Generate / Transform one image
+    COSTPERUNIT_IMAGEUPSCALING: int = 500# This takes quite long..
 
 
 
@@ -69,11 +69,12 @@ class JobToWatch:
     isProcessed: bool
 
 JobstoWatch = []
+lastdm = ""
 
 rl = RelayList()
 url_list = ["wss://relay.damus.io", "wss://relay.snort.social",
             "wss://blastr.f7z.xyz",
-            "wss://nostr.mutinywallet.com"]
+            "wss://nostr.mutinywallet.com", "wss://relayable.org"]
 ignore_url_list = ["wss://nostr-pub.wellorder.net"]
 policy = RelayPolicy()
 rl.append_url_list(url_list, policy)
@@ -108,18 +109,19 @@ def nostrReceiveAndManageNewEvents():
         event = event_msg.event
         # check for Task, for this demo use case only get active when task is speech-to-text
         if event.kind == 68001:
-
             # if npub sending the 68001 event is whitelisted, we just do the work
             if isBlackListed(event.pubkey):
                 sendJobStatusReaction(event, "user-blocked-from-service")
                 print("Request by blacklisted user, skipped")
 
             elif checkTaskisSupported(event):
+
                if isWhiteListed(event.pubkey, event.get_tag_list('j')[0][0]):
                    print("[Nostr] Whitelisted for task " + event.get_tag_list('j')[0][0] + ". Starting processing..")
                    doWork(event, True)
                # otherwise send payment request
                else:
+                    amount = 1000000
                     if event.get_tag_list('j')[0][0] == "translation":
                         duration = 1  # todo get task duration
                         amount = ResultConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
@@ -128,6 +130,15 @@ def nostrReceiveAndManageNewEvents():
                         duration = 1  # todo get task duration
                         amount = ResultConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
                         print("[Nostr][Payment required] New Nostr speech-to-text Job event: " + str(event.to_dict()))
+                    elif event.get_tag_list('j')[0][0] == "text-to-image":
+                        amount = ResultConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
+                        print("[Nostr][Payment required] New Nostr generate Image Job event: " + str(event.to_dict()))
+                    elif event.get_tag_list('j')[0][0] == "image-to-image":
+                        amount = ResultConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
+                        print("[Nostr][Payment required] New Nostr convert Image Job event: " + str(event.to_dict()))
+                    elif event.get_tag_list('j')[0][0] == "image-upscale":
+                        amount = ResultConfig.COSTPERUNIT_IMAGEUPSCALING * 1000  # *1000 because millisats
+                        print("[Nostr][Payment required] New Nostr upscale Image Job event: " + str(event.to_dict()))
                     else:
                         print("[Nostr] Task " + event.get_tag_list('j')[0][0] + " is currently not supported by this instance")
 
@@ -141,7 +152,7 @@ def nostrReceiveAndManageNewEvents():
                             if willingtopay >= amount:
                                 sendJobStatusReaction(event, "payment-required", False, willingtopay) # Take what user is willing to pay, min server rate
                             else:
-                                sendJobStatusReaction(event, "Payment-rejected", False, amount) # Reject and tell user minimum amount
+                                sendJobStatusReaction(event, "payment-rejected", False, amount) # Reject and tell user minimum amount
 
                     else:     # If there is no bid, just request server rate from user
                         print("[Nostr] Requesting payment for Event: " + event.id)
@@ -206,12 +217,46 @@ def nostrReceiveAndManageNewEvents():
             print("[Nostr]Reaction Received: " + str(event.to_dict()))
 
         elif event.kind == EventKind.ENCRYPTED_DIRECT_MESSAGE:
-            print(str(event))
-
+            global lastdm
+            if(event.content != lastdm):
+                lastdm = event.content
+                dec_text = decryptDM(privkey, event.pubkey, event.content)
+                print(dec_text)
+                if str(dec_text).startswith("-text-to-image"):
+                    prompt = dec_text.replace("-text-to-image ", "")
+                    sendDM(privkey.hex(), event.pubkey, "Processing, please wait..")
+                    url = textToImage(prompt, "")
+                    sendDM(privkey.hex(), event.pubkey, "Your Result: \n\n" + url)
 
     relay_manager.close_all_relay_connections()
 
 
+def sendDM(privkey, pubkey, message):
+    dm = EncryptedDirectMessage()
+    dm.encrypt(privkey,
+               recipient_pubkey=pubkey,
+               cleartext_content=message
+               )
+    dm_event = dm.to_event()
+    dm_event.sign(privkey)
+    relay_managers = RelayManager(timeout=6)
+    relay_managers.add_relay_list(rl)
+    relay_managers.publish_event(dm_event)
+    relay_managers.run_sync()
+    time.sleep(3)
+    relay_managers.close_all_relay_connections()
+
+def decryptDM(privkey, pubkey, content):
+    from . import cbc
+    if "?iv=" in content:
+        shared_secret = privkey.compute_shared_secret(pubkey)
+        aes = cbc.AESCipher(key=shared_secret)
+        enc_text_b64, iv_b64 = content.split("?iv=")
+        iv = base64.decodebytes(iv_b64.encode("utf-8"))
+        enc_text = base64.decodebytes(enc_text_b64.encode("utf-8"))
+        dec_text = aes.decrypt(iv, enc_text)
+        return dec_text
+    return "Couldn't decrypt the message"
 def doWork(event68001, isPaid, amount = 0):
     if event68001.kind == 68001:
         if event68001.get_tag_list('j')[0][0] == "speech-to-text":
@@ -228,24 +273,40 @@ def doWork(event68001, isPaid, amount = 0):
              print("[Nostr] Adding translation Job event: " + str(event68001.to_dict()))
              sendJobStatusReaction(event68001, "started", isPaid)
              createRequestFormfromNostrEvent(event68001) # this includes translation, should be moved to a script
+        elif event68001.get_tag_list('j')[0][0] == "text-to-image":
+            print("[Nostr] Adding Image Generation Job event: " + str(event68001.to_dict()))
+            sendJobStatusReaction(event68001, "started", isPaid)
+            createRequestFormfromNostrEvent(event68001)
+        elif event68001.get_tag_list('j')[0][0] == "image-to-image":
+            print("[Nostr] Adding Image Conversion Job event: " + str(event68001.to_dict()))
+            sendJobStatusReaction(event68001, "started", isPaid)
+            createRequestFormfromNostrEvent(event68001)
+        elif event68001.get_tag_list('j')[0][0] == "image-upscale":
+            print("[Nostr] Adding Image Upscale Job event: " + str(event68001.to_dict()))
+            sendJobStatusReaction(event68001, "started", isPaid)
+            createRequestFormfromNostrEvent(event68001)
         else:
             print("[Nostr] Task " + event68001.get_tag_list('j')[0][0] + " is currently not supported by this instance")
 
 
 def checkTaskisSupported(event):
 
+    if (len ( event.get_tag_list('j')) < 1 or len ( event.get_tag_list('i'))  < 1 ):
+        return False
     task = event.get_tag_list('j')[0][0]
     url =  event.get_tag_list('i')[0][0]
     inputtype = event.get_tag_list('i')[0][1]
     content =  event.content
 
-    if task != "speech-to-text" and task != "translation": # The Tasks this DVM supports (can be extended)
+    if task != "speech-to-text" and task != "translation" and task != "text-to-image" and task != "image-to-image" and task != "image-upscale": # The Tasks this DVM supports (can be extended)
         return False
     if task == "translation" and (inputtype != "event" and inputtype != "job"): # The input types per task
         return False
     if task == "translation" and len(content) > 4999: # Google Services have a limit of 5000 signs
         return False
     if task == "speech-to-text" and inputtype != "url": # The input types per task
+        return False
+    if task == "image-upscale" and inputtype != "url": # The input types per task
         return False
     if inputtype == 'url' and not CheckUrlisReadable(url):
         return False
@@ -270,6 +331,9 @@ def CheckUrlisReadable(url):
     content_type = req.headers['content-type']
     if content_type == 'audio/x-wav' or str(url).endswith(".wav") \
     or content_type == 'audio/mpeg'  or str(url).endswith(".mp3") \
+    or content_type == 'image/png' or str(url).endswith(".png") \
+    or content_type == 'image/jpg' or str(url).endswith(".jpg") \
+    or content_type == 'image/jpeg' or str(url).endswith(".jpeg") \
     or content_type == 'audio/ogg' or str(url).endswith(".ogg") \
     or content_type == 'video/mp4' or str(url).endswith(".mp4")  \
     or content_type == 'video/avi' or str(url).endswith(".avi")  \
@@ -383,6 +447,8 @@ def organizeInputData(event, request_form):
             duration = end_time - start_time
             add_new_session_to_db(request_form, duration)
 
+
+
 def createRequestFormfromNostrEvent(event):
     # Only call this if config is not available, adjust function to your db
     # savConfig()
@@ -439,7 +505,7 @@ def createRequestFormfromNostrEvent(event):
             model = event.get_tag_list('j')[0][1]
             modelopt = str(model).split('_')[1]
         else:
-            modelopt = "base"
+            modelopt = "large-v2"
 
         request_form["mode"] = "PREDICT"
         request_form["schemeType"] = "FREE"
@@ -447,6 +513,8 @@ def createRequestFormfromNostrEvent(event):
         request_form["streamName"] = "audio"
         request_form["trainerFilePath"] = 'models\\trainer\\' + str(request_form["schemeType"]).lower() + '\\' + str(request_form["scheme"]) + '\\audio{audio}\\whisperx\\whisperx_transcript.trainer'
         request_form["optStr"] = 'model=' + modelopt + ';alignment_mode=' + alignment + ';batch_size=2'
+
+
 
     elif event.get_tag_list('j')[0][0] == "translation":
         #outsource this to its own script, ideally. This is not using the database for now, but probably should.
@@ -481,6 +549,120 @@ def createRequestFormfromNostrEvent(event):
         print("[Nostr] Not supported yet")
         # call OpenAI API or use a local LLM
         # add length variableF
+
+    elif event.get_tag_list('j')[0][0] == "image-to-image":
+
+        import requests
+        import torch
+        from PIL import Image
+        from io import BytesIO
+
+        from diffusers import StableDiffusionImg2ImgPipeline
+
+        device = "cuda"
+        #model_id_or_path = "runwayml/stable-diffusion-v1-5"
+        #pipe = StableDiffusionImg2ImgPipeline.from_pretrained(model_id_or_path, torch_dtype=torch.float16)
+
+        pipe = StableDiffusionImg2ImgPipeline.from_single_file(
+            "sdmodels/stablydiffusedsWild_351.safetensors"
+        )
+        # pipe.unet.load_attn_procs(model_id_or_path)
+        pipe = pipe.to(device)
+
+        if event.get_tag_list('i')[0][1] == "url":
+            url = event.get_tag_list('i')[0][0]
+
+        response = requests.get(url)
+        init_image = Image.open(BytesIO(response.content)).convert("RGB")
+        #init_image = init_image.resize((768, 512))
+
+        prompt = ""
+        negative_prompt = ""
+        strength = 0.75
+        guidance_scale = 7.5
+        params = event.get_tag_list('params')
+        for param in params:
+            if param[0] == "prompt":  # check for paramtype
+               prompt = param[1]
+            elif param[0] == "negative_prompt":  # check for paramtype
+               negative_prompt = param[1]
+            elif param[0] == "strength":  # check for paramtype
+                strength = float(param[1])
+            elif param[0] == "guidance_scale":  # check for paramtype
+                guidance_scale = float(param[1])
+
+        #prompt = "A fantasy landscape, trending on artstation"
+
+        image = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, strength=strength, guidance_scale=guidance_scale).images[0]
+        uniquefilepath = uniquify("outputs/sd.jpg")
+        image = image.save(uniquefilepath)
+        files = {'file': open(uniquefilepath, 'rb')}
+        url = 'https://nostrfiles.dev/upload_image'
+        response = requests.post(url, files=files)
+
+        json_object = json.loads(response.text)
+        print(json_object["url"])
+
+        CheckEventStatus(json_object["url"], request_form['nostrEvent'])
+
+    elif event.get_tag_list('j')[0][0] == "text-to-image":
+        if event.get_tag_list('i')[0][1] == "text":
+            prompt = event.get_tag_list('i')[0][0]
+        elif event.get_tag_list('i')[0][1] == "event":
+            sourceid = event.get_tag_list('i')[0][0]
+            relay_managers = RelayManager(timeout=6)
+            relay_managers.add_relay_list(rl)
+
+            filters = FiltersList([Filters(ids=[sourceid], limit=5)])
+            subscription_id = uuid.uuid1().hex
+            relay_managers.add_subscription_on_all_relays(subscription_id, filters)
+            relay_managers.run_sync()
+
+            event_msg = relay_managers.message_pool.get_event()
+            relay_managers.close_all_relay_connections()
+            prompt = event_msg.event.content
+
+        negative_prompt = ""
+        params = event.get_tag_list('params')
+        for param in params:
+            if param[0] == "prompt":  # check for paramtype
+                prompt = param[1]
+            elif param[0] == "negative_prompt":  # check for paramtype
+                negative_prompt = param[1]
+
+        url = textToImage(prompt, negative_prompt)
+        CheckEventStatus(url, request_form['nostrEvent'])
+
+    elif event.get_tag_list('j')[0][0] == "image-upscale":
+        import requests
+        from PIL import Image
+        from io import BytesIO
+        from diffusers import StableDiffusionUpscalePipeline
+        import torch
+
+        # load model and scheduler
+        model_id = "stabilityai/stable-diffusion-x4-upscaler"
+        pipeline = StableDiffusionUpscalePipeline.from_pretrained(model_id, torch_dtype=torch.float16)
+        pipeline = pipeline.to("cuda")
+        pipeline.enable_attention_slicing()
+
+        # let's download an  image
+        if event.get_tag_list('i')[0][1] == "url":
+             url = event.get_tag_list('i')[0][0]
+        response = requests.get(url)
+        low_res_img = Image.open(BytesIO(response.content)).convert("RGB")
+        low_res_img = low_res_img.resize((256, 256))   #This is bad but memory is too low.
+
+        prompt = "UHD, 4k, hyper realistic, extremely detailed, professional, vibrant, not grainy, smooth, sharp"
+        upscaled_image = pipeline(prompt=prompt, image=low_res_img).images[0]
+        uniquefilepath = uniquify("outputs/sd.jpg")
+        upscaled_image = upscaled_image.save(uniquefilepath)
+        files = {'file': open(uniquefilepath, 'rb')}
+        url = 'https://nostrfiles.dev/upload_image'
+        response = requests.post(url, files=files)
+
+        json_object = json.loads(response.text)
+        print(json_object["url"])
 
     return request_form
 
@@ -554,8 +736,6 @@ def sendJobStatusReaction(originalevent, status, isPaid = True,  amount = 0):
 
     return event.to_dict()
 
-
-
 def CheckEventStatus(content, originaleventstr : str):
     originalevent = Event.from_dict(json.loads(originaleventstr.replace("'", "\"")))
 
@@ -585,7 +765,6 @@ def CheckEventStatus(content, originaleventstr : str):
         sendNostrReplyEvent(content, originaleventstr)
         sendJobStatusReaction(originalevent, "success")
 
-
 def sendNostrReplyEvent(content, originaleventstr):
 
     # Once the Job is finished we reply with the results with a 68002 event
@@ -614,8 +793,8 @@ def sendNostrReplyEvent(content, originaleventstr):
             result = ""
             for name in content["name"]:
                 clearedName = str(name).lstrip("\'").rstrip("\'")
-                result = result + clearedName
-            content = str(result).replace("\n", "").replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
+                result = result + clearedName + "\n"
+            content = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
 
     event = Event(str(content))
     event.kind = 68002
@@ -637,7 +816,42 @@ def sendNostrReplyEvent(content, originaleventstr):
 
 
 
+def textToImage(prompt, negative_prompt):
+    import torch
+    import requests
+    from diffusers import DiffusionPipeline
+    from diffusers import StableDiffusionPipeline
+
+    model_id_or_path = "runwayml/stable-diffusion-v1-5"
+    # pipe = DiffusionPipeline.from_pretrained(model_id_or_path, torch_dtype=torch.float16)
+
+    pipe = StableDiffusionPipeline.from_single_file(
+        "sdmodels/stablydiffusedsWild_351.safetensors"
+    )
+    # pipe.unet.load_attn_procs(model_id_or_path)
+    pipe = pipe.to("cuda")
+    image = pipe(prompt=prompt, negative_prompt=negative_prompt).images[0]
+    uniquefilepath = uniquify("outputs/sd.jpg")
+    upscaled_image = image.save(uniquefilepath)
+    files = {'file': open(uniquefilepath, 'rb')}
+    url = 'https://nostrfiles.dev/upload_image'
+    response = requests.post(url, files=files)
+
+    json_object = json.loads(response.text)
+    print(json_object["url"])
+    return json_object["url"]
+
 #HELPER
+
+def uniquify(path):
+    filename, extension = os.path.splitext(path)
+    counter = 1
+
+    while os.path.exists(path):
+        path = filename + "(" + str(counter) + ")" + extension
+        counter += 1
+
+    return path
 def savConfig(dbUser, dbPassword, dbServer, database, role, annotator):
     # Get the configparser object
     config_object = ConfigParser()
@@ -680,7 +894,6 @@ def getIndexOfFirstLetter(ip):
 
     return len(input);
 
-
 def isBlackListed(pubkey):
     # Store  lists of blaclisted npubs that can no do processing
     # blacklisting and whitelsting should be moved to a database and probably get some expiry
@@ -692,14 +905,20 @@ def isBlackListed(pubkey):
 def isWhiteListed(pubkey, task):
     privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
     #Store a list of whistlisted npubs that can do free processing
-    whitelsited_all_tasks = [privkey.public_key.hex()]
+
     # Store  ists of whistlisted npubs that can do free processing for specific tasks
     pablo7z = "fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52"
     dbth = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
-    localnostrtest ="828c4d2b20ae3d679f9ddad0917ff9aa4c98e16612f5b4551faf447c6ce93ed8"
+    localnostrtest ="558497db304332004e59387bc3ba1df5738eac395b0e56b45bfb2eb5400a1e39"
     #PublicKey.from_npub("npub...").hex()
-    whitelsited_npubs_speechtotext = [pablo7z] # remove this to test LN Zaps
-    whitelsited_npubs_translation = [localnostrtest, pablo7z]
+    whitelsited_npubs_speechtotext = [localnostrtest, pablo7z] # remove this to test LN Zaps
+    whitelsited_npubs_translation = [localnostrtest]
+    whitelsited_npubs_texttoimage = [localnostrtest]
+    whitelsited_npubs_imagetoimage = [localnostrtest]
+    whitelsited_npubs_imageupscale = [localnostrtest]
+
+    whitelsited_all_tasks = [privkey.public_key.hex()]
+
 
 
     if(task == "speech-to-text"):
@@ -708,7 +927,15 @@ def isWhiteListed(pubkey, task):
     elif (task == "translation"):
         if any(pubkey == c for c in whitelsited_npubs_translation) or any(pubkey == c for c in whitelsited_all_tasks):
             return True
+    elif (task == "text-to-image"):
+        if any(pubkey == c for c in whitelsited_npubs_texttoimage) or any(pubkey == c for c in whitelsited_all_tasks):
+            return True
+    elif (task == "image-to-image"):
+        if any(pubkey == c for c in whitelsited_npubs_imagetoimage) or any(pubkey == c for c in whitelsited_all_tasks):
+            return
+    elif (task == "image-upscale"):
+        if any(pubkey == c for c in whitelsited_npubs_imageupscale) or any(pubkey == c for c in whitelsited_all_tasks):
+            return True
     return False
-
 
 

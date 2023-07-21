@@ -8,7 +8,7 @@ LOGS = {}
 
 def get_log_conform_request(request_form):
     log_conform_request = dict(request_form)
-    log_conform_request["password"] = "---"
+    log_conform_request["dbPassword"] = "---"
     return log_conform_request
 
 def get_logfile_name_for_thread(log_key):
