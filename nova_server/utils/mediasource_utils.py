@@ -85,13 +85,27 @@ def downloadYouTube2(videourl, path):
         os.makedirs(path)
     return yt.download(path)
 
+
+
+def checkYoutubeLinkValid(link):
+    try:
+        # find a way to test without fully downloading the video
+         youtubeObject = YouTube(link)
+         youtubeObject = youtubeObject.streams.get_audio_only()
+         youtubeObject.download(".", "nostr.youtubetest.mp3")
+         os.remove("nostr.youtubetest.mp3")
+         return True
+    except Exception as e:
+        print(str(e))
+        return False
+
+
 def downloadYouTube(link, path):
+
     youtubeObject = YouTube(link)
     youtubeObject = youtubeObject.streams.get_audio_only()
-    try:
-        youtubeObject.download(path, "nostr.originalaudio.mp3")
-    except:
-        print("An error has occurred")
+    youtubeObject.download(path, "nostr.originalaudio.mp3")
+
     print("Download is completed successfully")
     return path + "nostr.originalaudio.mp3"
 

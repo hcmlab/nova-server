@@ -21,7 +21,7 @@ import emoji
 
 
 from nova_server.utils.db_utils import add_new_session_to_db, db_entry_exists
-from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube
+from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube, checkYoutubeLinkValid
 from configparser import ConfigParser
 
 import time
@@ -53,7 +53,7 @@ class ResultConfig:
     SHOWRESULTBEFOREPAYMENT: bool = True  #if this flag is true show results even when not paid (in the end, right after autoprocess)
     COSTPERUNIT_TRANSLATION: int = 2 # Still need to multiply this by duration
     COSTPERUNIT_SPEECHTOTEXT: int = 5# Still need to multiply this by duration
-    COSTPERUNIT_IMAGEPROCESSING: int = 100# Generate / Transform one image
+    COSTPERUNIT_IMAGEPROCESSING: int = 50# Generate / Transform one image
     COSTPERUNIT_IMAGEUPSCALING: int = 500# This takes quite long..
 
 
@@ -70,6 +70,8 @@ class JobToWatch:
 
 JobstoWatch = []
 lastdm = ""
+lastzap = ""
+lastdvm = ""
 
 rl = RelayList()
 url_list = ["wss://relay.damus.io", "wss://relay.snort.social",
@@ -85,7 +87,7 @@ def nostrReceiveAndManageNewEvents():
     global sinceLastNostrUpdate
     global JobstoWatch
 
-    relay_manager = RelayManager(timeout=6)
+    relay_manager = RelayManager(timeout=3)
     relay_manager.add_relay_list(rl)
 
     #print("[Nostr] Listen to new events since: " + str(sinceLastNostrUpdate))
@@ -109,135 +111,215 @@ def nostrReceiveAndManageNewEvents():
         event = event_msg.event
         # check for Task, for this demo use case only get active when task is speech-to-text
         if event.kind == 68001:
-            # if npub sending the 68001 event is whitelisted, we just do the work
-            if isBlackListed(event.pubkey):
-                sendJobStatusReaction(event, "user-blocked-from-service")
-                print("Request by blacklisted user, skipped")
+            global lastdvm
+            if (event.id != lastdvm):
+                lastdvm = event.id
+                # if npub sending the 68001 event is whitelisted, we just do the work
+                if isBlackListed(event.pubkey):
+                    sendJobStatusReaction(event, "user-blocked-from-service")
+                    print("Request by blacklisted user, skipped")
 
-            elif checkTaskisSupported(event):
+                elif checkTaskisSupported(event):
 
-               if isWhiteListed(event.pubkey, event.get_tag_list('j')[0][0]):
-                   print("[Nostr] Whitelisted for task " + event.get_tag_list('j')[0][0] + ". Starting processing..")
-                   doWork(event, True)
-               # otherwise send payment request
-               else:
-                    amount = 1000000
-                    if event.get_tag_list('j')[0][0] == "translation":
-                        duration = 1  # todo get task duration
-                        amount = ResultConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
-                        print("[Nostr][Payment required] New Nostr translation Job event: " + str(event.to_dict()))
-                    elif event.get_tag_list('j')[0][0] == "speech-to-text":
-                        duration = 1  # todo get task duration
-                        amount = ResultConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
-                        print("[Nostr][Payment required] New Nostr speech-to-text Job event: " + str(event.to_dict()))
-                    elif event.get_tag_list('j')[0][0] == "text-to-image":
-                        amount = ResultConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
-                        print("[Nostr][Payment required] New Nostr generate Image Job event: " + str(event.to_dict()))
-                    elif event.get_tag_list('j')[0][0] == "image-to-image":
-                        amount = ResultConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
-                        print("[Nostr][Payment required] New Nostr convert Image Job event: " + str(event.to_dict()))
-                    elif event.get_tag_list('j')[0][0] == "image-upscale":
-                        amount = ResultConfig.COSTPERUNIT_IMAGEUPSCALING * 1000  # *1000 because millisats
-                        print("[Nostr][Payment required] New Nostr upscale Image Job event: " + str(event.to_dict()))
-                    else:
-                        print("[Nostr] Task " + event.get_tag_list('j')[0][0] + " is currently not supported by this instance")
-
-
-                    if len(event.get_tag_list("bid")) > 0:
-                        willingtopay = int(event.get_tag_list("bid")[0][0])
-                        if willingtopay > ResultConfig.AUTOPROCESS_MIN_AMOUNT * 1000 or  willingtopay < ResultConfig.AUTOPROCESS_MAX_AMOUNT * 1000:
-                            print("[Nostr][Auto-processing: Payment suspended to end] Job event: " + str(event.to_dict()))
-                            doWork(event, False, willingtopay)
+                   if isWhiteListed(event.pubkey, event.get_tag_list('j')[0][0]):
+                       print("[Nostr] Whitelisted for task " + event.get_tag_list('j')[0][0] + ". Starting processing..")
+                       doWork(event, True)
+                   # otherwise send payment request
+                   else:
+                        amount = 1000000
+                        if event.get_tag_list('j')[0][0] == "translation":
+                            duration = 1  # todo get task duration
+                            amount = ResultConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
+                            print("[Nostr][Payment required] New Nostr translation Job event: " + str(event.to_dict()))
+                        elif event.get_tag_list('j')[0][0] == "speech-to-text":
+                            duration = 1  # todo get task duration
+                            amount = ResultConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
+                            print("[Nostr][Payment required] New Nostr speech-to-text Job event: " + str(event.to_dict()))
+                        elif event.get_tag_list('j')[0][0] == "text-to-image":
+                            amount = ResultConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
+                            print("[Nostr][Payment required] New Nostr generate Image Job event: " + str(event.to_dict()))
+                        elif event.get_tag_list('j')[0][0] == "image-to-image":
+                            amount = ResultConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
+                            print("[Nostr][Payment required] New Nostr convert Image Job event: " + str(event.to_dict()))
+                        elif event.get_tag_list('j')[0][0] == "image-upscale":
+                            amount = ResultConfig.COSTPERUNIT_IMAGEUPSCALING * 1000  # *1000 because millisats
+                            print("[Nostr][Payment required] New Nostr upscale Image Job event: " + str(event.to_dict()))
                         else:
-                            if willingtopay >= amount:
-                                sendJobStatusReaction(event, "payment-required", False, willingtopay) # Take what user is willing to pay, min server rate
-                            else:
-                                sendJobStatusReaction(event, "payment-rejected", False, amount) # Reject and tell user minimum amount
+                            print("[Nostr] Task " + event.get_tag_list('j')[0][0] + " is currently not supported by this instance")
 
-                    else:     # If there is no bid, just request server rate from user
-                        print("[Nostr] Requesting payment for Event: " + event.id)
-                        sendJobStatusReaction(event, "payment-required", False, amount)
-            else:
-                print("Got new Task but can't process it, skipping..")
+
+                        if len(event.get_tag_list("bid")) > 0:
+                            willingtopay = int(event.get_tag_list("bid")[0][0])
+                            if willingtopay > ResultConfig.AUTOPROCESS_MIN_AMOUNT * 1000 or  willingtopay < ResultConfig.AUTOPROCESS_MAX_AMOUNT * 1000:
+                                print("[Nostr][Auto-processing: Payment suspended to end] Job event: " + str(event.to_dict()))
+                                doWork(event, False, willingtopay)
+                            else:
+                                if willingtopay >= amount:
+                                    sendJobStatusReaction(event, "payment-required", False, willingtopay) # Take what user is willing to pay, min server rate
+                                else:
+                                    sendJobStatusReaction(event, "payment-rejected", False, amount) # Reject and tell user minimum amount
+
+                        else:     # If there is no bid, just request server rate from user
+                            print("[Nostr] Requesting payment for Event: " + event.id)
+                            sendJobStatusReaction(event, "payment-required", False, amount)
+                else:
+                    print("Got new Task but can't process it, skipping..")
 
         elif event.kind == EventKind.ZAPPER: #9735
-            print("[Nostr]Zap Received")
-            # Zaps to us
-            lninvoice = event.get_tag_list('bolt11')[0][0]
-            invoicesats = ParseBolt11Invoice(lninvoice)
-            print("[Nostr]Zap Received: " + str(event.to_dict()))
-            eventid = event.get_tag_list("e")[0][0]
+            global lastzap
+            if (event.id != lastzap):
+                lastzap = event.id
+                print("[Nostr]Zap Received")
+                # Zaps to us
+                lninvoice = event.get_tag_list('bolt11')[0][0]
+                invoicesats = ParseBolt11Invoice(lninvoice)
+                print("[Nostr]Zap Received: " + str(event.to_dict()))
+                eventid = event.get_tag_list("e")[0][0]
 
-            # Get specific reaction event
-            relay_manager2 = RelayManager(timeout=6)
-            relay_manager2.add_relay_list(rl)
-            filters = FiltersList([Filters(ids=[eventid], limit=1)])
-            subscription_id = uuid.uuid1().hex
-            relay_manager2.add_subscription_on_all_relays(subscription_id, filters)
-            relay_manager2.run_sync()
-            event68003 = relay_manager2.message_pool.get_event().event
-            relay_manager2.close_all_relay_connections()
+                # Get specific reaction event
+                relay_manager2 = RelayManager(timeout=6)
+                relay_manager2.add_relay_list(rl)
+                filters = FiltersList([Filters(ids=[eventid], limit=1)])
+                subscription_id = uuid.uuid1().hex
+                relay_manager2.add_subscription_on_all_relays(subscription_id, filters)
+                relay_manager2.run_sync()
+                zapableevent = relay_manager2.message_pool.get_event().event
+                relay_manager2.close_all_relay_connections()
 
-            if(event68003.kind == 68003): #if a reaction by us got zapped
-                if(int(event68003.get_tag_list('amount')[0][0]) <= invoicesats*1000 ):
-                    print("[Nostr] Payment-request fulfilled...")
-                    event68001id = event68003.get_tag_list('e')[0][0]
-                    relay_manager3 = RelayManager(timeout=6)
-                    relay_manager3.add_relay_list(rl)
-                    filters = FiltersList([Filters(ids=[event68001id], kinds=[68001], limit=1)])
+                if(zapableevent.kind == 68003): #if a reaction by us got zapped
+                    if(int(zapableevent.get_tag_list('amount')[0][0]) <= invoicesats*1000 ):
+                        print("[Nostr] Payment-request fulfilled...")
+                        event68001id = zapableevent.get_tag_list('e')[0][0]
+                        relay_manager3 = RelayManager(timeout=6)
+                        relay_manager3.add_relay_list(rl)
+                        filters = FiltersList([Filters(ids=[event68001id], kinds=[68001], limit=1)])
 
-                    subscription_id = uuid.uuid1().hex
-                    relay_manager3.add_subscription_on_all_relays(subscription_id, filters)
-                    relay_manager3.run_sync()
+                        subscription_id = uuid.uuid1().hex
+                        relay_manager3.add_subscription_on_all_relays(subscription_id, filters)
+                        relay_manager3.run_sync()
 
-                    event68001 = relay_manager3.message_pool.get_event().event
-                    print("[Nostr] Original 68001 Job Request event found...")
-                    relay_manager3.close_all_relay_connections()
-                    sendJobStatusReaction(event68001, "payment-accepted")
+                        event68001 = relay_manager3.message_pool.get_event().event
+                        print("[Nostr] Original 68001 Job Request event found...")
+                        relay_manager3.close_all_relay_connections()
 
-                    indices = [i for i, x in enumerate(JobstoWatch) if x.id == event68001.id]
-                    index = -1
-                    if len(indices) > 0:
-                        index = indices[0]
-                    if(index > -1):
-                        #todo also remove ids after x time of waiting, need to store pairs of id / timestamp for that
-                        if (JobstoWatch[index]).isProcessed:  #If payment-required appears after processing
-                            JobstoWatch[index].isPaid = True
-                            CheckEventStatus(JobstoWatch[index].result, str(event68001.to_dict()))
-                        elif not (JobstoWatch[index]).isProcessed:  #If payment-required appears before processing
-                            JobstoWatch.pop(index)
-                            doWork(event68001, True)
-                else:
-                   sendJobStatusReaction(event68001, "payment-rejected", invoicesats*1000)
-                   print("[Nostr] Invoice was not paid sufficiently")
+                        sendJobStatusReaction(event68001, "payment-accepted")
+                        indices = [i for i, x in enumerate(JobstoWatch) if x.id == event68001.id]
+                        index = -1
+                        if len(indices) > 0:
+                            index = indices[0]
+                        if(index > -1):
+                            #todo also remove ids after x time of waiting, need to store pairs of id / timestamp for that
+                            if (JobstoWatch[index]).isProcessed:  #If payment-required appears after processing
+                                JobstoWatch[index].isPaid = True
+                                CheckEventStatus(JobstoWatch[index].result, str(event68001.to_dict()))
+                            elif not (JobstoWatch[index]).isProcessed:  #If payment-required appears before processing
+                                JobstoWatch.pop(index)
+                                doWork(event68001, True)
+                    else:
+                        sendJobStatusReaction(event68001, "payment-rejected", invoicesats * 1000)
 
-            else: print("[Nostr] Zap was not for a 68003 reaction, skipping")
+                        print("[Nostr] Invoice was not paid sufficiently")
+                elif zapableevent.kind == EventKind.ENCRYPTED_DIRECT_MESSAGE:
+                    if invoicesats >= ResultConfig.COSTPERUNIT_IMAGEPROCESSING:
+
+                        eventid = event.get_tag_list("e")[0][0]
+
+
+                        # Get specific reaction event
+                        relay_manager2 = RelayManager(timeout=6)
+                        relay_manager2.add_relay_list(rl)
+                        filters = FiltersList([Filters(ids=[eventid], limit=1)])
+                        subscription_id = uuid.uuid1().hex
+                        relay_manager2.add_subscription_on_all_relays(subscription_id, filters)
+                        relay_manager2.run_sync()
+                        zapableevent = relay_manager2.message_pool.get_event().event
+                        relay_manager2.close_all_relay_connections()
+                        relay_manager3 = RelayManager(timeout=6)
+                        relay_manager3.add_relay_list(rl)
+                        filters = FiltersList([Filters(ids=[zapableevent.id], limit=1)])
+
+                        subscription_id = uuid.uuid1().hex
+                        relay_manager3.add_subscription_on_all_relays(subscription_id, filters)
+                        relay_manager3.run_sync()
+
+                        event68001 = relay_manager3.message_pool.get_event().event
+                        prompteventid = event68001.get_tag_list("e")[0][0]
+
+                        relay_manager3.close_all_relay_connections()
+                        relay_manager4 = RelayManager(timeout=6)
+                        relay_manager4.add_relay_list(rl)
+                        filters = FiltersList([Filters(ids=[prompteventid], limit=1)])
+
+                        subscription_id = uuid.uuid1().hex
+                        relay_manager4.add_subscription_on_all_relays(subscription_id, filters)
+                        relay_manager4.run_sync()
+
+                        promptevent = relay_manager4.message_pool.get_event().event
+                        print("[Nostr] Original Prompt Job Request event found...")
+                        relay_manager4.close_all_relay_connections()
+
+                        indices = [i for i, x in enumerate(JobstoWatch) if x.id == promptevent.id]
+                        if len(indices) == 1:
+                            sendDM(privkey.hex(), promptevent.pubkey, "Payment received, processing started.\n\nI will DM you once your image is ready.")
+                            dec_text = decryptDM(privkey, promptevent.pubkey, promptevent.content)
+                            print(dec_text)
+                            if str(dec_text).startswith("-text-to-image"):
+                                negative_prompt = ""
+                                prompttemp = dec_text.replace("-text-to-image ", "")
+                                split = prompttemp.split("-negative")
+                                prompt = split[0]
+                                if len(split) > 1:
+                                    negative_prompt = split[1]
+
+
+                                url = textToImage(prompt, negative_prompt)
+                                sendDM(privkey.hex(), promptevent.pubkey, "Your Result: \n\n" + url)
+                                indices = [i for i, x in enumerate(JobstoWatch) if x.id == event68001.id]
+                                index = -1
+                                if len(indices) > 0:
+                                    index = indices[0]
+                                if index > -1:
+                                    JobstoWatch.pop(index)
+                else: print("[Nostr] Zap was not for a kind 68003 or 4 reaction, skipping")
 
         elif event.kind == 68003:
             print("[Nostr]Reaction Received: " + str(event.to_dict()))
 
         elif event.kind == EventKind.ENCRYPTED_DIRECT_MESSAGE:
             global lastdm
-            if(event.content != lastdm):
-                lastdm = event.content
+            if(event.id != lastdm):
+                lastdm = event.id
                 dec_text = decryptDM(privkey, event.pubkey, event.content)
                 print(dec_text)
                 if str(dec_text).startswith("-text-to-image"):
-                    prompt = dec_text.replace("-text-to-image ", "")
-                    sendDM(privkey.hex(), event.pubkey, "Processing, please wait..")
-                    url = textToImage(prompt, "")
-                    sendDM(privkey.hex(), event.pubkey, "Your Result: \n\n" + url)
+                    negative_prompt = ""
+                    prompttemp = dec_text.replace("-text-to-image ", "")
+                    split = prompttemp.split("-negative")
+                    prompt = split[0]
+                    if len(split) > 1:
+                        negative_prompt = split[1]
+
+                    sendDM(privkey.hex(), event.pubkey, "Payment required, please zap this note with at least " + str(ResultConfig.COSTPERUNIT_IMAGEPROCESSING) + " Sats ..", event.id)
+                    JobstoWatch.append( JobToWatch(id=event.id, timestamp=event.created_at, amount=50,isPaid=False, status="payment-required", result="", isProcessed=False))
+
+                    #sendDM(privkey.hex(), event.pubkey, "Processing, please wait..")
+                    #url = textToImage(prompt, negative_prompt)
+                    #sendDM(privkey.hex(), event.pubkey, "Your Result: \n\n" + url)
 
     relay_manager.close_all_relay_connections()
 
 
-def sendDM(privkey, pubkey, message):
+def sendDM(privkey, pubkey, message, replytoid = ""):
     dm = EncryptedDirectMessage()
     dm.encrypt(privkey,
                recipient_pubkey=pubkey,
                cleartext_content=message
                )
     dm_event = dm.to_event()
+    if(replytoid != ""):
+        dm_event.add_event_ref(replytoid)
+        # create 'p' tag reference to the pubkey you're replying to
+        dm_event.add_pubkey_ref(pubkey)
     dm_event.sign(privkey)
     relay_managers = RelayManager(timeout=6)
     relay_managers.add_relay_list(rl)
@@ -319,10 +401,11 @@ def checkTaskisSupported(event):
 
 
 def CheckUrlisReadable(url):
-
+    if not str(url).startswith("http"):
+        return False
     #If it's a YouTube oder Overcast link, we suppose we support it
-    if str(url).replace("http://", "").replace("https://", "").replace("www.", "").replace("youtu.be/", "youtube.com?v=")[0:11] == "youtube.com":
-        return True
+    if str(url).replace("http://", "").replace("https://", "").replace("www.", "").replace("youtu.be/", "youtube.com?v=")[0:11] == "youtube.com" and str(url).find("live") == -1:
+         return (checkYoutubeLinkValid(url)) #not live, protected etc
     elif str(url).startswith("https://overcast.fm/"):
         return True
 
@@ -374,15 +457,19 @@ def organizeInputData(event, request_form):
         # is youtube link?
         elif str(url).replace("http://","").replace("https://","").replace("www.","").replace("youtu.be/","youtube.com?v=")[0:11] == "youtube.com":
                 filepath = data_dir + '\\' + request_form["database"] + '\\' + session + '\\'
-                filename = downloadYouTube(url, filepath)
-                o = urlparse(url)
-                q = urllib.parse.parse_qs(o.query)
-                if(o.query.find('t') != -1):
-                    request_form["startTime"] = q['t'][0]  # overwrite from link.. why not..
-                    print("Setting start time automatically to " + request_form["startTime"])
-                    if float(request_form["endTime"]) > 0.0:
-                        request_form["endTime"] = str(float(q['t'][0]) + float(request_form["endTime"]))
-                        print("Moving end time automatically to " + request_form["endTime"])
+                try:
+                    filename = downloadYouTube(url, filepath)
+                    o = urlparse(url)
+                    q = urllib.parse.parse_qs(o.query)
+                    if(o.query.find('t') != -1):
+                        request_form["startTime"] = q['t'][0]  # overwrite from link.. why not..
+                        print("Setting start time automatically to " + request_form["startTime"])
+                        if float(request_form["endTime"]) > 0.0:
+                            request_form["endTime"] = str(float(q['t'][0]) + float(request_form["endTime"]))
+                            print("Moving end time automatically to " + request_form["endTime"])
+                except Exception:
+                    print("video not available")
+                    return
         # Regular links have a media file ending and/or mime types
         else:
             req = requests.get(url)
@@ -822,8 +909,8 @@ def textToImage(prompt, negative_prompt):
     from diffusers import DiffusionPipeline
     from diffusers import StableDiffusionPipeline
 
-    model_id_or_path = "runwayml/stable-diffusion-v1-5"
-    # pipe = DiffusionPipeline.from_pretrained(model_id_or_path, torch_dtype=torch.float16)
+    #model_id_or_path = "runwayml/stable-diffusion-v1-5"
+    #pipe = DiffusionPipeline.from_pretrained(model_id_or_path, torch_dtype=torch.float16)
 
     pipe = StableDiffusionPipeline.from_single_file(
         "sdmodels/stablydiffusedsWild_351.safetensors"
@@ -832,14 +919,24 @@ def textToImage(prompt, negative_prompt):
     pipe = pipe.to("cuda")
     image = pipe(prompt=prompt, negative_prompt=negative_prompt).images[0]
     uniquefilepath = uniquify("outputs/sd.jpg")
-    upscaled_image = image.save(uniquefilepath)
-    files = {'file': open(uniquefilepath, 'rb')}
-    url = 'https://nostrfiles.dev/upload_image'
-    response = requests.post(url, files=files)
+    image = image.save(uniquefilepath)
 
-    json_object = json.loads(response.text)
-    print(json_object["url"])
-    return json_object["url"]
+    try:
+        files = {'image': open(uniquefilepath, 'rb')}
+        url = 'https://nostr.build/api/upload/android.php'
+        response = requests.post(url, files=files)
+        result = response.text.replace("\\", "")
+        print(result)
+        return result
+    except:
+        #fallback filehoster
+        files = {'file': open(uniquefilepath, 'rb')}
+        url = 'https://nostrfiles.dev/upload_image'
+        response = requests.post(url, files=files)
+        json_object = json.loads(response.text)
+        print(json_object["url"])
+        return json_object["url"]
+
 
 #HELPER
 

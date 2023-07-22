@@ -141,8 +141,8 @@ print("...done")
 def checkNostrStatus():
     while True:
         nostrReceiveAndManageNewEvents() # Server
-        nostclientWaitforEvents() #Client
-        sleep(5)
+        #nostclientWaitforEvents() #Client
+        sleep(3)
 
 # if Nostr key is set, check for new NIP?? events
 if(args.nostr_key != ""):
