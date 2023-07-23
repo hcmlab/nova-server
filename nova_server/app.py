@@ -2,6 +2,8 @@ from threading import Thread
 from time import sleep
 
 from flask import Flask
+
+from nova_server.route.predict_static import predict_static
 from nova_server.route.train import train
 from nova_server.route.extract import extract
 from nova_server.route.status import status
@@ -27,6 +29,7 @@ app.register_blueprint(status)
 app.register_blueprint(ui)
 app.register_blueprint(cancel)
 app.register_blueprint(nostr)
+app.register_blueprint(predict_static)
 
 parser = argparse.ArgumentParser(
     description="Commandline arguments to configure the nova backend server"
