@@ -18,6 +18,7 @@ from pynostr.event import Event
 from pynostr.key import PrivateKey, PublicKey
 from dataclasses import dataclass
 import emoji
+import re
 
 
 from nova_server.utils.db_utils import add_new_session_to_db, db_entry_exists
@@ -48,6 +49,7 @@ import uuid
 sinceLastNostrUpdate = int(datetime.datetime.now().timestamp())
 
 class ResultConfig:
+    SUPPORTED_TASKS = ["speech-to-text", "translation", "text-to-image", "image-to-image", "image-upscale"]
     AUTOPROCESS_MIN_AMOUNT: int = 1000000000000   #  auto start processing if min Sat amount is given
     AUTOPROCESS_MAX_AMOUNT: int = 0   # if this is 0 and min is very big, autoprocess will not trigger
     SHOWRESULTBEFOREPAYMENT: bool = True  #if this flag is true show results even when not paid (in the end, right after autoprocess)
@@ -78,6 +80,7 @@ url_list = ["wss://relay.damus.io", "wss://relay.snort.social",
             "wss://blastr.f7z.xyz",
             "wss://nostr.mutinywallet.com", "wss://relayable.org"]
 ignore_url_list = ["wss://nostr-pub.wellorder.net"]
+relaytimeout = 4
 policy = RelayPolicy()
 rl.append_url_list(url_list, policy)
 
@@ -87,7 +90,7 @@ def nostrReceiveAndManageNewEvents():
     global sinceLastNostrUpdate
     global JobstoWatch
 
-    relay_manager = RelayManager(timeout=3)
+    relay_manager = RelayManager(timeout=relaytimeout)
     relay_manager.add_relay_list(rl)
 
     #print("[Nostr] Listen to new events since: " + str(sinceLastNostrUpdate))
@@ -177,7 +180,7 @@ def nostrReceiveAndManageNewEvents():
                 eventid = event.get_tag_list("e")[0][0]
 
                 # Get specific reaction event
-                relay_manager2 = RelayManager(timeout=6)
+                relay_manager2 = RelayManager(timeout=relaytimeout)
                 relay_manager2.add_relay_list(rl)
                 filters = FiltersList([Filters(ids=[eventid], limit=1)])
                 subscription_id = uuid.uuid1().hex
@@ -190,7 +193,7 @@ def nostrReceiveAndManageNewEvents():
                     if(int(zapableevent.get_tag_list('amount')[0][0]) <= invoicesats*1000 ):
                         print("[Nostr] Payment-request fulfilled...")
                         event68001id = zapableevent.get_tag_list('e')[0][0]
-                        relay_manager3 = RelayManager(timeout=6)
+                        relay_manager3 = RelayManager(timeout=relaytimeout)
                         relay_manager3.add_relay_list(rl)
                         filters = FiltersList([Filters(ids=[event68001id], kinds=[68001], limit=1)])
 
@@ -226,7 +229,7 @@ def nostrReceiveAndManageNewEvents():
 
 
                         # Get specific reaction event
-                        relay_manager2 = RelayManager(timeout=6)
+                        relay_manager2 = RelayManager(timeout=relaytimeout)
                         relay_manager2.add_relay_list(rl)
                         filters = FiltersList([Filters(ids=[eventid], limit=1)])
                         subscription_id = uuid.uuid1().hex
@@ -234,7 +237,7 @@ def nostrReceiveAndManageNewEvents():
                         relay_manager2.run_sync()
                         zapableevent = relay_manager2.message_pool.get_event().event
                         relay_manager2.close_all_relay_connections()
-                        relay_manager3 = RelayManager(timeout=6)
+                        relay_manager3 = RelayManager(timeout=relaytimeout)
                         relay_manager3.add_relay_list(rl)
                         filters = FiltersList([Filters(ids=[zapableevent.id], limit=1)])
 
@@ -246,7 +249,7 @@ def nostrReceiveAndManageNewEvents():
                         prompteventid = event68001.get_tag_list("e")[0][0]
 
                         relay_manager3.close_all_relay_connections()
-                        relay_manager4 = RelayManager(timeout=6)
+                        relay_manager4 = RelayManager(timeout=relaytimeout)
                         relay_manager4.add_relay_list(rl)
                         filters = FiltersList([Filters(ids=[prompteventid], limit=1)])
 
@@ -321,7 +324,7 @@ def sendDM(privkey, pubkey, message, replytoid = ""):
         # create 'p' tag reference to the pubkey you're replying to
         dm_event.add_pubkey_ref(pubkey)
     dm_event.sign(privkey)
-    relay_managers = RelayManager(timeout=6)
+    relay_managers = RelayManager(timeout=relaytimeout)
     relay_managers.add_relay_list(rl)
     relay_managers.publish_event(dm_event)
     relay_managers.run_sync()
@@ -380,7 +383,7 @@ def checkTaskisSupported(event):
     inputtype = event.get_tag_list('i')[0][1]
     content =  event.content
 
-    if task != "speech-to-text" and task != "translation" and task != "text-to-image" and task != "image-to-image" and task != "image-upscale": # The Tasks this DVM supports (can be extended)
+    if task not in ResultConfig.SUPPORTED_TASKS: # The Tasks this DVM supports (can be extended)
         return False
     if task == "translation" and (inputtype != "event" and inputtype != "job"): # The input types per task
         return False
@@ -577,8 +580,8 @@ def createRequestFormfromNostrEvent(event):
     params = event.get_tag_list('params')
     for param in params:
         if param[0] == "range":  # check for paramtype
-            request_form["startTime"] = param[1]
-            request_form["endTime"] = param[2]
+            request_form["startTime"] =  re.sub('\D', '', param[1])
+            request_form["endTime"] = re.sub('\D', '', param[2])
         elif param[0] == "alignment":  # check for paramtype
             alignment = param[1]
         elif param[0] == "length":  # check for paramtype
@@ -610,7 +613,7 @@ def createRequestFormfromNostrEvent(event):
             inputtype = event.get_tag_list('i')[0][1]
         if inputtype == "event":
             sourceid = event.get_tag_list('i')[0][0]
-            relay_managers = RelayManager(timeout=6)
+            relay_managers = RelayManager(timeout=relaytimeout)
             relay_managers.add_relay_list(rl)
 
             filters = FiltersList([Filters(ids=[sourceid], limit=5)])
@@ -697,7 +700,7 @@ def createRequestFormfromNostrEvent(event):
             prompt = event.get_tag_list('i')[0][0]
         elif event.get_tag_list('i')[0][1] == "event":
             sourceid = event.get_tag_list('i')[0][0]
-            relay_managers = RelayManager(timeout=6)
+            relay_managers = RelayManager(timeout=relaytimeout)
             relay_managers.add_relay_list(rl)
 
             filters = FiltersList([Filters(ids=[sourceid], limit=5)])
@@ -778,7 +781,7 @@ def sendJobStatusReaction(originalevent, status, isPaid = True,  amount = 0):
 
     privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
     pubkey = privkey.public_key
-    relay_managers = RelayManager(timeout=6)
+    relay_managers = RelayManager(timeout=relaytimeout)
 
     if len(originalevent.get_tag_list("relays")) > 0:
         relaystosend = originalevent.get_tag_list("relays")[0]
@@ -859,7 +862,7 @@ def sendNostrReplyEvent(content, originaleventstr):
     pubkey = privkey.public_key
     originalevent = Event.from_dict(json.loads(originaleventstr.replace("'", "\"")))
 
-    relay_managers = RelayManager(timeout=6)
+    relay_managers = RelayManager(timeout=relaytimeout)
     relaystosend = []
     if len(originalevent.get_tag_list("relays")) > 0:
          relaystosend = originalevent.get_tag_list("relays")[0]
@@ -922,20 +925,23 @@ def textToImage(prompt, negative_prompt):
     image = image.save(uniquefilepath)
 
     try:
-        files = {'image': open(uniquefilepath, 'rb')}
-        url = 'https://nostr.build/api/upload/android.php'
-        response = requests.post(url, files=files)
-        result = response.text.replace("\\", "")
-        print(result)
-        return result
-    except:
-        #fallback filehoster
+
         files = {'file': open(uniquefilepath, 'rb')}
         url = 'https://nostrfiles.dev/upload_image'
         response = requests.post(url, files=files)
         json_object = json.loads(response.text)
         print(json_object["url"])
         return json_object["url"]
+    except:
+        #fallback filehoster
+        files = {'image': open(uniquefilepath, 'rb')}
+        url = 'https://nostr.build/api/upload/android.php'
+        response = requests.post(url, files=files)
+        result = response.text.replace("\\", "").replace("\"", "")
+        print(result)
+        return result
+
+
 
 
 #HELPER

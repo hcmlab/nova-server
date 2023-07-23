@@ -142,8 +142,7 @@ def checkNostrStatus():
     while True:
         nostrReceiveAndManageNewEvents() # Server
         #nostclientWaitforEvents() #Client
-        sleep(3)
-
+        sleep(5)
 # if Nostr key is set, check for new NIP?? events
 if(args.nostr_key != ""):
     nostrthread = Thread(target=checkNostrStatus)
