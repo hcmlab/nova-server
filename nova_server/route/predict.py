@@ -151,7 +151,7 @@ def predict_data(request_form):
         for anno in annos:
             db_utils.write_annotation_to_db(request_form_copy, anno, logger)
             if request_form["nostrEvent"] is not None:
-                nostr_utils.CheckEventStatus(anno.data, str(request_form["nostrEvent"]))
+                nostr_utils.CheckEventStatus(anno.data, str(request_form["nostrEvent"]), request_form["isBot"])
         logger.info("...done")
 
     logger.info("Prediction completed!")

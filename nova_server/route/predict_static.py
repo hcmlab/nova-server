@@ -56,13 +56,13 @@ def predict_static_data(request_form):
     logger.info("Setting options...")
     options = []
     if request_form.get("optStr"):
-        for k, v in [
-            option.split("=") for option in request_form["optStr"].split(";")]:
+        for k, v in [option.split("=") for option in request_form["optStr"].split(";")]:
             t = (k, v)
             options.append(v)
             logger.info(k + "=" + v)
     logger.info("...done.")
 
+    #TODO move these to separate files
     if task == "text-to-image":
         anno = textToImage(options[0], options[1])
     elif task == "image-to-image":
@@ -130,6 +130,7 @@ def textToImage(prompt, negative_prompt):
     image.save(uniquefilepath)
     return uploadToHoster(uniquefilepath)
 
+
 def imageToImage(url, prompt, negative_prompt, strength, guidance_scale):
     import requests
     import torch
@@ -181,7 +182,8 @@ def imageUpscale(url):
     upscaled_image.save(uniquefilepath)
     return uploadToHoster(uniquefilepath)
 
-def GoogleTranslate(text,translation_lang):
+
+def GoogleTranslate(text, translation_lang):
     from translatepy.translators.google import GoogleTranslate
     gtranslate = GoogleTranslate()
     try:
@@ -190,4 +192,3 @@ def GoogleTranslate(text,translation_lang):
     except:
         translated_text = "An error occured"
     return translated_text
-

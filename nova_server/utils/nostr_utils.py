@@ -4,6 +4,7 @@ import urllib
 from urllib.parse import urlparse
 
 from decord import AudioReader, cpu
+from pydantic._internal._typing_extra import origin_is_union
 from pynostr.base_relay import RelayPolicy
 from pynostr.encrypted_dm import EncryptedDirectMessage
 
@@ -274,7 +275,7 @@ def nostrReceiveAndManageNewEvents():
                         indices = [i for i, x in enumerate(JobstoWatch) if x.id == promptevent.id]
                         if len(indices) == 1:
                             sendDM(privkey.hex(), promptevent.pubkey,
-                                   "Payment received, processing started.\n\nI will DM you once your image is ready.")
+                                   "Payment received, processing started.\n\nI will DM you once your task is ready.")
                             dec_text = decryptDM(privkey, promptevent.pubkey, promptevent.content)
                             print(dec_text)
                             if str(dec_text).startswith("-text-to-image"):
@@ -288,6 +289,13 @@ def nostrReceiveAndManageNewEvents():
                                 promptevent.add_tag('j', ["text-to-image"])
                                 promptevent.add_tag('i', [prompt, "text"])
                                 promptevent.add_tag('params', ["negative_prompt", negative_prompt])
+                                JobstoWatch.pop(indices[0])
+                                doWork(promptevent, isPaid=True, isFromBot=True)
+                            elif str(dec_text).startswith("-speech-to-text"):
+                                url = dec_text.replace("-speech-to-text ", "")
+                                promptevent.add_tag('j', ["speech-to-text"])
+                                promptevent.add_tag('i', [url, "url"])
+                                promptevent.add_tag('output', ["text/plain"])
                                 JobstoWatch.pop(indices[0])
                                 doWork(promptevent, isPaid=True, isFromBot=True)
 
@@ -304,7 +312,7 @@ def nostrReceiveAndManageNewEvents():
                 lastdm = event.id
                 dec_text = decryptDM(privkey, event.pubkey, event.content)
                 print(dec_text)
-                if str(dec_text).startswith("-text-to-image"):
+                if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-speech-to-text") :
                     sendDM(privkey.hex(), event.pubkey, "Payment required, please zap this note with at least " + str(
                         ResultConfig.COSTPERUNIT_IMAGEPROCESSING) + " Sats ..", event.id)
                     JobstoWatch.append(JobToWatch(id=event.id, timestamp=event.created_at, amount=50, isPaid=False,
@@ -797,14 +805,25 @@ def CheckEventStatus(content, originaleventstr: str, useBot=False):
             break
 
     else:
+        resultcontent = postprocessResult(content, originalevent)
         print(str(JobstoWatch))
         if (useBot):
             privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
-            sendDM(privkey.hex(), originalevent.pubkey, "Your Result: \n\n" + content)
+            sendDM(privkey.hex(), originalevent.pubkey, "Your Result: \n\n" + resultcontent)
         else:
-            sendNostrReplyEvent(content, originaleventstr)
+            sendNostrReplyEvent(resultcontent, originaleventstr)
             sendJobStatusReaction(originalevent, "success")
 
+
+def postprocessResult(content, originalevent):
+    if len(originalevent.get_tag_list("output")) > 0:
+        if originalevent.get_tag_list("output")[0][0] == "text/plain":
+            result = ""
+            for name in content["name"]:
+                clearedName = str(name).lstrip("\'").rstrip("\'")
+                result = result + clearedName + "\n"
+            content = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
+    return content
 
 def sendNostrReplyEvent(content, originaleventstr):
     # Once the Job is finished we reply with the results with a 68002 event
@@ -828,14 +847,6 @@ def sendNostrReplyEvent(content, originaleventstr):
     filters = FiltersList([Filters(authors=[pubkey.hex()], limit=100)])
     subscription_id = uuid.uuid1().hex
     relay_managers.add_subscription_on_all_relays(subscription_id, filters)
-    if len(originalevent.get_tag_list("output")) > 0:
-        if originalevent.get_tag_list("output")[0][0] == "text/plain":
-            result = ""
-            for name in content["name"]:
-                clearedName = str(name).lstrip("\'").rstrip("\'")
-                result = result + clearedName + "\n"
-            content = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
-
     event = Event(str(content))
     event.kind = 68002
     event.add_tag('request', str(originalevent.to_dict()).replace("'", "\""))
@@ -853,9 +864,7 @@ def sendNostrReplyEvent(content, originaleventstr):
 
     return event.to_dict()
 
-
 # HELPER
-
 def savConfig(dbUser, dbPassword, dbServer, database, role, annotator):
     # Get the configparser object
     config_object = ConfigParser()
@@ -877,7 +886,6 @@ def savConfig(dbUser, dbPassword, dbServer, database, role, annotator):
     with open('nostrconfig.ini', 'w') as conf:
         config_object.write(conf)
 
-
 def ParseBolt11Invoice(invoice):
     remaininginvoice = invoice[4:]
     index = getIndexOfFirstLetter(remaininginvoice)
@@ -895,7 +903,6 @@ def ParseBolt11Invoice(invoice):
 
     return int(number)
 
-
 def getIndexOfFirstLetter(ip):
     index = 0
     for c in ip:
@@ -906,7 +913,6 @@ def getIndexOfFirstLetter(ip):
 
     return len(input);
 
-
 def isBlackListed(pubkey):
     # Store  lists of blaclisted npubs that can no do processing
     # blacklisting and whitelsting should be moved to a database and probably get some expiry
@@ -914,7 +920,6 @@ def isBlackListed(pubkey):
     if any(pubkey == c for c in blacklisted_all_tasks):
         return True
     return False
-
 
 def isWhiteListed(pubkey, task):
     privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
