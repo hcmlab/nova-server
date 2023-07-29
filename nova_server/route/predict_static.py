@@ -22,6 +22,7 @@ from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
     HcaiNovaDynamicIterable,
 )
 from nova_utils.interfaces.server_module import Trainer as iTrainer
+os.environ['TRANSFORMERS_CACHE'] = 'W:/nova/cml/models/trainer/.cache/'
 
 predict_static = Blueprint("predict_static", __name__)
 
@@ -64,16 +65,21 @@ def predict_static_data(request_form):
 
     #TODO move these to separate files
     if task == "text-to-image":
-        anno = textToImage(options[0], options[1])
+        anno = textToImage(options[0], options[1], options[2], options[3], options[4])
     elif task == "image-to-image":
         anno = imageToImage(options[0], options[1], options[2], options[3], options[4])
     elif task == "image-upscale":
         anno = imageUpscale(options[0])
     elif task == "translation":
         anno = GoogleTranslate(options[0], options[1])
+    elif task == "chat":
+        anno = FreeWilly(options[0])
 
     if request_form["nostrEvent"] is not None:
-        nostr_utils.CheckEventStatus(anno, str(request_form["nostrEvent"]), request_form["isBot"])
+        usebot = False
+        if request_form["isBot"] == "True":
+            usebot = True
+        nostr_utils.CheckEventStatus(anno, str(request_form["nostrEvent"]), usebot)
     logger.info("...done")
 
     logger.info("Prediction completed!")
@@ -112,20 +118,24 @@ def uploadToHoster(filepath):
 
 
 # SCRIPTS (TO BE MOVED TO FILES)
-def textToImage(prompt, negative_prompt):
+def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", height="512"):
     import torch
     from diffusers import DiffusionPipeline
     from diffusers import StableDiffusionPipeline
+
+    if extra_prompt != "":
+        prompt = prompt + "," + extra_prompt
 
     # model_id_or_path = "runwayml/stable-diffusion-v1-5"
     # pipe = DiffusionPipeline.from_pretrained(model_id_or_path, torch_dtype=torch.float16)
 
     pipe = StableDiffusionPipeline.from_single_file(
-        "sdmodels/stablydiffusedsWild_351.safetensors"
+     os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/stablydiffusedsWild_351.safetensors"
+
     )
     # pipe.unet.load_attn_procs(model_id_or_path)
     pipe = pipe.to("cuda")
-    image = pipe(prompt=prompt, negative_prompt=negative_prompt).images[0]
+    image = pipe(prompt=prompt, negative_prompt=negative_prompt, width=max(int(width), 1024), height=max(int(height), 1024)).images[0]
     uniquefilepath = uniquify("outputs/sd.jpg")
     image.save(uniquefilepath)
     return uploadToHoster(uniquefilepath)
@@ -144,7 +154,7 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale):
     # pipe = StableDiffusionImg2ImgPipeline.from_pretrained(model_id_or_path, torch_dtype=torch.float16)
 
     pipe = StableDiffusionImg2ImgPipeline.from_single_file(
-        "sdmodels/stablydiffusedsWild_351.safetensors"
+        os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/stablydiffusedsWild_351.safetensors"
     )
     # pipe.unet.load_attn_procs(model_id_or_path)
     pipe = pipe.to(device)
@@ -168,13 +178,15 @@ def imageUpscale(url):
 
     # load model and scheduler
     model_id = "stabilityai/stable-diffusion-x4-upscaler"
+    #model_id = "stabilityai/sd-x2-latent-upscaler"
     pipeline = StableDiffusionUpscalePipeline.from_pretrained(model_id, torch_dtype=torch.float16)
     pipeline = pipeline.to("cuda")
     pipeline.enable_attention_slicing()
 
+
     response = requests.get(url)
     low_res_img = Image.open(BytesIO(response.content)).convert("RGB")
-    low_res_img = low_res_img.resize((256, 256))  # This is bad but memory is too low.
+    low_res_img = low_res_img.resize((int(low_res_img.width/2), int(low_res_img.height/2)))  # This is bad but memory is too low.
 
     prompt = "UHD, 4k, hyper realistic, extremely detailed, professional, vibrant, not grainy, smooth, sharp"
     upscaled_image = pipeline(prompt=prompt, image=low_res_img).images[0]
@@ -192,3 +204,22 @@ def GoogleTranslate(text, translation_lang):
     except:
         translated_text = "An error occured"
     return translated_text
+
+def FreeWilly(message):
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+
+    tokenizer = AutoTokenizer.from_pretrained("stabilityai/FreeWilly2", use_fast=False)
+    model = AutoModelForCausalLM.from_pretrained("stabilityai/FreeWilly2", torch_dtype=torch.float16,
+                                                 low_cpu_mem_usage=True, device_map="cuda")
+
+    system_prompt = "### System:\nYou are Free Willy, an AI that follows instructions extremely well. Help as much as you can. Remember, be safe, and don't do anything illegal.\n\n"
+
+
+    prompt = f"{system_prompt}### User: {message}\n\n### Assistant:\n"
+    inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
+    output = model.generate(**inputs, do_sample=True, top_p=0.95, top_k=0, max_new_tokens=256)
+
+    print(tokenizer.decode(output[0], skip_special_tokens=True))
+
+    return tokenizer.decode(output[0], skip_special_tokens=True)

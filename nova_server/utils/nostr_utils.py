@@ -40,7 +40,7 @@ import uuid
 # store whitelist (and maybe a blacklist) in a config/db
 # clear list of  tasks (JobstoWatch) to watch after some time (timeout if invoice not paid),
 # consider max-sat amount at all,
-# consider reactions from customers (Kind 68003 event)
+# consider reactions from customers (Kind 65000 event)
 # consider encrypted DMS with tasks (decrypt seems broken in pynostr, or dependency version of)
 # add more output formats (webvtt, srt)
 # refactor translate to own module
@@ -52,7 +52,7 @@ sinceLastNostrUpdate = int(datetime.datetime.now().timestamp())
 
 
 class ResultConfig:
-    SUPPORTED_TASKS = ["speech-to-text", "translation", "text-to-image", "image-to-image", "image-upscale"]
+    SUPPORTED_TASKS = ["speech-to-text", "translation", "text-to-image", "image-to-image", "image-upscale", "chat"]
     AUTOPROCESS_MIN_AMOUNT: int = 1000000000000  # auto start processing if min Sat amount is given
     AUTOPROCESS_MAX_AMOUNT: int = 0  # if this is 0 and min is very big, autoprocess will not trigger
     SHOWRESULTBEFOREPAYMENT: bool = True  # if this flag is true show results even when not paid (in the end, right after autoprocess)
@@ -81,8 +81,8 @@ lastdvm = ""
 rl = RelayList()
 url_list = ["wss://relay.damus.io", "wss://relay.snort.social",
             "wss://blastr.f7z.xyz",
-            "wss://nostr.mutinywallet.com", "wss://relayable.org"]
-ignore_url_list = ["wss://nostr-pub.wellorder.net"]
+            "wss://nostr.mutinywallet.com", "wss://relayable.org", "wss://nostr-pub.wellorder.net"]
+ignore_url_list = []
 relaytimeout = 4
 policy = RelayPolicy()
 rl.append_url_list(url_list, policy)
@@ -98,12 +98,9 @@ def nostrReceiveAndManageNewEvents():
 
     # print("[Nostr] Listen to new events since: " + str(sinceLastNostrUpdate))
 
-    vendingFilter = Filters(kinds=[68001], since=sinceLastNostrUpdate, limit=20)
+    vendingFilter = Filters(kinds=[68001,65002,65003,65004,65005], since=sinceLastNostrUpdate, limit=20)
     zapFilter = Filters(kinds=[EventKind.ZAPPER], limit=20, since=sinceLastNostrUpdate)
     zapFilter.add_arbitrary_tag('p', [privkey.public_key.hex()])
-    # zapFilter.add_arbitrary_tag('e', IDstoWatch)
-    # reactFilter = Filters(kinds=[EventKind.REACTION], limit=20, since=sinceLastNostrUpdate)
-    # reactFilter.add_arbitrary_tag('p', privkey.public_key.hex())
     dmFilter = Filters(kinds=[EventKind.ENCRYPTED_DIRECT_MESSAGE], limit=5, since=sinceLastNostrUpdate)
     dmFilter.add_arbitrary_tag('p', [privkey.public_key.hex()])
     filters = FiltersList([vendingFilter, zapFilter, dmFilter])
@@ -117,48 +114,53 @@ def nostrReceiveAndManageNewEvents():
         sinceLastNostrUpdate = int(max(event_msg.event.created_at + 1, sinceLastNostrUpdate))
         event = event_msg.event
         # check for Task, for this demo use case only get active when task is speech-to-text
-        if event.kind == 68001:
+        if (event.kind >= 65002 and event.kind <= 66000 ) or event.kind == 68001: #legacy:
             global lastdvm
             if (event.id != lastdvm):
                 lastdvm = event.id
-                # if npub sending the 68001 event is whitelisted, we just do the work
+
+                # if npub sending the event is whitelisted, we just do the work
                 if isBlackListed(event.pubkey):
                     sendJobStatusReaction(event, "user-blocked-from-service")
                     print("Request by blacklisted user, skipped")
 
                 elif checkTaskisSupported(event):
-
-                    if isWhiteListed(event.pubkey, event.get_tag_list('j')[0][0]):
+                    task = getTask(event)
+                    if isWhiteListed(event.pubkey, task):
                         print(
-                            "[Nostr] Whitelisted for task " + event.get_tag_list('j')[0][0] + ". Starting processing..")
+                            "[Nostr] Whitelisted for task " + task + ". Starting processing..")
                         doWork(event, True)
                     # otherwise send payment request
                     else:
                         amount = 1000000
-                        if event.get_tag_list('j')[0][0] == "translation":
+                        if task == "translation":
                             duration = 1  # todo get task duration
                             amount = ResultConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
                             print("[Nostr][Payment required] New Nostr translation Job event: " + str(event.to_dict()))
-                        elif event.get_tag_list('j')[0][0] == "speech-to-text":
+                        elif task == "speech-to-text":
                             duration = 1  # todo get task duration
                             amount = ResultConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
                             print(
                                 "[Nostr][Payment required] New Nostr speech-to-text Job event: " + str(event.to_dict()))
-                        elif event.get_tag_list('j')[0][0] == "text-to-image":
+                        elif task == "text-to-image":
                             amount = ResultConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
                             print(
                                 "[Nostr][Payment required] New Nostr generate Image Job event: " + str(event.to_dict()))
-                        elif event.get_tag_list('j')[0][0] == "image-to-image":
+                        elif task == "image-to-image":
+                            #todo get image size
                             amount = ResultConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
                             print(
                                 "[Nostr][Payment required] New Nostr convert Image Job event: " + str(event.to_dict()))
-                        elif event.get_tag_list('j')[0][0] == "image-upscale":
+                        elif task == "image-upscale":
                             amount = ResultConfig.COSTPERUNIT_IMAGEUPSCALING * 1000  # *1000 because millisats
                             print(
                                 "[Nostr][Payment required] New Nostr upscale Image Job event: " + str(event.to_dict()))
+                        elif task == "chat":
+                            amount = ResultConfig.COSTPERUNIT_IMAGEUPSCALING * 1000  # *1000 because millisats
+                            print(
+                                "[Nostr][Payment required] New Nostr Chat Job event: " + str(event.to_dict()))
                         else:
-                            print("[Nostr] Task " + event.get_tag_list('j')[0][
-                                0] + " is currently not supported by this instance")
+                            print("[Nostr] Task " + task + " is currently not supported by this instance")
 
                         if len(event.get_tag_list("bid")) > 0:
                             willingtopay = int(event.get_tag_list("bid")[0][0])
@@ -201,24 +203,24 @@ def nostrReceiveAndManageNewEvents():
                 zapableevent = relay_manager2.message_pool.get_event().event
                 relay_manager2.close_all_relay_connections()
 
-                if (zapableevent.kind == 68003):  # if a reaction by us got zapped
+                if (zapableevent.kind == 65000):  # if a reaction by us got zapped
                     if (int(zapableevent.get_tag_list('amount')[0][0]) <= invoicesats * 1000):
                         print("[Nostr] Payment-request fulfilled...")
-                        event68001id = zapableevent.get_tag_list('e')[0][0]
+                        jobeventid = zapableevent.get_tag_list('e')[0][0]
                         relay_manager3 = RelayManager(timeout=relaytimeout)
                         relay_manager3.add_relay_list(rl)
-                        filters = FiltersList([Filters(ids=[event68001id], kinds=[68001], limit=1)])
+                        filters = FiltersList([Filters(ids=[jobeventid], limit=1)])
 
                         subscription_id = uuid.uuid1().hex
                         relay_manager3.add_subscription_on_all_relays(subscription_id, filters)
                         relay_manager3.run_sync()
 
-                        event68001 = relay_manager3.message_pool.get_event().event
-                        print("[Nostr] Original 68001 Job Request event found...")
+                        jobevent = relay_manager3.message_pool.get_event().event
+                        print("[Nostr] Original Job Request event found...")
                         relay_manager3.close_all_relay_connections()
 
-                        sendJobStatusReaction(event68001, "payment-accepted")
-                        indices = [i for i, x in enumerate(JobstoWatch) if x.id == event68001.id]
+                        sendJobStatusReaction(jobevent, "payment-accepted")
+                        indices = [i for i, x in enumerate(JobstoWatch) if x.id == jobevent.id]
                         index = -1
                         if len(indices) > 0:
                             index = indices[0]
@@ -226,12 +228,12 @@ def nostrReceiveAndManageNewEvents():
                             # todo also remove ids after x time of waiting, need to store pairs of id / timestamp for that
                             if (JobstoWatch[index]).isProcessed:  # If payment-required appears after processing
                                 JobstoWatch[index].isPaid = True
-                                CheckEventStatus(JobstoWatch[index].result, str(event68001.to_dict()))
+                                CheckEventStatus(JobstoWatch[index].result, str(jobevent.to_dict()))
                             elif not (JobstoWatch[index]).isProcessed:  # If payment-required appears before processing
                                 JobstoWatch.pop(index)
-                                doWork(event68001, True)
+                                doWork(jobevent, True)
                     else:
-                        sendJobStatusReaction(event68001, "payment-rejected", invoicesats * 1000)
+                        sendJobStatusReaction(jobevent, "payment-rejected", invoicesats * 1000)
 
                         print("[Nostr] Invoice was not paid sufficiently")
                 elif zapableevent.kind == EventKind.ENCRYPTED_DIRECT_MESSAGE:
@@ -248,6 +250,7 @@ def nostrReceiveAndManageNewEvents():
                         relay_manager2.run_sync()
                         zapableevent = relay_manager2.message_pool.get_event().event
                         relay_manager2.close_all_relay_connections()
+
                         relay_manager3 = RelayManager(timeout=relaytimeout)
                         relay_manager3.add_relay_list(rl)
                         filters = FiltersList([Filters(ids=[zapableevent.id], limit=1)])
@@ -256,8 +259,8 @@ def nostrReceiveAndManageNewEvents():
                         relay_manager3.add_subscription_on_all_relays(subscription_id, filters)
                         relay_manager3.run_sync()
 
-                        event68001 = relay_manager3.message_pool.get_event().event
-                        prompteventid = event68001.get_tag_list("e")[0][0]
+                        jobevent = relay_manager3.message_pool.get_event().event
+                        prompteventid = jobevent.get_tag_list("e")[0][0]
 
                         relay_manager3.close_all_relay_connections()
                         relay_manager4 = RelayManager(timeout=relaytimeout)
@@ -281,14 +284,44 @@ def nostrReceiveAndManageNewEvents():
                             if str(dec_text).startswith("-text-to-image"):
                                 negative_prompt = ""
                                 prompttemp = dec_text.replace("-text-to-image ", "")
-                                split = prompttemp.split("-negative")
+
+                                width = "1024"
+                                height = "1024"
+
+                                split = prompttemp.split("-")
                                 prompt = split[0]
+                                width = "512"
+                                height = "512"
                                 if len(split) > 1:
-                                    negative_prompt = split[1]
+                                    for i in split:
+                                        if i.startswith("negative"):
+                                            negative_prompt = i.replace("negative ", "")
+                                        elif i.startswith("width"):
+                                            width = i.replace("width ", "")
+                                        elif i.startswith("height"):
+                                            height = i.replace("height ", "")
+
 
                                 promptevent.add_tag('j', ["text-to-image"])
                                 promptevent.add_tag('i', [prompt, "text"])
                                 promptevent.add_tag('params', ["negative_prompt", negative_prompt])
+                                promptevent.add_tag('params', ["size", width, height])
+
+                                JobstoWatch.pop(indices[0])
+                                doWork(promptevent, isPaid=True, isFromBot=True)
+                            elif str(dec_text).startswith("-image-upscale"):
+                                prompttemp = dec_text.replace("-image-upscale", "")
+                                split = prompttemp.split("-")
+                                url = split[0]
+                                #if len(split) > 1:
+                                #    for i in split:
+                                #        if i.startswith("prompt"):
+                                #            prompt = i.replace("url ", "")
+                                #        elif i.startswith("negative"):
+                                #            negative_prompt = i.replace("negative ", "")
+
+                                promptevent.add_tag('j', ["image-upscale"])
+                                promptevent.add_tag('i', [url, "url"])
                                 JobstoWatch.pop(indices[0])
                                 doWork(promptevent, isPaid=True, isFromBot=True)
                             elif str(dec_text).startswith("-speech-to-text"):
@@ -298,11 +331,18 @@ def nostrReceiveAndManageNewEvents():
                                 promptevent.add_tag('output', ["text/plain"])
                                 JobstoWatch.pop(indices[0])
                                 doWork(promptevent, isPaid=True, isFromBot=True)
+                            elif str(dec_text).startswith("-chat"):
+                                text = dec_text.replace("-chat ", "")
+                                promptevent.add_tag('j', ["chat"])
+                                promptevent.add_tag('i', [text, "text"])
+                                promptevent.add_tag('output', ["text/plain"])
+                                JobstoWatch.pop(indices[0])
+                                doWork(promptevent, isPaid=True, isFromBot=True)
 
                 else:
-                    print("[Nostr] Zap was not for a kind 68003 or 4 reaction, skipping")
+                    print("[Nostr] Zap was not for a kind 65000 or 4 reaction, skipping")
 
-        elif event.kind == 68003:
+        elif event.kind == 65000:
             print("[Nostr]Reaction Received: " + str(event.to_dict()))
 
         elif event.kind == EventKind.ENCRYPTED_DIRECT_MESSAGE:
@@ -312,7 +352,7 @@ def nostrReceiveAndManageNewEvents():
                 lastdm = event.id
                 dec_text = decryptDM(privkey, event.pubkey, event.content)
                 print(dec_text)
-                if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-speech-to-text") :
+                if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-speech-to-text")  or str(dec_text).startswith("-image-upscale"):
                     sendDM(privkey.hex(), event.pubkey, "Payment required, please zap this note with at least " + str(
                         ResultConfig.COSTPERUNIT_IMAGEPROCESSING) + " Sats ..", event.id)
                     JobstoWatch.append(JobToWatch(id=event.id, timestamp=event.created_at, amount=50, isPaid=False,
@@ -353,25 +393,55 @@ def decryptDM(privkey, pubkey, content):
         return dec_text
     return "Couldn't decrypt the message"
 
+def getTask(event):
+    if event.kind == 68001: #legacy
+        if len(event.get_tag_list('j')) > 0:
+             return event.get_tag_list('j')[0][0]
+    elif event.kind == 4: #dm
+        if len(event.get_tag_list('j')) > 0:
+             return event.get_tag_list('j')[0][0]
+    elif event.kind == 65002:
+        return "speech-to-text"
+    elif event.kind == 65003:
+        return "summarization"
+    elif event.kind == 65004:
+        return "translation"
+    elif event.kind == 65005:
+        return "text-to-image"
+    elif event.kind == 65006:
+        return "event-list-generation"
+    else:
+        return "unknown type"
 
-def doWork(event68001, isPaid, amount=0, isFromBot = False):
-    if event68001.kind == 68001 or event68001.kind == 4:
-        request_form = createRequestFormfromNostrEvent(event68001, isFromBot)
-        if event68001.get_tag_list('j')[0][0] == "speech-to-text":
-            print("[Nostr] Adding Nostr speech-to-text Job event: " + str(event68001.to_dict()))
-            organizeInputData(event68001, request_form)
-        elif event68001.get_tag_list('j')[0][0] == "translation":
-            print("[Nostr] Adding translation Job event: " + str(event68001.to_dict()))
-        elif event68001.get_tag_list('j')[0][0] == "text-to-image":
-            print("[Nostr] Adding Image Generation Job event: " + str(event68001.to_dict()))
-        elif event68001.get_tag_list('j')[0][0] == "image-to-image":
-            print("[Nostr] Adding Image Conversion Job event: " + str(event68001.to_dict()))
-        elif event68001.get_tag_list('j')[0][0] == "image-upscale":
-            print("[Nostr] Adding Image Upscale Job event: " + str(event68001.to_dict()))
+def doWork(Jobevent, isPaid, amount=0, isFromBot = False):
+    if (Jobevent.kind >= 65002 and Jobevent.kind <= 66000) or  Jobevent.kind == 68001 or Jobevent.kind == 4:
+        request_form = createRequestFormfromNostrEvent(Jobevent, isFromBot)
+        task = getTask(Jobevent)
+        if task == "speech-to-text":
+            print("[Nostr] Adding Nostr speech-to-text Job event: " + str(Jobevent.to_dict()))
+            organizeInputData(Jobevent, request_form)
+        elif task == "summarization":
+            print("[Nostr] Adding Nostr summarization Job event: " + str(Jobevent.to_dict()))
+            print("Not yet supported")
+            #organizeInputData(Jobevent, request_form)
+        elif task == "translation":
+            print("[Nostr] Adding translation Job event: " + str(Jobevent.to_dict()))
+        elif task == "text-to-image":
+            print("[Nostr] Adding Image Generation Job event: " + str(Jobevent.to_dict()))
+        elif task == "event-list-generation":
+            print("[Nostr] Adding Nostr-Event-List gegneration event: " + str(Jobevent.to_dict()))
+            print("Not yet supported")
+        #TODO these dont have kind numbers yet.
+        elif task == "image-to-image":
+            print("[Nostr] Adding Image Conversion Job event: " + str(Jobevent.to_dict()))
+        elif task == "image-upscale":
+            print("[Nostr] Adding Image Upscale Job event: " + str(Jobevent.to_dict()))
+        elif task == "chat":
+            print("[Nostr] Adding Chat Job event: " + str(Jobevent.to_dict()))
         else:
-            print("[Nostr] Task " + event68001.get_tag_list('j')[0][0] + " is currently not supported by this instance")
-        if event68001.kind == 68001:
-            sendJobStatusReaction(event68001, "started", isPaid, amount)
+            print("[Nostr] Task " + task + " is currently not supported by this instance")
+        if (Jobevent.kind >= 65002 and Jobevent.kind < 66000) or Jobevent.kind == 68001:
+            sendJobStatusReaction(Jobevent, "started", isPaid, amount)
 
         url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(
             request_form["mode"]).lower()
@@ -379,9 +449,10 @@ def doWork(event68001, isPaid, amount=0, isFromBot = False):
         requests.post(url, headers=headers, data=request_form)
 
 def checkTaskisSupported(event):
-    if (len(event.get_tag_list('j')) < 1 or len(event.get_tag_list('i')) < 1):
+    task = getTask(event)
+    print("Received new Task: " + task)
+    if (len(event.get_tag_list('i')) < 1):
         return False
-    task = event.get_tag_list('j')[0][0]
     url = event.get_tag_list('i')[0][0]
     inputtype = event.get_tag_list('i')[0][1]
     content = event.content
@@ -552,8 +623,7 @@ def organizeInputData(event, request_form):
 def createRequestFormfromNostrEvent(event, isBot=False):
     # Only call this if config is not available, adjust function to your db
     # savConfig()
-    if len(event.get_tag_list('j')) > 0:
-        task = event.get_tag_list('j')[0][0]
+    task = getTask(event)
 
     # Read config.ini file
     config_object = ConfigParser()
@@ -562,7 +632,7 @@ def createRequestFormfromNostrEvent(event, isBot=False):
         dbUser = input("Please enter a DB User:\n")
         dbPassword = input("Please enter DB User Password:\n")
         dbServer = input("Please enter a DB Host:\n")
-        savConfig(dbUser, dbPassword, dbServer, "nostr_test", "nostr", "system")
+        SaveConfig(dbUser, dbPassword, dbServer, "nostr_test", "nostr", "system")
         config_object.read("nostrconfig.ini")
 
     userinfo = config_object["USERINFO"]
@@ -584,7 +654,10 @@ def createRequestFormfromNostrEvent(event, isBot=False):
     request_form["rightContext"] = 0
     request_form["nostrEvent"] = str(event.to_dict())
     request_form["sessions"] = event.id
-    request_form["isBot"] = isBot
+    if(isBot):
+        request_form["isBot"] = "True"
+    else:
+        request_form["isBot"] = "False"
 
     # defaults might be overwritten by nostr event
     alignment = "raw"
@@ -606,11 +679,11 @@ def createRequestFormfromNostrEvent(event, isBot=False):
     if task == "speech-to-text":
         # Declare specific model type e.g. whisperx_large-v2
         request_form["mode"] = "PREDICT"
-        if len(event.get_tag_list('j')[0]) > 1:
-            model = event.get_tag_list('j')[0][1]
-            modelopt = str(model).split('_')[1]
-        else:
-            modelopt = "large-v2"
+        #if len(event.get_tag_list('j')[0]) > 1:
+        #    model = event.get_tag_list('j')[0][1]
+        #    modelopt = str(model).split('_')[1]
+        #else:
+        modelopt = "large-v2"
 
         request_form["schemeType"] = "FREE"
         request_form["scheme"] = "transcript"
@@ -640,8 +713,19 @@ def createRequestFormfromNostrEvent(event, isBot=False):
             event_msg = relay_managers.message_pool.get_event()
             relay_managers.close_all_relay_connections()
             text = event_msg.event.content
-            request_form["optStr"] = 'text=' + text + ';translation_lang=' + translation_lang
+        elif inputtype == "text":
+             text = event.get_tag_list('i')[0][0]
+        request_form["optStr"] = 'text=' + text + ';translation_lang=' + translation_lang
 
+    elif task == "chat":
+        request_form["mode"] = "PREDICT_STATIC"
+        request_form["trainerFilePath"] = 'chat'
+        print("[Nostr] Chat request ")
+        if event.get_tag_list('i')[0][1] == "text":
+            text = event.get_tag_list('i')[0][0]
+        request_form["optStr"] = 'message=' + text
+
+        # add length variableF
     elif task == "summarization":
         request_form["mode"] = "PREDICT_STATIC"
         print("[Nostr] Not supported yet")
@@ -671,7 +755,6 @@ def createRequestFormfromNostrEvent(event, isBot=False):
         request_form["optStr"] = 'url=' + url + ';prompt=' + prompt + ';negative_prompt=' + negative_prompt + ';strength=' + strength + ';guidance_scale=' + guidance_scale
 
 
-
     elif task == "text-to-image":
         request_form["mode"] = "PREDICT_STATIC"
         request_form["trainerFilePath"] = 'text-to-image'
@@ -692,17 +775,25 @@ def createRequestFormfromNostrEvent(event, isBot=False):
             relay_managers.close_all_relay_connections()
             prompt = event_msg.event.content
 
+        width = "512"
+        height = "512"
+        extra_prompt = ""
         negative_prompt = ""
         params = event.get_tag_list('params')
         for param in params:
             if param[0] == "prompt":  # check for paramtype
-                prompt = param[1]
+                extra_prompt = param[1]
             elif param[0] == "negative_prompt":  # check for paramtype
                 negative_prompt = param[1]
+            elif param[0] == "size":  # check for paramtype
+                width = param[1]
+                height = param[2]
 
-        request_form["optStr"] = 'prompt=' + prompt + ';negative_prompt=' + negative_prompt
+        request_form["optStr"] = 'prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt=' + negative_prompt + ';width=' + width + ';height=' + height
 
     elif task == "image-upscale":
+        request_form["mode"] = "PREDICT_STATIC"
+        request_form["trainerFilePath"] = 'image-upscale'
         # let's download an  image
         if event.get_tag_list('i')[0][1] == "url":
             url = event.get_tag_list('i')[0][0]
@@ -750,7 +841,7 @@ def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
                 relay_managers.add_relay(relay)
 
     event = Event(reaction)
-    event.kind = 68003
+    event.kind = 65000
     event.add_tag('e', originalevent.id)
     event.add_tag('p', originalevent.pubkey)
     event.add_tag('status', status)
@@ -776,7 +867,7 @@ def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
     time.sleep(3)
 
     relay_managers.close_all_relay_connections()
-    print("[Nostr] Sent Kind 68003 Reaction: " + status + " " + str(event.to_dict()))
+    print("[Nostr] Sent Kind 65000 Reaction: " + status + " " + str(event.to_dict()))
 
     return event.to_dict()
 
@@ -823,6 +914,7 @@ def postprocessResult(content, originalevent):
                 clearedName = str(name).lstrip("\'").rstrip("\'")
                 result = result + clearedName + "\n"
             content = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
+        #TODO add more
     return content
 
 def sendNostrReplyEvent(content, originaleventstr):
@@ -841,14 +933,14 @@ def sendNostrReplyEvent(content, originaleventstr):
     # else use relays from tags
     else:
         for relay in relaystosend:
-            if not relay == "wss://nostr-pub.wellorder.net":  # causes errors
+            if not relay in ignore_url_list:
                 relay_managers.add_relay(relay)
 
     filters = FiltersList([Filters(authors=[pubkey.hex()], limit=100)])
     subscription_id = uuid.uuid1().hex
     relay_managers.add_subscription_on_all_relays(subscription_id, filters)
     event = Event(str(content))
-    event.kind = 68002
+    event.kind = 65001
     event.add_tag('request', str(originalevent.to_dict()).replace("'", "\""))
     event.add_tag('e', originalevent.id)
     event.add_tag('p', originalevent.pubkey)
@@ -857,15 +949,15 @@ def sendNostrReplyEvent(content, originaleventstr):
 
     relay_managers.publish_event(event)
     relay_managers.run_sync()
-    time.sleep(5)
+    time.sleep(relaytimeout)
     relay_managers.close_all_relay_connections()
 
-    print("[Nostr] 68002 Job Response event sent: " + str(event.to_dict()))
+    print("[Nostr] 65001 Job Response event sent: " + str(event.to_dict()))
 
     return event.to_dict()
 
 # HELPER
-def savConfig(dbUser, dbPassword, dbServer, database, role, annotator):
+def SaveConfig(dbUser, dbPassword, dbServer, database, role, annotator):
     # Get the configparser object
     config_object = ConfigParser()
 
@@ -914,8 +1006,8 @@ def getIndexOfFirstLetter(ip):
     return len(input);
 
 def isBlackListed(pubkey):
-    # Store  lists of blaclisted npubs that can no do processing
-    # blacklisting and whitelsting should be moved to a database and probably get some expiry
+    # Store  lists of blacklisted npubs that can no do processing
+    #todo blacklisting and whitelsting should be moved to a database and probably get some expiry
     blacklisted_all_tasks = []
     if any(pubkey == c for c in blacklisted_all_tasks):
         return True
@@ -935,6 +1027,7 @@ def isWhiteListed(pubkey, task):
     whitelsited_npubs_texttoimage = [localnostrtest]
     whitelsited_npubs_imagetoimage = [localnostrtest]
     whitelsited_npubs_imageupscale = [localnostrtest]
+    whitelsited_npubs_chat = [localnostrtest]
 
     whitelsited_all_tasks = [privkey.public_key.hex()]
 
@@ -952,5 +1045,8 @@ def isWhiteListed(pubkey, task):
             return
     elif (task == "image-upscale"):
         if any(pubkey == c for c in whitelsited_npubs_imageupscale) or any(pubkey == c for c in whitelsited_all_tasks):
+            return True
+    elif (task == "chat"):
+        if any(pubkey == c for c in whitelsited_npubs_chat) or any(pubkey == c for c in whitelsited_all_tasks):
             return True
     return False
