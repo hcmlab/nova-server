@@ -453,21 +453,20 @@ def checkTaskisSupported(event):
     print("Received new Task: " + task)
     if (len(event.get_tag_list('i')) < 1):
         return False
-    url = event.get_tag_list('i')[0][0]
+    input = event.get_tag_list('i')[0][0]
     inputtype = event.get_tag_list('i')[0][1]
-    content = event.content
 
     if task not in ResultConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
         return False
     if task == "translation" and (inputtype != "event" and inputtype != "job"):  # The input types per task
         return False
-    if task == "translation" and len(content) > 4999:  # Google Services have a limit of 5000 signs
+    if task == "translation" and len(event.content) > 4999:  # Google Services have a limit of 5000 signs
         return False
     if task == "speech-to-text" and inputtype != "url":  # The input types per task
         return False
     if task == "image-upscale" and inputtype != "url":  # The input types per task
         return False
-    if inputtype == 'url' and not CheckUrlisReadable(url):
+    if inputtype == 'url' and not CheckUrlisReadable(input):
         return False
     if len(event.get_tag_list(
             'output')) > 0:  # if output tag is set check for available formats, else use server default output
