@@ -135,7 +135,7 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
     )
     # pipe.unet.load_attn_procs(model_id_or_path)
     pipe = pipe.to("cuda")
-    image = pipe(prompt=prompt, negative_prompt=negative_prompt, width=max(int(width), 1024), height=max(int(height), 1024)).images[0]
+    image = pipe(prompt=prompt, negative_prompt=negative_prompt, width=min(int(width), 1024), height=min(int(height), 1024)).images[0]
     uniquefilepath = uniquify("outputs/sd.jpg")
     image.save(uniquefilepath)
     return uploadToHoster(uniquefilepath)

@@ -397,9 +397,13 @@ def getTask(event):
     if event.kind == 68001: #legacy
         if len(event.get_tag_list('j')) > 0:
              return event.get_tag_list('j')[0][0]
+        else:
+            return "unknown job: " + str(event.to_dict())
     elif event.kind == 4: #dm
         if len(event.get_tag_list('j')) > 0:
              return event.get_tag_list('j')[0][0]
+        else:
+            return "unknown job: " + str(event.to_dict())
     elif event.kind == 65002:
         return "speech-to-text"
     elif event.kind == 65003:
@@ -420,31 +424,19 @@ def doWork(Jobevent, isPaid, amount=0, isFromBot = False):
         if task == "speech-to-text":
             print("[Nostr] Adding Nostr speech-to-text Job event: " + str(Jobevent.to_dict()))
             organizeInputData(Jobevent, request_form)
-        elif task == "summarization":
-            print("[Nostr] Adding Nostr summarization Job event: " + str(Jobevent.to_dict()))
-            print("Not yet supported")
-            #organizeInputData(Jobevent, request_form)
-        elif task == "translation":
-            print("[Nostr] Adding translation Job event: " + str(Jobevent.to_dict()))
-        elif task == "text-to-image":
-            print("[Nostr] Adding Image Generation Job event: " + str(Jobevent.to_dict()))
-        elif task == "event-list-generation":
-            print("[Nostr] Adding Nostr-Event-List gegneration event: " + str(Jobevent.to_dict()))
-            print("Not yet supported")
-        #TODO these dont have kind numbers yet.
-        elif task == "image-to-image":
-            print("[Nostr] Adding Image Conversion Job event: " + str(Jobevent.to_dict()))
-        elif task == "image-upscale":
-            print("[Nostr] Adding Image Upscale Job event: " + str(Jobevent.to_dict()))
-        elif task == "chat":
-            print("[Nostr] Adding Chat Job event: " + str(Jobevent.to_dict()))
-        else:
+        elif task.startswith("unknown"):
             print("[Nostr] Task " + task + " is currently not supported by this instance")
+            return
+        elif task == "event-list-generation" or task == "summarization" or task == "chat":
+            print("Not yet supported")
+            return
+        else:
+            print("[Nostr] Adding " + task + " Job event: " + str(Jobevent.to_dict()))
+
         if (Jobevent.kind >= 65002 and Jobevent.kind < 66000) or Jobevent.kind == 68001:
             sendJobStatusReaction(Jobevent, "started", isPaid, amount)
 
-        url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(
-            request_form["mode"]).lower()
+        url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(request_form["mode"]).lower()
         headers = {'Content-type': 'application/x-www-form-urlencoded'}
         requests.post(url, headers=headers, data=request_form)
 
@@ -458,7 +450,7 @@ def checkTaskisSupported(event):
 
     if task not in ResultConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
         return False
-    if task == "translation" and (inputtype != "event" and inputtype != "job"):  # The input types per task
+    if task == "translation" and (inputtype != "event" and inputtype != "job" and inputtype != "text"):  # The input types per task
         return False
     if task == "translation" and len(event.content) > 4999:  # Google Services have a limit of 5000 signs
         return False
