@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 
 from hcai_datasets.hcai_nova_dynamic.nova_db_handler import NovaDBHandler
-from nova_utils.ssi_utils.ssi_anno_utils import Anno, SchemeType
+from nova_utils.deprecated_ssi_utils.ssi_anno_utils import Anno, SchemeType
 
 MAX_MONGO_DB_DOC_SIZE = 16777216
 database = None
