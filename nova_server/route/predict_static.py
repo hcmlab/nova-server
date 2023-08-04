@@ -140,10 +140,13 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
     uniquefilepath = uniquify("outputs/sd.jpg")
     image.save(uniquefilepath)
 
+
     if torch.cuda.is_available():
+        del pipe
         gc.collect()
         torch.cuda.empty_cache()
         torch.cuda.ipc_collect()
+
 
     return uploadToHoster(uniquefilepath)
 
@@ -173,6 +176,13 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale):
     image = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, strength=strength,
                  guidance_scale=guidance_scale).images[0]
     uniquefilepath = uniquify("outputs/sd.jpg")
+
+    if torch.cuda.is_available():
+        del pipe
+        gc.collect()
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
     return uploadToHoster((uniquefilepath))
 
 
@@ -186,9 +196,9 @@ def imageUpscale(url):
     # load model and scheduler
     model_id = "stabilityai/stable-diffusion-x4-upscaler"
     #model_id = "stabilityai/sd-x2-latent-upscaler"
-    pipeline = StableDiffusionUpscalePipeline.from_pretrained(model_id, torch_dtype=torch.float16)
-    pipeline = pipeline.to("cuda")
-    pipeline.enable_attention_slicing()
+    pipe = StableDiffusionUpscalePipeline.from_pretrained(model_id, torch_dtype=torch.float16)
+    pipe = pipe.to("cuda")
+    pipe.enable_attention_slicing()
 
 
     response = requests.get(url)
@@ -196,9 +206,16 @@ def imageUpscale(url):
     low_res_img = low_res_img.resize((int(low_res_img.width/2), int(low_res_img.height/2)))  # This is bad but memory is too low.
 
     prompt = "UHD, 4k, hyper realistic, extremely detailed, professional, vibrant, not grainy, smooth, sharp"
-    upscaled_image = pipeline(prompt=prompt, image=low_res_img).images[0]
+    upscaled_image = pipe(prompt=prompt, image=low_res_img).images[0]
     uniquefilepath = uniquify("outputs/sd.jpg")
     upscaled_image.save(uniquefilepath)
+
+    if torch.cuda.is_available():
+        del pipe
+        gc.collect()
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
     return uploadToHoster(uniquefilepath)
 
 

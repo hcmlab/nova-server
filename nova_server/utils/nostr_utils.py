@@ -52,8 +52,8 @@ class JobToWatch:
 
 
 JobstoWatch = []
-relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr.mutinywallet.com", "wss://relayable.org", "wss://nostr-pub.wellorder.net"]
-relaytimeout = 2
+relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://relayable.org", "wss://nostr-pub.wellorder.net"]
+relaytimeout = 1
 
 #init_logger(LogLevel.DEBUG)
 
@@ -146,7 +146,7 @@ def nostr_client():
                     print(f"Received new msg: {dec_text}")
                     if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-speech-to-text") or str(
                             dec_text).startswith("-image-upscale"):
-                        time.sleep(2.0)
+                        time.sleep(3.0)
                         event = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "Payment required, please zap this note with at least " + str(ResultConfig.COSTPERUNIT_IMAGEPROCESSING) + " Sats ..", event.id()).to_event(keys)
 
                         JobstoWatch.append(JobToWatch(id=event.id().to_hex(), timestamp=event.created_at().as_secs(), amount=50,
@@ -205,9 +205,11 @@ def nostr_client():
                                     print("[Nostr] Original Prompt Job Request event found...")
                                     for tag in zapableevent.tags():
                                         if tag.as_vec()[0] == 'e':
-                                            jobidfilter = Filter().id(tag.as_vec()[1])
-                                            events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
-                                            evt = events[0]
+                                            evt = getEvent(tag.as_vec()[1])
+                                            #jobidfilter = Filter().id(tag.as_vec()[1])
+                                            #events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                                            #evt = events[0]
+                                            print(evt.as_json())
 
                                             indices = [i for i, x in enumerate(JobstoWatch) if x.id == zapableevent.id().to_hex()]
                                             if len(indices) == 1:
@@ -215,6 +217,7 @@ def nostr_client():
                                                 sendEvent(event)
                                                 dec_text = nip04_decrypt(sk, evt.pubkey(), evt.content())
                                                 JobstoWatch.pop(indices[0])
+                                                print(JobstoWatch)
 
                                                 if str(dec_text).startswith("-text-to-image"):
                                                     negative_prompt = ""
@@ -237,25 +240,19 @@ def nostr_client():
                                                         paramTag2 = Tag.parse(["params", "size", width, height])
                                                         pTag = Tag.parse(["p", evt.pubkey().to_hex()])
                                                         tags = [jTag, iTag, pTag, paramTag, paramTag2]
-                                                        event = EventBuilder(4,"",tags).to_event(keys)
+                                                        event = EventBuilder(4, "", tags).to_event(keys)
                                                         doWork(event, isPaid=True, isFromBot=True)
 
                                                 elif str(dec_text).startswith("-image-upscale"):
                                                     prompttemp = dec_text.replace("-image-upscale", "")
                                                     split = prompttemp.split("-")
                                                     url = split[0]
-                                                    if len(split) > 1:
-                                                        for i in split:
-                                                            if i.startswith("prompt"):
-                                                                prompt = i.replace("url ", "")
-                                                            elif i.startswith("negative"):
-                                                                negative_prompt = i.replace("negative ", "")
-                                                        jTag = Tag.parse(["j", "image-upscale"])
-                                                        iTag = Tag.parse(["i", url, "url"])
-                                                        pTag = Tag.parse(["p", evt.pubkey().to_hex()])
-                                                        tags = [jTag, iTag, pTag]
-                                                        event = EventBuilder(4, "", tags).to_event(keys)
-                                                        doWork(event, isPaid=True, isFromBot=True)
+                                                    jTag = Tag.parse(["j", "image-upscale"])
+                                                    iTag = Tag.parse(["i", url, "url"])
+                                                    pTag = Tag.parse(["p", evt.pubkey().to_hex()])
+                                                    tags = [jTag, iTag, pTag]
+                                                    event = EventBuilder(4, "", tags).to_event(keys)
+                                                    doWork(event, isPaid=True, isFromBot=True)
 
                                                 elif str(dec_text).startswith("-speech-to-text"):
                                                      prompttemp = dec_text.replace("-speech-to-text ", "")
@@ -477,8 +474,6 @@ def nostr_client():
         if (Jobevent.kind() >= 65002 and Jobevent.kind() <= 66000) or Jobevent.kind() == 68001 or Jobevent.kind() == 4:
             request_form = createRequestFormfromNostrEvent(Jobevent, isFromBot)
             task = getTask(Jobevent)
-            print(task)
-
             if task == "speech-to-text":
                 print("[Nostr] Adding Nostr speech-to-text Job event: " + Jobevent.as_json())
                 organizeInputData(Jobevent, request_form)
@@ -510,7 +505,7 @@ def getEvent(eventidstr):
     # orginalidfilter = Filter().event(eventid)
     filter = Filter().id(eventidstr)
     events = cl.get_events_of([filter], timedelta(seconds=relaytimeout))
-    cl.disconnect()
+    #cl.disconnect()
     if len(events) > 0:
         return events[0]
 def organizeInputData(event, request_form):
@@ -689,7 +684,7 @@ def sendEvent(event):
 
     cl.connect()
     id = cl.send_event(event)
-    cl.disconnect()
+    #cl.disconnect()
     return id
 def getTask(event):
         if event.kind() == 68001:  # legacy
