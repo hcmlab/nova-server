@@ -138,6 +138,11 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
     image = pipe(prompt=prompt, negative_prompt=negative_prompt, width=min(int(width), 1024), height=min(int(height), 1024)).images[0]
     uniquefilepath = uniquify("outputs/sd.jpg")
     image.save(uniquefilepath)
+
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
     return uploadToHoster(uniquefilepath)
 
 
