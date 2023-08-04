@@ -1,5 +1,6 @@
 """This file contains the general logic for predicting annotations to the nova database"""
 import copy
+import gc
 import json
 import os
 from pathlib import Path, PureWindowsPath
@@ -140,6 +141,7 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
     image.save(uniquefilepath)
 
     if torch.cuda.is_available():
+        gc.collect()
         torch.cuda.empty_cache()
         torch.cuda.ipc_collect()
 

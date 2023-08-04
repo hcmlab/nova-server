@@ -53,7 +53,7 @@ class JobToWatch:
 
 JobstoWatch = []
 relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr.mutinywallet.com", "wss://relayable.org", "wss://nostr-pub.wellorder.net"]
-
+relaytimeout = 2
 
 #init_logger(LogLevel.DEBUG)
 
@@ -162,20 +162,20 @@ def nostr_client():
                             invoicesats = ParseBolt11Invoice(tag.as_vec()[1])
                         elif tag.as_vec()[0] == 'e':
                             print(tag.as_vec()[1])
-                            #zapableevent = getEvent(tag.as_vec()[1])
-                            orginalidfilter = Filter().id(tag.as_vec()[1])
-                            events = client.get_events_of([orginalidfilter], timedelta(seconds=2))
-                            zapableevent = events[0]
+                            zapableevent = getEvent(tag.as_vec()[1])
+                            #orginalidfilter = Filter().id(tag.as_vec()[1])
+                            #events = client.get_events_of([orginalidfilter], timedelta(seconds=relaytimeout))
+                            #zapableevent = events[0]
                             if (zapableevent.kind() == 65000):  # if a reaction by us got zapped
                                 for tag in zapableevent.tags():
                                     amount = 0
                                     if tag.as_vec()[0] == 'amount':
                                         amount = int(tag.as_vec()[0])
                                     elif tag.as_vec()[0] == 'e':
-                                        jobidfilter = Filter().id(tag.as_vec()[1])
-                                        events = client.get_events_of([jobidfilter], timedelta(seconds=2))
-                                        jobevent = events[0]
-                                        #jobevent = getEvent(tag.as_vec()[1])
+                                        #jobidfilter = Filter().id(tag.as_vec()[1])
+                                        #events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                                        #jobevent = events[0]
+                                        jobevent = getEvent(tag.as_vec()[1])
                                         print("[Nostr] Original Job Request event found...")
 
                                         if (int(amount) <= invoicesats * 1000):
@@ -206,7 +206,7 @@ def nostr_client():
                                     for tag in zapableevent.tags():
                                         if tag.as_vec()[0] == 'e':
                                             jobidfilter = Filter().id(tag.as_vec()[1])
-                                            events = client.get_events_of([jobidfilter], timedelta(seconds=2))
+                                            events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
                                             evt = events[0]
 
                                             indices = [i for i, x in enumerate(JobstoWatch) if x.id == zapableevent.id().to_hex()]
@@ -258,12 +258,23 @@ def nostr_client():
                                                         doWork(event, isPaid=True, isFromBot=True)
 
                                                 elif str(dec_text).startswith("-speech-to-text"):
-                                                     url = dec_text.replace("-speech-to-text ", "")
+                                                     prompttemp = dec_text.replace("-speech-to-text ", "")
+                                                     split = prompttemp.split("-")
+                                                     url = split[0]
+                                                     start = "0"
+                                                     end = "0"
+                                                     if len(split) > 1:
+                                                         for i in split:
+                                                             if i.startswith("from"):
+                                                                 start = i.replace("from ", "")
+                                                             elif i.startswith("to"):
+                                                                 end = i.replace("to ", "")
                                                      jTag = Tag.parse(["j", "speech-to-text"])
                                                      iTag = Tag.parse(["i", url, "url"])
                                                      oTag = Tag.parse(["output", "text/plain"])
+                                                     paramsTag = Tag.parse(["params", "range", start, end])
                                                      pTag = Tag.parse(["p", evt.pubkey().to_hex()])
-                                                     tags = [jTag, iTag, oTag, pTag]
+                                                     tags = [jTag, iTag, oTag, pTag, paramsTag]
                                                      event = EventBuilder(4, "", tags).to_event(keys)
                                                      doWork(event, isPaid=True, isFromBot=True)
 
@@ -276,7 +287,7 @@ def nostr_client():
                                                     tags = [jTag, iTag, oTag, pTag]
                                                     event = EventBuilder(4, "", tags).to_event(keys)
                                                     doWork(event, isPaid=True, isFromBot=True)
-
+                                            break
                                 else:
                                     print("[Nostr] Zap was not for a kind 65000 or 4 reaction, skipping")
 
@@ -368,10 +379,10 @@ def nostr_client():
             if inputtype == "event":
                 for tag in event.tags():
                     if tag.as_vec()[0] == 'i':
-                        jobidfilter = Filter().id(tag.as_vec()[1])
-                        events = client.get_events_of([jobidfilter], timedelta(seconds=5))
-                        evt = events[0]
-                        #evt = getEvent(sourceid)
+                        #jobidfilter = Filter().id(tag.as_vec()[1])
+                        #events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                        #evt = events[0]
+                        evt = getEvent(tag.as_vec()[1])
                         text = evt.content()
                         break
 
@@ -435,10 +446,10 @@ def nostr_client():
                     if type == "text":
                         prompt = tag.as_vec()[1]
                     elif type == "event":
-                        jobidfilter = Filter().id(tag.as_vec()[1])
-                        events = client.get_events_of([jobidfilter], timedelta(seconds=5))
-                        evt = events[0]
-                        # evt = getEvent(sourceid)
+                        #jobidfilter = Filter().id(tag.as_vec()[1])
+                        #events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                        #evt = events[0]
+                        evt = getEvent(tag.as_vec()[1])
                         prompt = evt.content()
                 elif tag.as_vec()[0] == 'params':
                     if tag.as_vec()[1] == "extra_prompt":  # check for paramtype
@@ -489,7 +500,19 @@ def nostr_client():
     while True:
         time.sleep(5.0)
 
-
+def getEvent(eventidstr):
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    cl = Client(keys)
+    for relay in relay_list:
+        cl.add_relay(relay)
+    cl.connect()
+    #eventid = EventId.from_hex(eventidstr)
+    # orginalidfilter = Filter().event(eventid)
+    filter = Filter().id(eventidstr)
+    events = cl.get_events_of([filter], timedelta(seconds=relaytimeout))
+    cl.disconnect()
+    if len(events) > 0:
+        return events[0]
 def organizeInputData(event, request_form):
     data_dir = os.environ["NOVA_DATA_DIR"]
 
@@ -723,8 +746,7 @@ def CheckEventStatus(content, originaleventstr: str, useBot=False):
             for tag in originalevent.tags():
                 if tag.as_vec()[0] == "p":
                     reckey = PublicKey.from_hex(tag.as_vec()[1])
-            event = EventBuilder.new_encrypted_direct_msg(keys, reckey,
-                                                          "Your Result: \n\n" + resultcontent, None).to_event(keys)
+            event = EventBuilder.new_encrypted_direct_msg(keys, reckey, "Your Result: \n\n" + resultcontent, None).to_event(keys)
             sendEvent(event)
 
         else:
