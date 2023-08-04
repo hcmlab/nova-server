@@ -1,55 +1,18 @@
-import base64
 import os
 import urllib
-from urllib.parse import urlparse
-
-from decord import AudioReader, cpu
-from pydantic._internal._typing_extra import origin_is_union
-from pynostr.base_relay import RelayPolicy
-from pynostr.encrypted_dm import EncryptedDirectMessage
-
-from pynostr.relay_list import RelayList
-
-import ffmpegio
-from pynostr.relay_manager import RelayManager
-from pynostr.filters import FiltersList, Filters
-from pynostr.event import EventKind
-import json
-from pynostr.event import Event
-from pynostr.key import PrivateKey, PublicKey
 from dataclasses import dataclass
+from urllib.parse import urlparse
+import requests
 import emoji
 import re
+import ffmpegio
+from decord import AudioReader, cpu
+from nostr_sdk import Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, nip04_decrypt, EventId, init_logger, LogLevel
+import time
 
-from sympy.ntheory.primetest import is_lucas_prp
-
-from nova_server.utils.db_utils import add_new_session_to_db, db_entry_exists
+from nova_server.utils.db_utils import db_entry_exists, add_new_session_to_db
 from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube, checkYoutubeLinkValid
 from configparser import ConfigParser
-
-import time
-import datetime
-import requests
-
-import uuid
-
-# TODO
-# check expiry of tasks/available output format/model/ (task is checked already). if not available ignore the job,
-# send reaction on error (send sats back ideally, library meh, same for under payment),
-# send reaction processing-scheduled when task is waiting for previous task to finish, max limit to wait?
-# store whitelist (and maybe a blacklist) in a config/db
-# clear list of  tasks (JobstoWatch) to watch after some time (timeout if invoice not paid),
-# consider max-sat amount at all,
-# consider reactions from customers (Kind 65000 event)
-# consider encrypted DMS with tasks (decrypt seems broken in pynostr, or dependency version of)
-# add more output formats (webvtt, srt)
-# refactor translate to own module
-# add summarization task (GPT4all?, OpenAI api?) in own module
-
-# purge database and files from time to time?
-
-sinceLastNostrUpdate = int(datetime.datetime.now().timestamp())
-
 
 class ResultConfig:
     SUPPORTED_TASKS = ["speech-to-text", "translation", "text-to-image", "image-to-image", "image-upscale", "chat"]
@@ -74,99 +37,79 @@ class JobToWatch:
 
 
 JobstoWatch = []
-lastdm = ""
-lastzap = ""
-lastdvm = ""
-
-rl = RelayList()
-url_list = ["wss://relay.damus.io", "wss://relay.snort.social",
-            "wss://blastr.f7z.xyz",
-            "wss://nostr.mutinywallet.com", "wss://relayable.org", "wss://nostr-pub.wellorder.net"]
-ignore_url_list = []
-relaytimeout = 4
-policy = RelayPolicy()
-rl.append_url_list(url_list, policy)
+relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr.mutinywallet.com", "wss://relayable.org", "wss://nostr-pub.wellorder.net"]
 
 
-def nostrReceiveAndManageNewEvents():
-    privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
-    global sinceLastNostrUpdate
-    global JobstoWatch
+#init_logger(LogLevel.DEBUG)
 
-    relay_manager = RelayManager(timeout=relaytimeout)
-    relay_manager.add_relay_list(rl)
+def nostr_client():
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    sk = keys.secret_key()
+    pk = keys.public_key()
+    print(f"Nostr Bot public key: {pk.to_bech32()}")
+    client = Client(keys)
+    for relay in relay_list:
+        client.add_relay(relay)
+    client.connect()
 
-    # print("[Nostr] Listen to new events since: " + str(sinceLastNostrUpdate))
+    dmzapfilter = Filter().pubkey(pk).kind(4).kind(9735).since(Timestamp.now())
+    dvmfilter = Filter().kind(68001) \
+        .kind(65002) \
+        .kind(65003) \
+        .kind(65004) \
+        .kind(65005) \
+        .since(Timestamp.now())
+    client.subscribe([dmzapfilter, dvmfilter])
 
-    vendingFilter = Filters(kinds=[68001,65002,65003,65004,65005], since=sinceLastNostrUpdate, limit=20)
-    zapFilter = Filters(kinds=[EventKind.ZAPPER], limit=20, since=sinceLastNostrUpdate)
-    zapFilter.add_arbitrary_tag('p', [privkey.public_key.hex()])
-    dmFilter = Filters(kinds=[EventKind.ENCRYPTED_DIRECT_MESSAGE], limit=5, since=sinceLastNostrUpdate)
-    dmFilter.add_arbitrary_tag('p', [privkey.public_key.hex()])
-    filters = FiltersList([vendingFilter, zapFilter, dmFilter])
-    subscription_id = uuid.uuid1().hex
-    relay_manager.add_subscription_on_all_relays(subscription_id, filters)
-    relay_manager.run_sync()
+    class NotificationHandler(HandleNotification):
 
-    while relay_manager.message_pool.has_events():
-        event_msg = relay_manager.message_pool.get_event()
-
-        sinceLastNostrUpdate = int(max(event_msg.event.created_at + 1, sinceLastNostrUpdate))
-        event = event_msg.event
-        # check for Task, for this demo use case only get active when task is speech-to-text
-        if (event.kind >= 65002 and event.kind <= 66000 ) or event.kind == 68001: #legacy:
-            global lastdvm
-            if (event.id != lastdvm):
-                lastdvm = event.id
-
-                # if npub sending the event is whitelisted, we just do the work
+        def handle(self, relay_url, event):
+            print(f"Received new event from {relay_url}: {event.as_json()}")
+            if (65002 <= event.kind() <= 66000) or event.kind() == 68001:  # legacy:
                 if isBlackListed(event.pubkey):
                     sendJobStatusReaction(event, "user-blocked-from-service")
                     print("Request by blacklisted user, skipped")
-
                 elif checkTaskisSupported(event):
                     task = getTask(event)
-                    if isWhiteListed(event.pubkey, task):
-                        print(
-                            "[Nostr] Whitelisted for task " + task + ". Starting processing..")
+                    if isWhiteListed(event.pubkey().to_hex(), task):
+                        print("[Nostr] Whitelisted for task " + task + ". Starting processing..")
                         doWork(event, True)
                     # otherwise send payment request
                     else:
+                        bid = 0
+                        for tag in event.tags():
+                            if tag.as_vec()[0] == 'bid':
+                                bid = tag.as_vec()[1]
+
                         amount = 1000000
                         if task == "translation":
                             duration = 1  # todo get task duration
                             amount = ResultConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
-                            print("[Nostr][Payment required] New Nostr translation Job event: " + str(event.to_dict()))
+                            print("[Nostr][Payment required] New Nostr translation Job event: " + event.as_json())
                         elif task == "speech-to-text":
                             duration = 1  # todo get task duration
                             amount = ResultConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
-                            print(
-                                "[Nostr][Payment required] New Nostr speech-to-text Job event: " + str(event.to_dict()))
+                            print("[Nostr][Payment required] New Nostr speech-to-text Job event: " + event.as_json())
                         elif task == "text-to-image":
                             amount = ResultConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
-                            print(
-                                "[Nostr][Payment required] New Nostr generate Image Job event: " + str(event.to_dict()))
+                            print("[Nostr][Payment required] New Nostr generate Image Job event: " + event.as_json())
                         elif task == "image-to-image":
-                            #todo get image size
+                            # todo get image size
                             amount = ResultConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
-                            print(
-                                "[Nostr][Payment required] New Nostr convert Image Job event: " + str(event.to_dict()))
+                            print("[Nostr][Payment required] New Nostr convert Image Job event: " + event.as_json())
                         elif task == "image-upscale":
                             amount = ResultConfig.COSTPERUNIT_IMAGEUPSCALING * 1000  # *1000 because millisats
-                            print(
-                                "[Nostr][Payment required] New Nostr upscale Image Job event: " + str(event.to_dict()))
+                            print("[Nostr][Payment required] New Nostr upscale Image Job event: " + event.as_json())
                         elif task == "chat":
                             amount = ResultConfig.COSTPERUNIT_IMAGEUPSCALING * 1000  # *1000 because millisats
-                            print(
-                                "[Nostr][Payment required] New Nostr Chat Job event: " + str(event.to_dict()))
+                            print("[Nostr][Payment required] New Nostr Chat Job event: " + event.as_json())
                         else:
                             print("[Nostr] Task " + task + " is currently not supported by this instance")
-
-                        if len(event.get_tag_list("bid")) > 0:
-                            willingtopay = int(event.get_tag_list("bid")[0][0])
+                        if int(bid) > 0:
+                            willingtopay = int(bid)
                             if willingtopay > ResultConfig.AUTOPROCESS_MIN_AMOUNT * 1000 or willingtopay < ResultConfig.AUTOPROCESS_MAX_AMOUNT * 1000:
                                 print("[Nostr][Auto-processing: Payment suspended to end] Job event: " + str(
-                                    event.to_dict()))
+                                    event.as_json()))
                                 doWork(event, False, willingtopay)
                             else:
                                 if willingtopay >= amount:
@@ -177,345 +120,379 @@ def nostrReceiveAndManageNewEvents():
                                                           amount)  # Reject and tell user minimum amount
 
                         else:  # If there is no bid, just request server rate from user
-                            print("[Nostr] Requesting payment for Event: " + event.id)
+                            print("[Nostr] Requesting payment for Event: " + event.id().to_hex())
                             sendJobStatusReaction(event, "payment-required", False, amount)
                 else:
                     print("Got new Task but can't process it, skipping..")
 
-        elif event.kind == EventKind.ZAPPER:  # 9735
-            global lastzap
-            if (event.id != lastzap):
-                lastzap = event.id
-                print("[Nostr]Zap Received")
-                # Zaps to us
-                lninvoice = event.get_tag_list('bolt11')[0][0]
-                invoicesats = ParseBolt11Invoice(lninvoice)
-                print("[Nostr]Zap Received: " + str(event.to_dict()))
-                eventid = event.get_tag_list("e")[0][0]
+            elif event.kind() == 4:
+                try:
+                    dec_text = nip04_decrypt(sk, event.pubkey(), event.content())
+                    print(f"Received new msg: {dec_text}")
+                    if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-speech-to-text") or str(
+                            dec_text).startswith("-image-upscale"):
+                        event = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
+                                                                      "Payment required, please zap this note with at least " + str(
+                                                                          ResultConfig.COSTPERUNIT_IMAGEPROCESSING) + " Sats ..").to_event(
+                            keys)
+                        client.send_event(event)
+                        JobstoWatch.append(
+                            JobToWatch(id=event.id().to_hex(), timestamp=event.created_at().as_secs(), amount=50,
+                                       isPaid=False,
+                                       status="payment-required", result="", isProcessed=False))
+                except Exception as e:
+                    print(f"Error during content decryption: {e}")
+            elif event.kind() == 9735:
+                print("Zap received")
+                try:
+                    for tag in event.tags():
+                        if tag.as_vec()[0] == 'bolt11':
+                            invoicesats = ParseBolt11Invoice(tag.as_vec()[1])
+                        elif tag.as_vec()[0] == 'e':
+                            print(tag.as_vec()[1])
+                            zapableevent = getEvent(tag.as_vec()[1])
+                            if (zapableevent.kind() == 65000):  # if a reaction by us got zapped
+                                for tag in zapableevent.tags():
+                                    amount = 0
+                                    if tag.as_vec()[0] == 'amount':
+                                        amount = int(tag.as_vec()[0])
+                                    elif tag.as_vec()[0] == 'e':
+                                        jobevent = getEvent(tag.as_vec()[1])
+                                        print("[Nostr] Original Job Request event found...")
 
-                # Get specific reaction event
-                relay_manager2 = RelayManager(timeout=relaytimeout)
-                relay_manager2.add_relay_list(rl)
-                filters = FiltersList([Filters(ids=[eventid], limit=1)])
-                subscription_id = uuid.uuid1().hex
-                relay_manager2.add_subscription_on_all_relays(subscription_id, filters)
-                relay_manager2.run_sync()
-                zapableevent = relay_manager2.message_pool.get_event().event
-                relay_manager2.close_all_relay_connections()
+                                        if (int(amount) <= invoicesats * 1000):
+                                            print("[Nostr] Payment-request fulfilled...")
+                                            sendJobStatusReaction(jobevent, "payment-accepted")
+                                            print(jobevent.id().to_hex())
+                                            indices = [i for i, x in enumerate(JobstoWatch) if
+                                                       x.id == jobevent.id().to_hex()]
+                                            index = -1
+                                            if len(indices) > 0:
+                                                index = indices[0]
+                                            if (index > -1):
+                                                # todo also remove ids after x time of waiting, need to store pairs of id / timestamp for that
+                                                if (JobstoWatch[index]).isProcessed:  # If payment-required appears after processing
+                                                    JobstoWatch[index].isPaid = True
+                                                    CheckEventStatus(JobstoWatch[index].result, str(jobevent.as_json()))
+                                                elif not (JobstoWatch[
+                                                    index]).isProcessed:  # If payment-required appears before processing
+                                                    JobstoWatch.pop(index)
+                                                    doWork(jobevent, True)
+                                        else:
+                                            sendJobStatusReaction(jobevent, "payment-rejected", invoicesats * 1000)
+                                            print("[Nostr] Invoice was not paid sufficiently")
 
-                if (zapableevent.kind == 65000):  # if a reaction by us got zapped
-                    if (int(zapableevent.get_tag_list('amount')[0][0]) <= invoicesats * 1000):
-                        print("[Nostr] Payment-request fulfilled...")
-                        jobeventid = zapableevent.get_tag_list('e')[0][0]
-                        relay_manager3 = RelayManager(timeout=relaytimeout)
-                        relay_manager3.add_relay_list(rl)
-                        filters = FiltersList([Filters(ids=[jobeventid], limit=1)])
+                            elif zapableevent.kind() == 4:
+                                if invoicesats >= ResultConfig.COSTPERUNIT_IMAGEPROCESSING:
+                                    #TODO, library has no e tag on dms so far
+                                    jobevent = getEvent(tag.as_vec()[1])
+                                    print("[Nostr] Original Job Request event found...")
+                                    orginalidfilter = Filter().id(zapableevent.id().to_hex())
+                                    events = client.get_events_of([orginalidfilter], None)
+                                    if len(events) > 0:
+                                        jobevent = events[0]
+                                        for tag in jobevent.tags():
+                                            if tag.as_vec()[0] == 'e':
+                                                prompteventid = tag.as_vec()[1]
+                                                prompteventidfilter = Filter().id(prompteventid)
+                                                events = client.get_events_of([prompteventidfilter], None)
+                                                if len(events) > 0:
+                                                    promptevent = events[0]
+                                                    print("[Nostr] Original Prompt Job Request event found...")
+                                                    indices = [i for i, x in enumerate(JobstoWatch) if
+                                                               x.id == promptevent.id().to_hex()]
+                                                    if len(indices) == 1:
+                                                        event = EventBuilder.new_encrypted_direct_msg(keys,
+                                                                                                      promptevent.pubkey(),
+                                                                                                      "Payment received, processing started.\n\nI will DM you once your task is ready.").to_event(
+                                                            keys)
+                                                        dec_text = nip04_decrypt(sk, promptevent.pubkey(),
+                                                                                 event.content())
+                                                        print(f"Received new msg: {dec_text}")
 
-                        subscription_id = uuid.uuid1().hex
-                        relay_manager3.add_subscription_on_all_relays(subscription_id, filters)
-                        relay_manager3.run_sync()
+                                                        if str(dec_text).startswith("-text-to-image"):
+                                                            negative_prompt = ""
+                                                            prompttemp = dec_text.replace("-text-to-image ", "")
+                                                            split = prompttemp.split("-")
+                                                            prompt = split[0]
+                                                            width = "512"
+                                                            height = "512"
+                                                            if len(split) > 1:
+                                                                for i in split:
+                                                                    if i.startswith("negative"):
+                                                                        negative_prompt = i.replace("negative ", "")
+                                                                    elif i.startswith("width"):
+                                                                        width = i.replace("width ", "")
+                                                                    elif i.startswith("height"):
+                                                                        height = i.replace("height ", "")
 
-                        jobevent = relay_manager3.message_pool.get_event().event
-                        print("[Nostr] Original Job Request event found...")
-                        relay_manager3.close_all_relay_connections()
+                                                                    # TODO make new event based on dm
+                                                                    promptjson = promptevent.as_json()
 
-                        sendJobStatusReaction(jobevent, "payment-accepted")
-                        indices = [i for i, x in enumerate(JobstoWatch) if x.id == jobevent.id]
-                        index = -1
-                        if len(indices) > 0:
-                            index = indices[0]
-                        if (index > -1):
-                            # todo also remove ids after x time of waiting, need to store pairs of id / timestamp for that
-                            if (JobstoWatch[index]).isProcessed:  # If payment-required appears after processing
-                                JobstoWatch[index].isPaid = True
-                                CheckEventStatus(JobstoWatch[index].result, str(jobevent.to_dict()))
-                            elif not (JobstoWatch[index]).isProcessed:  # If payment-required appears before processing
-                                JobstoWatch.pop(index)
-                                doWork(jobevent, True)
-                    else:
-                        sendJobStatusReaction(jobevent, "payment-rejected", invoicesats * 1000)
+                                                                    # promptevent.add_tag('j', ["text-to-image"])
+                                                                    # promptevent.add_tag('i', [prompt, "text"])
+                                                                    # promptevent.add_tag('params', ["negative_prompt", negative_prompt])
+                                                                    # promptevent.add_tag('params', ["size", width, height])
 
-                        print("[Nostr] Invoice was not paid sufficiently")
-                elif zapableevent.kind == EventKind.ENCRYPTED_DIRECT_MESSAGE:
-                    if invoicesats >= ResultConfig.COSTPERUNIT_IMAGEPROCESSING:
+                                                                    JobstoWatch.pop(indices[0])
+                                                                    doWork(promptevent, isPaid=True, isFromBot=True)
+                                                                # elif str(dec_text).startswith("-image-upscale"):
+                                                                #     prompttemp = dec_text.replace("-image-upscale", "")
+                                                                #     split = prompttemp.split("-")
+                                                                #     url = split[0]
+                                                                # if len(split) > 1:
+                                                                #    for i in split:
+                                                                #        if i.startswith("prompt"):
+                                                                #            prompt = i.replace("url ", "")
+                                                                #        elif i.startswith("negative"):
+                                                                #            negative_prompt = i.replace("negative ", "")
 
-                        eventid = event.get_tag_list("e")[0][0]
+                                                                #     promptevent.add_tag('j', ["image-upscale"])
+                                                                #     promptevent.add_tag('i', [url, "url"])
+                                                                #     JobstoWatch.pop(indices[0])
+                                                                #     doWork(promptevent, isPaid=True, isFromBot=True)
+                                                                # elif str(dec_text).startswith("-speech-to-text"):
+                                                                #     url = dec_text.replace("-speech-to-text ", "")
+                                                                #     promptevent.add_tag('j', ["speech-to-text"])
+                                                                #     promptevent.add_tag('i', [url, "url"])
+                                                                #     promptevent.add_tag('output', ["text/plain"])
+                                                                #     JobstoWatch.pop(indices[0])
+                                                                #     doWork(promptevent, isPaid=True, isFromBot=True)
+                                                                # elif str(dec_text).startswith("-chat"):
+                                                                # text = dec_text.replace("-chat ", "")
+                                                                # promptevent.add_tag('j', ["chat"])
+                                                                # promptevent.add_tag('i', [text, "text"])
+                                                                # promptevent.add_tag('output', ["text/plain"])
+                                                                # JobstoWatch.pop(indices[0])
+                                                                # doWork(promptevent, isPaid=True, isFromBot=True)
 
-                        # Get specific reaction event
-                        relay_manager2 = RelayManager(timeout=relaytimeout)
-                        relay_manager2.add_relay_list(rl)
-                        filters = FiltersList([Filters(ids=[eventid], limit=1)])
-                        subscription_id = uuid.uuid1().hex
-                        relay_manager2.add_subscription_on_all_relays(subscription_id, filters)
-                        relay_manager2.run_sync()
-                        zapableevent = relay_manager2.message_pool.get_event().event
-                        relay_manager2.close_all_relay_connections()
+                                else:
+                                    print("[Nostr] Zap was not for a kind 65000 or 4 reaction, skipping")
 
-                        relay_manager3 = RelayManager(timeout=relaytimeout)
-                        relay_manager3.add_relay_list(rl)
-                        filters = FiltersList([Filters(ids=[zapableevent.id], limit=1)])
+                except Exception as e:
+                    print(f"Error during content decryption: {e}")
 
-                        subscription_id = uuid.uuid1().hex
-                        relay_manager3.add_subscription_on_all_relays(subscription_id, filters)
-                        relay_manager3.run_sync()
+        def handle_msg(self, relay_url, msg):
+            None
 
-                        jobevent = relay_manager3.message_pool.get_event().event
-                        prompteventid = jobevent.get_tag_list("e")[0][0]
+    client.handle_notifications(NotificationHandler())
 
-                        relay_manager3.close_all_relay_connections()
-                        relay_manager4 = RelayManager(timeout=relaytimeout)
-                        relay_manager4.add_relay_list(rl)
-                        filters = FiltersList([Filters(ids=[prompteventid], limit=1)])
-
-                        subscription_id = uuid.uuid1().hex
-                        relay_manager4.add_subscription_on_all_relays(subscription_id, filters)
-                        relay_manager4.run_sync()
-
-                        promptevent = relay_manager4.message_pool.get_event().event
-                        print("[Nostr] Original Prompt Job Request event found...")
-                        relay_manager4.close_all_relay_connections()
-
-                        indices = [i for i, x in enumerate(JobstoWatch) if x.id == promptevent.id]
-                        if len(indices) == 1:
-                            sendDM(privkey.hex(), promptevent.pubkey,
-                                   "Payment received, processing started.\n\nI will DM you once your task is ready.")
-                            dec_text = decryptDM(privkey, promptevent.pubkey, promptevent.content)
-                            print(dec_text)
-                            if str(dec_text).startswith("-text-to-image"):
-                                negative_prompt = ""
-                                prompttemp = dec_text.replace("-text-to-image ", "")
-
-                                width = "1024"
-                                height = "1024"
-
-                                split = prompttemp.split("-")
-                                prompt = split[0]
-                                width = "512"
-                                height = "512"
-                                if len(split) > 1:
-                                    for i in split:
-                                        if i.startswith("negative"):
-                                            negative_prompt = i.replace("negative ", "")
-                                        elif i.startswith("width"):
-                                            width = i.replace("width ", "")
-                                        elif i.startswith("height"):
-                                            height = i.replace("height ", "")
-
-
-                                promptevent.add_tag('j', ["text-to-image"])
-                                promptevent.add_tag('i', [prompt, "text"])
-                                promptevent.add_tag('params', ["negative_prompt", negative_prompt])
-                                promptevent.add_tag('params', ["size", width, height])
-
-                                JobstoWatch.pop(indices[0])
-                                doWork(promptevent, isPaid=True, isFromBot=True)
-                            elif str(dec_text).startswith("-image-upscale"):
-                                prompttemp = dec_text.replace("-image-upscale", "")
-                                split = prompttemp.split("-")
-                                url = split[0]
-                                #if len(split) > 1:
-                                #    for i in split:
-                                #        if i.startswith("prompt"):
-                                #            prompt = i.replace("url ", "")
-                                #        elif i.startswith("negative"):
-                                #            negative_prompt = i.replace("negative ", "")
-
-                                promptevent.add_tag('j', ["image-upscale"])
-                                promptevent.add_tag('i', [url, "url"])
-                                JobstoWatch.pop(indices[0])
-                                doWork(promptevent, isPaid=True, isFromBot=True)
-                            elif str(dec_text).startswith("-speech-to-text"):
-                                url = dec_text.replace("-speech-to-text ", "")
-                                promptevent.add_tag('j', ["speech-to-text"])
-                                promptevent.add_tag('i', [url, "url"])
-                                promptevent.add_tag('output', ["text/plain"])
-                                JobstoWatch.pop(indices[0])
-                                doWork(promptevent, isPaid=True, isFromBot=True)
-                            elif str(dec_text).startswith("-chat"):
-                                text = dec_text.replace("-chat ", "")
-                                promptevent.add_tag('j', ["chat"])
-                                promptevent.add_tag('i', [text, "text"])
-                                promptevent.add_tag('output', ["text/plain"])
-                                JobstoWatch.pop(indices[0])
-                                doWork(promptevent, isPaid=True, isFromBot=True)
-
-                else:
-                    print("[Nostr] Zap was not for a kind 65000 or 4 reaction, skipping")
-
-        elif event.kind == 65000:
-            print("[Nostr]Reaction Received: " + str(event.to_dict()))
-
-        elif event.kind == EventKind.ENCRYPTED_DIRECT_MESSAGE:
-            # BOT MODE
-            global lastdm
-            if (event.id != lastdm):
-                lastdm = event.id
-                dec_text = decryptDM(privkey, event.pubkey, event.content)
-                print(dec_text)
-                if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-speech-to-text")  or str(dec_text).startswith("-image-upscale"):
-                    sendDM(privkey.hex(), event.pubkey, "Payment required, please zap this note with at least " + str(
-                        ResultConfig.COSTPERUNIT_IMAGEPROCESSING) + " Sats ..", event.id)
-                    JobstoWatch.append(JobToWatch(id=event.id, timestamp=event.created_at, amount=50, isPaid=False,
-                                                  status="payment-required", result="", isProcessed=False))
-
-    relay_manager.close_all_relay_connections()
-
-
-def sendDM(privkey, pubkey, message, replytoid=""):
-    dm = EncryptedDirectMessage()
-    dm.encrypt(privkey,
-               recipient_pubkey=pubkey,
-               cleartext_content=message
-               )
-    dm_event = dm.to_event()
-    if (replytoid != ""):
-        dm_event.add_event_ref(replytoid)
-        # create 'p' tag reference to the pubkey you're replying to
-        dm_event.add_pubkey_ref(pubkey)
-    dm_event.sign(privkey)
-    relay_managers = RelayManager(timeout=relaytimeout)
-    relay_managers.add_relay_list(rl)
-    relay_managers.publish_event(dm_event)
-    relay_managers.run_sync()
-    time.sleep(3)
-    relay_managers.close_all_relay_connections()
-
-
-def decryptDM(privkey, pubkey, content):
-    from . import cbc
-    if "?iv=" in content:
-        shared_secret = privkey.compute_shared_secret(pubkey)
-        aes = cbc.AESCipher(key=shared_secret)
-        enc_text_b64, iv_b64 = content.split("?iv=")
-        iv = base64.decodebytes(iv_b64.encode("utf-8"))
-        enc_text = base64.decodebytes(enc_text_b64.encode("utf-8"))
-        dec_text = aes.decrypt(iv, enc_text)
-        return dec_text
-    return "Couldn't decrypt the message"
-
-def getTask(event):
-    if event.kind == 68001: #legacy
-        if len(event.get_tag_list('j')) > 0:
-             return event.get_tag_list('j')[0][0]
-        else:
-            return "unknown job: " + str(event.to_dict())
-    elif event.kind == 4: #dm
-        if len(event.get_tag_list('j')) > 0:
-             return event.get_tag_list('j')[0][0]
-        else:
-            return "unknown job: " + str(event.to_dict())
-    elif event.kind == 65002:
-        return "speech-to-text"
-    elif event.kind == 65003:
-        return "summarization"
-    elif event.kind == 65004:
-        return "translation"
-    elif event.kind == 65005:
-        return "text-to-image"
-    elif event.kind == 65006:
-        return "event-list-generation"
-    else:
-        return "unknown type"
-
-def doWork(Jobevent, isPaid, amount=0, isFromBot = False):
-    if (Jobevent.kind >= 65002 and Jobevent.kind <= 66000) or  Jobevent.kind == 68001 or Jobevent.kind == 4:
+    while True:
+        time.sleep(5.0)
+def doWork(Jobevent, isPaid, amount=0, isFromBot=False):
+    if (Jobevent.kind() >= 65002 and Jobevent.kind() <= 66000) or Jobevent.kind() == 68001 or Jobevent.kind() == 4:
         request_form = createRequestFormfromNostrEvent(Jobevent, isFromBot)
         task = getTask(Jobevent)
+
         if task == "speech-to-text":
-            print("[Nostr] Adding Nostr speech-to-text Job event: " + str(Jobevent.to_dict()))
+            print("[Nostr] Adding Nostr speech-to-text Job event: " + Jobevent.as_json())
             organizeInputData(Jobevent, request_form)
-        elif task.startswith("unknown"):
-            print("[Nostr] Task " + task + " is currently not supported by this instance")
-            return
-        elif task == "event-list-generation" or task == "summarization" or task == "chat":
-            print("Not yet supported")
+        elif task == "event-list-generation" or task == "summarization" or task == "chat" or task.startswith(
+                "unknown"):
+            print("Task not (yet) supported")
             return
         else:
-            print("[Nostr] Adding " + task + " Job event: " + str(Jobevent.to_dict()))
+            print("[Nostr] Adding " + task + " Job event: " + Jobevent.as_json())
 
-        if (Jobevent.kind >= 65002 and Jobevent.kind < 66000) or Jobevent.kind == 68001:
+        if (Jobevent.kind() >= 65002 and Jobevent.kind() < 66000) or Jobevent.kind() == 68001:
             sendJobStatusReaction(Jobevent, "started", isPaid, amount)
-
-        url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(request_form["mode"]).lower()
+        url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(
+            request_form["mode"]).lower()
         headers = {'Content-type': 'application/x-www-form-urlencoded'}
         requests.post(url, headers=headers, data=request_form)
-
-def checkTaskisSupported(event):
+def createRequestFormfromNostrEvent(event, isBot=False):
+    # Only call this if config is not available, adjust function to your db
+    # savConfig()
     task = getTask(event)
-    print("Received new Task: " + task)
-    if (len(event.get_tag_list('i')) < 1):
-        return False
-    input = event.get_tag_list('i')[0][0]
-    inputtype = event.get_tag_list('i')[0][1]
 
-    if task not in ResultConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
-        return False
-    if task == "translation" and (inputtype != "event" and inputtype != "job" and inputtype != "text"):  # The input types per task
-        return False
-    if task == "translation" and len(event.content) > 4999:  # Google Services have a limit of 5000 signs
-        return False
-    if task == "speech-to-text" and inputtype != "url":  # The input types per task
-        return False
-    if task == "image-upscale" and inputtype != "url":  # The input types per task
-        return False
-    if inputtype == 'url' and not CheckUrlisReadable(input):
-        return False
-    if len(event.get_tag_list(
-            'output')) > 0:  # if output tag is set check for available formats, else use server default output
-        if event.get_tag_list('output')[0][0] != "text/plain":  # or..
-            return False
+    # Read config.ini file
+    config_object = ConfigParser()
+    config_object.read("nostrconfig.ini")
+    if len(config_object) == 1:
+        dbUser = input("Please enter a DB User:\n")
+        dbPassword = input("Please enter DB User Password:\n")
+        dbServer = input("Please enter a DB Host:\n")
+        SaveConfig(dbUser, dbPassword, dbServer, "nostr_test", "nostr", "system")
+        config_object.read("nostrconfig.ini")
 
-    return True
+    userinfo = config_object["USERINFO"]
+    serverconfig = config_object["SERVERCONFIG"]
+
+    request_form = {}
+    request_form["dbServer"] = serverconfig["dbServer"]
+    request_form["dbUser"] = userinfo["dbUser"]
+    request_form["dbPassword"] = userinfo["dbPassword"]
+    request_form["database"] = serverconfig["database"]
+    request_form["roles"] = serverconfig["roles"]
+    request_form["annotator"] = serverconfig["annotator"]
+    request_form["flattenSamples"] = "false"
+    request_form["jobID"] = event.id().to_hex()
+
+    request_form["frameSize"] = 0
+    request_form["stride"] = request_form["frameSize"]
+    request_form["leftContext"] = 0
+    request_form["rightContext"] = 0
+    request_form["nostrEvent"] = event.as_json()
+    request_form["sessions"] = event.id().to_hex()
+    if (isBot):
+        request_form["isBot"] = "True"
+    else:
+        request_form["isBot"] = "False"
+
+    # defaults might be overwritten by nostr event
+    alignment = "raw"
+    request_form["startTime"] = "0"
+    request_form["endTime"] = "0"
+
+    for tag in event.tags():
+        if tag.as_vec()[0] == 'params':
+            print(tag.as_vec())
+            param = tag.as_vec()[1]
+            if param == "range":  # check for paramtype
+                request_form["startTime"] = re.sub('\D', '', tag.as_vec()[2])
+                request_form["endTime"] = re.sub('\D', '', tag.as_vec()[3])
+            elif param == "alignment":  # check for paramtype
+                alignment = tag.as_vec()[2]
+            elif param == "length":  # check for paramtype
+                length = tag.as_vec()[2]
+            elif param == "language":  # check for paramtype
+                translation_lang = str(tag.as_vec()[2]).split('-')[0]
+
+    if task == "speech-to-text":
+        # Declare specific model type e.g. whisperx_large-v2
+        request_form["mode"] = "PREDICT"
+        modelopt = "large-v2"
+
+        request_form["schemeType"] = "FREE"
+        request_form["scheme"] = "transcript"
+        request_form["streamName"] = "audio"
+        request_form["trainerFilePath"] = 'models\\trainer\\' + str(
+            request_form["schemeType"]).lower() + '\\' + str(
+            request_form["scheme"]) + '\\audio{audio}\\whisperx\\whisperx_transcript.trainer'
+        request_form["optStr"] = 'model=' + modelopt + ';alignment_mode=' + alignment + ';batch_size=2'
 
 
-def CheckUrlisReadable(url):
-    if not str(url).startswith("http"):
-        return False
-    # If it's a YouTube oder Overcast link, we suppose we support it
-    if str(url).replace("http://", "").replace("https://", "").replace("www.", "").replace("youtu.be/",
-                                                                                           "youtube.com?v=")[
-       0:11] == "youtube.com" and str(url).find("live") == -1:
-        return (checkYoutubeLinkValid(url))  # not live, protected etc
-    elif str(url).startswith("https://overcast.fm/"):
-        return True
 
-    # If link is comaptible with one of these file formats, it's fine.
-    req = requests.get(url)
-    content_type = req.headers['content-type']
-    if content_type == 'audio/x-wav' or str(url).endswith(".wav") \
-            or content_type == 'audio/mpeg' or str(url).endswith(".mp3") \
-            or content_type == 'image/png' or str(url).endswith(".png") \
-            or content_type == 'image/jpg' or str(url).endswith(".jpg") \
-            or content_type == 'image/jpeg' or str(url).endswith(".jpeg") \
-            or content_type == 'audio/ogg' or str(url).endswith(".ogg") \
-            or content_type == 'video/mp4' or str(url).endswith(".mp4") \
-            or content_type == 'video/avi' or str(url).endswith(".avi") \
-            or content_type == 'video/mov' or str(url).endswith(".mov"):
-        return True
+    elif task == "translation":
+        request_form["mode"] = "PREDICT_STATIC"
+        # outsource this to its own script, ideally. This is not using the database for now, but probably should.
+        inputtype = "event"
+        for tag in event.tags():
+            if tag.as_vec()[0] == 'i':
+                inputtype = tag.as_vec()[2]
+                break
+        if inputtype == "event":
+            for tag in event.tags():
+                if tag.as_vec()[0] == 'i':
+                    sourceid = tag.as_vec()[1]
+                    evt = getEvent(sourceid)
+                    text = evt.content()
+                    break
 
-    # Otherwise we will not offer to do the job.
-    return False
+        elif inputtype == "text":
+            for tag in event.tags():
+                if tag.as_vec()[0] == 'i':
+                    text = tag.as_vec()[1]
+                    break
+        request_form["optStr"] = 'text=' + text + ';translation_lang=' + translation_lang
+    elif task == "chat":
+        request_form["mode"] = "PREDICT_STATIC"
+        request_form["trainerFilePath"] = 'chat'
+        print("[Nostr] Chat request ")
+        text = ""
+        for tag in event.tags():
+            if tag.as_vec()[0] == 'i':
+                text = tag.as_vec()[1]
+        request_form["optStr"] = 'message=' + text
 
+        # add length variableF
+    elif task == "summarization":
+        request_form["mode"] = "PREDICT_STATIC"
+        print("[Nostr] Not supported yet")
+        # call OpenAI API or use a local LLM
+        # add length variableF
+    elif task == "image-to-image":
+        request_form["mode"] = "PREDICT_STATIC"
+        prompt = ""
+        negative_prompt = ""
+        strength = 0.75
+        guidance_scale = 7.5
 
+        for tag in event.tags():
+            if tag.as_vec()[0] == 'i':
+                type = tag.as_vec()[2]
+                if type== "url":
+                    url = tag.as_vec()[1]
+            elif tag.as_vec()[0] == 'params':
+                if tag.as_vec()[1] == "prompt":  # check for paramtype
+                    prompt =tag.as_vec()[2]
+                elif tag.as_vec()[1] == "negative_prompt":  # check for paramtype
+                    negative_prompt = tag.as_vec()[2]
+                elif tag.as_vec()[1] == "strength":  # check for paramtype
+                    strength = float(tag.as_vec()[2])
+                elif tag.as_vec()[1] == "guidance_scale":  # check for paramtype
+                    guidance_scale = float(tag.as_vec()[2])
+        request_form["optStr"] = 'url=' + url + ';prompt=' + prompt + ';negative_prompt=' + negative_prompt + ';strength=' + strength + ';guidance_scale=' + guidance_scale
+
+    elif task == "text-to-image":
+        request_form["mode"] = "PREDICT_STATIC"
+        request_form["trainerFilePath"] = 'text-to-image'
+        width = "512"
+        height = "512"
+        extra_prompt = ""
+        negative_prompt = ""
+
+        for tag in event.tags():
+            if tag.as_vec()[0] == 'i':
+                type = tag.as_vec()[2]
+                if type == "text":
+                    prompt = tag.as_vec()[1]
+                elif type == "event":
+                    sourceid = tag.as_vec()[1]
+                    evt = getEvent(sourceid)
+                    prompt = evt.content()
+            elif tag.as_vec()[0] == 'params':
+                if tag.as_vec()[1] == "prompt":  # check for paramtype
+                    extra_prompt = tag.as_vec()[2]
+                elif tag.as_vec()[1] == "negative_prompt":  # check for paramtype
+                    negative_prompt = tag.as_vec()[2]
+                elif tag.as_vec()[1] == "size":  # check for paramtype
+                    width = tag.as_vec()[2]
+                    height = tag.as_vec()[3]
+        request_form["optStr"] = 'prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt=' + negative_prompt + ';width=' + width + ';height=' + height
+
+    elif task == "image-upscale":
+        request_form["mode"] = "PREDICT_STATIC"
+        request_form["trainerFilePath"] = 'image-upscale'
+        for tag in event.tags():
+            if tag.as_vec()[0] == 'i':
+                type = tag.as_vec()[2]
+                if type == "url":
+                    url = tag.as_vec()[1]
+                    request_form["optStr"] = 'url=' + url
+
+    return request_form
 def organizeInputData(event, request_form):
     data_dir = os.environ["NOVA_DATA_DIR"]
-    session = event.id
 
+    session = event.id().to_hex()
     inputtype = "url"
-    if len(event.get_tag_list('i')[0]) > 1:
-        inputtype = event.get_tag_list('i')[0][1]
+    for tag in event.tags():
+        if tag.as_vec()[0] == 'i':
+            input = tag.as_vec()[1]
+            inputtype = tag.as_vec()[2]
+            break
 
     if inputtype == "url":
-        url = event.get_tag_list('i')[0][0]
         if not os.path.exists(data_dir + '\\' + request_form["database"] + '\\' + session):
             os.mkdir(data_dir + '\\' + request_form["database"] + '\\' + session)
         # We can support some services that don't use default media links, like overcastfm for podcasts
-        if str(url).startswith("https://overcast.fm/"):
+        if str(input).startswith("https://overcast.fm/"):
             filename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
                 "roles"] + ".originalaudio.mp3"
             print("Found overcast.fm Link.. downloading")
-            download_podcast(url, filename)
-            finaltag = str(url).replace("https://overcast.fm/", "").split('/')
+            download_podcast(input, filename)
+            finaltag = str(input).replace("https://overcast.fm/", "").split('/')
 
             if (len(finaltag) > 1):
                 t = time.strptime(finaltag[1], "%H:%M:%S")
@@ -525,14 +502,16 @@ def organizeInputData(event, request_form):
                 if float(request_form["endTime"]) > 0.0:
                     request_form["endTime"] = seconds + float(request_form["endTime"])
                     print("Moving end time automatically to " + request_form["endTime"])
+
         # is youtube link?
-        elif str(url).replace("http://", "").replace("https://", "").replace("www.", "").replace("youtu.be/",
-                                                                                                 "youtube.com?v=")[
+        elif str(input).replace("http://", "").replace("https://", "").replace("www.", "").replace("youtu.be/",
+                                                                                                   "youtube.com?v=")[
              0:11] == "youtube.com":
+
             filepath = data_dir + '\\' + request_form["database"] + '\\' + session + '\\'
             try:
-                filename = downloadYouTube(url, filepath)
-                o = urlparse(url)
+                filename = downloadYouTube(input, filepath)
+                o = urlparse(input)
                 q = urllib.parse.parse_qs(o.query)
                 if (o.query.find('t') != -1):
                     request_form["startTime"] = q['t'][0]  # overwrite from link.. why not..
@@ -545,24 +524,24 @@ def organizeInputData(event, request_form):
                 return
         # Regular links have a media file ending and/or mime types
         else:
-            req = requests.get(url)
+            req = requests.get(input)
             content_type = req.headers['content-type']
-            if content_type == 'audio/x-wav' or str(url).endswith(".wav"):
+            if content_type == 'audio/x-wav' or str(input).endswith(".wav"):
                 ext = "wav"
                 type = "audio"
-            elif content_type == 'audio/mpeg' or str(url).endswith(".mp3"):
+            elif content_type == 'audio/mpeg' or str(input).endswith(".mp3"):
                 ext = "mp3"
                 type = "audio"
-            elif content_type == 'audio/ogg' or str(url).endswith(".ogg"):
+            elif content_type == 'audio/ogg' or str(input).endswith(".ogg"):
                 ext = "ogg"
                 type = "audio"
-            elif content_type == 'video/mp4' or str(url).endswith(".mp4"):
+            elif content_type == 'video/mp4' or str(input).endswith(".mp4"):
                 ext = "mp4"
                 type = "video"
-            elif content_type == 'video/avi' or str(url).endswith(".avi"):
+            elif content_type == 'video/avi' or str(input).endswith(".avi"):
                 ext = "avi"
                 type = "video"
-            elif content_type == 'video/mov' or str(url).endswith(".mov"):
+            elif content_type == 'video/mov' or str(input).endswith(".mov"):
                 ext = "mov"
                 type = "video"
 
@@ -609,265 +588,109 @@ def organizeInputData(event, request_form):
         if not db_entry_exists(request_form, session, "name", "Sessions"):
             duration = end_time - start_time
             add_new_session_to_db(request_form, duration)
+def isBlackListed(pubkey):
+    # Store  lists of blacklisted npubs that can no do processing
+    # todo blacklisting and whitelsting should be moved to a database and probably get some expiry
+    blacklisted_all_tasks = []
+    if any(pubkey == c for c in blacklisted_all_tasks):
+        return True
+    return False
+def isWhiteListed(pubkey, task):
+    # Store  ists of whistlisted npubs that can do free processing for specific tasks
+    pablof7z = "fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52"
+    localnostrtest = "558497db304332004e59387bc3ba1df5738eac395b0e56b45bfb2eb5400a1e39"
+    # PublicKey.from_npub("npub...").hex()
+    whitelsited_npubs_speechtotext = [localnostrtest]  # remove this to test LN Zaps
+    whitelsited_npubs_translation = [localnostrtest]
+    whitelsited_npubs_texttoimage = [localnostrtest]
+    whitelsited_npubs_imagetoimage = [localnostrtest]
+    whitelsited_npubs_imageupscale = [localnostrtest]
+    whitelsited_npubs_chat = [localnostrtest]
 
+    whitelsited_all_tasks = []
 
-def createRequestFormfromNostrEvent(event, isBot=False):
-    # Only call this if config is not available, adjust function to your db
-    # savConfig()
-    task = getTask(event)
+    if (task == "speech-to-text"):
+        if any(pubkey == c for c in whitelsited_npubs_speechtotext) or any(
+                pubkey == c for c in whitelsited_all_tasks):
+            return True
+    elif (task == "translation"):
+        if any(pubkey == c for c in whitelsited_npubs_translation) or any(
+                pubkey == c for c in whitelsited_all_tasks):
+            return True
+    elif (task == "text-to-image"):
+        if any(pubkey == c for c in whitelsited_npubs_texttoimage) or any(
+                pubkey == c for c in whitelsited_all_tasks):
+            return True
+    elif (task == "image-to-image"):
+        if any(pubkey == c for c in whitelsited_npubs_imagetoimage) or any(
+                pubkey == c for c in whitelsited_all_tasks):
+            return
+    elif (task == "image-upscale"):
+        if any(pubkey == c for c in whitelsited_npubs_imageupscale) or any(
+                pubkey == c for c in whitelsited_all_tasks):
+            return True
+    elif (task == "chat"):
+        if any(pubkey == c for c in whitelsited_npubs_chat) or any(pubkey == c for c in whitelsited_all_tasks):
+            return True
+    return False
+def sendEvent(event):
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    cl = Client(keys)
 
-    # Read config.ini file
-    config_object = ConfigParser()
-    config_object.read("nostrconfig.ini")
-    if len(config_object) == 1:
-        dbUser = input("Please enter a DB User:\n")
-        dbPassword = input("Please enter DB User Password:\n")
-        dbServer = input("Please enter a DB Host:\n")
-        SaveConfig(dbUser, dbPassword, dbServer, "nostr_test", "nostr", "system")
-        config_object.read("nostrconfig.ini")
-
-    userinfo = config_object["USERINFO"]
-    serverconfig = config_object["SERVERCONFIG"]
-
-    request_form = {}
-    request_form["dbServer"] = serverconfig["dbServer"]
-    request_form["dbUser"] = userinfo["dbUser"]
-    request_form["dbPassword"] = userinfo["dbPassword"]
-    request_form["database"] = serverconfig["database"]
-    request_form["roles"] = serverconfig["roles"]
-    request_form["annotator"] = serverconfig["annotator"]
-    request_form["flattenSamples"] = "false"
-    request_form["jobID"] = event.id
-
-    request_form["frameSize"] = 0
-    request_form["stride"] = request_form["frameSize"]
-    request_form["leftContext"] = 0
-    request_form["rightContext"] = 0
-    request_form["nostrEvent"] = str(event.to_dict())
-    request_form["sessions"] = event.id
-    if(isBot):
-        request_form["isBot"] = "True"
+    for tag in event.tags():
+        if tag.as_vec()[0] == 'relays':
+            relays = tag.as_vec()[1].split(',')
+            for relay in relays:
+                cl.add_relay(relay)
     else:
-        request_form["isBot"] = "False"
+        for relay in relay_list:
+            cl.add_relay(relay)
 
-    # defaults might be overwritten by nostr event
-    alignment = "raw"
-    request_form["startTime"] = 0
-    request_form["endTime"] = 0
-
-    params = event.get_tag_list('params')
-    for param in params:
-        if param[0] == "range":  # check for paramtype
-            request_form["startTime"] = re.sub('\D', '', param[1])
-            request_form["endTime"] = re.sub('\D', '', param[2])
-        elif param[0] == "alignment":  # check for paramtype
-            alignment = param[1]
-        elif param[0] == "length":  # check for paramtype
-            length = param[1]
-        elif param[0] == "language":  # check for paramtype
-            translation_lang = str(param[1]).split('-')[0]
-
-    if task == "speech-to-text":
-        # Declare specific model type e.g. whisperx_large-v2
-        request_form["mode"] = "PREDICT"
-        #if len(event.get_tag_list('j')[0]) > 1:
-        #    model = event.get_tag_list('j')[0][1]
-        #    modelopt = str(model).split('_')[1]
-        #else:
-        modelopt = "large-v2"
-
-        request_form["schemeType"] = "FREE"
-        request_form["scheme"] = "transcript"
-        request_form["streamName"] = "audio"
-        request_form["trainerFilePath"] = 'models\\trainer\\' + str(request_form["schemeType"]).lower() + '\\' + str(
-            request_form["scheme"]) + '\\audio{audio}\\whisperx\\whisperx_transcript.trainer'
-        request_form["optStr"] = 'model=' + modelopt + ';alignment_mode=' + alignment + ';batch_size=2'
-
-
-
-    elif task == "translation":
-        request_form["mode"] = "PREDICT_STATIC"
-        # outsource this to its own script, ideally. This is not using the database for now, but probably should.
-        inputtype = "event"
-        if len(event.get_tag_list('i')[0]) > 1:
-            inputtype = event.get_tag_list('i')[0][1]
-        if inputtype == "event":
-            sourceid = event.get_tag_list('i')[0][0]
-            relay_managers = RelayManager(timeout=relaytimeout)
-            relay_managers.add_relay_list(rl)
-
-            filters = FiltersList([Filters(ids=[sourceid], limit=5)])
-            subscription_id = uuid.uuid1().hex
-            relay_managers.add_subscription_on_all_relays(subscription_id, filters)
-            relay_managers.run_sync()
-
-            event_msg = relay_managers.message_pool.get_event()
-            relay_managers.close_all_relay_connections()
-            text = event_msg.event.content
-        elif inputtype == "text":
-             text = event.get_tag_list('i')[0][0]
-        request_form["optStr"] = 'text=' + text + ';translation_lang=' + translation_lang
-
-    elif task == "chat":
-        request_form["mode"] = "PREDICT_STATIC"
-        request_form["trainerFilePath"] = 'chat'
-        print("[Nostr] Chat request ")
-        if event.get_tag_list('i')[0][1] == "text":
-            text = event.get_tag_list('i')[0][0]
-        request_form["optStr"] = 'message=' + text
-
-        # add length variableF
-    elif task == "summarization":
-        request_form["mode"] = "PREDICT_STATIC"
-        print("[Nostr] Not supported yet")
-        # call OpenAI API or use a local LLM
-        # add length variableF
-
-    elif task == "image-to-image":
-        request_form["mode"] = "PREDICT_STATIC"
-
-        if event.get_tag_list('i')[0][1] == "url":
-            url = event.get_tag_list('i')[0][0]
-
-        prompt = ""
-        negative_prompt = ""
-        strength = 0.75
-        guidance_scale = 7.5
-        params = event.get_tag_list('params')
-        for param in params:
-            if param[0] == "prompt":  # check for paramtype
-                prompt = param[1]
-            elif param[0] == "negative_prompt":  # check for paramtype
-                negative_prompt = param[1]
-            elif param[0] == "strength":  # check for paramtype
-                strength = float(param[1])
-            elif param[0] == "guidance_scale":  # check for paramtype
-                guidance_scale = float(param[1])
-        request_form["optStr"] = 'url=' + url + ';prompt=' + prompt + ';negative_prompt=' + negative_prompt + ';strength=' + strength + ';guidance_scale=' + guidance_scale
-
-
-    elif task == "text-to-image":
-        request_form["mode"] = "PREDICT_STATIC"
-        request_form["trainerFilePath"] = 'text-to-image'
-
-        if event.get_tag_list('i')[0][1] == "text":
-            prompt = event.get_tag_list('i')[0][0]
-        elif event.get_tag_list('i')[0][1] == "event":
-            sourceid = event.get_tag_list('i')[0][0]
-            relay_managers = RelayManager(timeout=relaytimeout)
-            relay_managers.add_relay_list(rl)
-
-            filters = FiltersList([Filters(ids=[sourceid], limit=5)])
-            subscription_id = uuid.uuid1().hex
-            relay_managers.add_subscription_on_all_relays(subscription_id, filters)
-            relay_managers.run_sync()
-
-            event_msg = relay_managers.message_pool.get_event()
-            relay_managers.close_all_relay_connections()
-            prompt = event_msg.event.content
-
-        width = "512"
-        height = "512"
-        extra_prompt = ""
-        negative_prompt = ""
-        params = event.get_tag_list('params')
-        for param in params:
-            if param[0] == "prompt":  # check for paramtype
-                extra_prompt = param[1]
-            elif param[0] == "negative_prompt":  # check for paramtype
-                negative_prompt = param[1]
-            elif param[0] == "size":  # check for paramtype
-                width = param[1]
-                height = param[2]
-
-        request_form["optStr"] = 'prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt=' + negative_prompt + ';width=' + width + ';height=' + height
-
-    elif task == "image-upscale":
-        request_form["mode"] = "PREDICT_STATIC"
-        request_form["trainerFilePath"] = 'image-upscale'
-        # let's download an  image
-        if event.get_tag_list('i')[0][1] == "url":
-            url = event.get_tag_list('i')[0][0]
-            request_form["optStr"] = 'url=' + url
-
-    return request_form
-
-
-def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
-    reaction = '+'
-
-    if status == "started":
-        reaction = emoji.emojize(":thumbs_up:")
-    elif status == "success":
-        reaction = emoji.emojize(":call_me_hand:")
-    elif status == "failed":
-        reaction = emoji.emojize(":thumbs_down:")
-    elif status == "payment-required":
-        reaction = emoji.emojize(":orange_heart:")
-    elif status == "payment-accepted":
-        reaction = emoji.emojize(":smiling_face_with_open_hands:")
-    elif status == "payment-rejected":
-        reaction = emoji.emojize(":see_no_evil_monkey:")
-    elif status == "user-blocked-from-service":
-        reaction = emoji.emojize(":see_no_evil_monkey:")
-    else:
-        reaction = emoji.emojize(":see_no_evil_monkey:")
-
-    privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
-    pubkey = privkey.public_key
-    relay_managers = RelayManager(timeout=relaytimeout)
-
-    if len(originalevent.get_tag_list("relays")) > 0:
-        relaystosend = originalevent.get_tag_list("relays")[0]
-        # If no relays are given, use default
-    else:
-        relaystosend = []
-
-    if (len(relaystosend) == 0):
-        relay_managers.add_relay_list(rl)
-    # else use relays from tags
-    else:
-        for relay in relaystosend:
-            if relay not in ignore_url_list:
-                relay_managers.add_relay(relay)
-
-    event = Event(reaction)
-    event.kind = 65000
-    event.add_tag('e', originalevent.id)
-    event.add_tag('p', originalevent.pubkey)
-    event.add_tag('status', status)
-
-    if status == "success" or status == "failed":  #
-        for x in JobstoWatch:
-            if x.id == originalevent.id:
-                isPaid = x.isPaid
-                amount = x.amount
-                break
-
-    if status == "payment-required" or (status == "started" and not isPaid):
-        JobstoWatch.append(
-            JobToWatch(id=originalevent.id, timestamp=originalevent.created_at, amount=amount, isPaid=isPaid,
-                       status=status, result="", isProcessed=False))
-        print(str(JobstoWatch))
-    if status == "payment-required" or (status == "started" and not isPaid) or (status == "success" and not isPaid):
-        event.add_tag('amount', str(amount))
-    event.sign(privkey.hex())
-
-    relay_managers.publish_event(event)
-    relay_managers.run_sync()
-    time.sleep(3)
-
-    relay_managers.close_all_relay_connections()
-    print("[Nostr] Sent Kind 65000 Reaction: " + status + " " + str(event.to_dict()))
-
-    return event.to_dict()
-
-
+    cl.connect()
+    return cl.send_event(event)
+def getEvent(eventidstr):
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    cl = Client(keys)
+    for relay in relay_list:
+        cl.add_relay(relay)
+    cl.connect()
+    eventid = EventId.from_hex(eventidstr)
+    # orginalidfilter = Filter().event(eventid)
+    orginalidfilter = Filter().id(eventidstr)
+    # TODO trying to get the referring event from e tag here to further process it.
+    events = cl.get_events_of([orginalidfilter], None)
+    cl.disconnect()
+    if len(events) > 0:
+        return events[0]
+def getTask(event):
+        if event.kind() == 68001:  # legacy
+            for tag in event.tags():
+                if tag.as_vec()[0] == 'j':
+                    return tag.as_vec()[0]
+            else:
+                return "unknown job: " + event.as_json()
+        elif event.kind() == 4:  # dm
+            for tag in event.tags():
+                if tag.as_vec()[0] == 'j':
+                    return tag.as_vec()[0]
+            else:
+                return "unknown job: " + event.as_json()
+        elif event.kind() == 65002:
+            return "speech-to-text"
+        elif event.kind() == 65003:
+            return "summarization"
+        elif event.kind() == 65004:
+            return "translation"
+        elif event.kind() == 65005:
+            return "text-to-image"
+        elif event.kind() == 65006:
+            return "event-list-generation"
+        else:
+            return "unknown type"
 def CheckEventStatus(content, originaleventstr: str, useBot=False):
-    originalevent = Event.from_dict(json.loads(originaleventstr.replace("'", "\"")))
-
+    originalevent = Event.from_json(originaleventstr)
     for x in JobstoWatch:
-        if x.id == originalevent.id:
+        if x.id == originalevent.id().to_hex():
             isPaid = x.isPaid
             amount = x.amount
             x.result = content
@@ -890,64 +713,147 @@ def CheckEventStatus(content, originaleventstr: str, useBot=False):
         resultcontent = postprocessResult(content, originalevent)
         print(str(JobstoWatch))
         if (useBot):
-            privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
-            sendDM(privkey.hex(), originalevent.pubkey, "Your Result: \n\n" + resultcontent)
+            keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+            event = EventBuilder.new_encrypted_direct_msg(keys, originalevent.pubkey(),
+                                                          "Your Result: \n\n" + resultcontent).to_event(keys)
+            sendEvent(event)
+
         else:
             sendNostrReplyEvent(resultcontent, originaleventstr)
             sendJobStatusReaction(originalevent, "success")
-
-
-def postprocessResult(content, originalevent):
-    if len(originalevent.get_tag_list("output")) > 0:
-        if originalevent.get_tag_list("output")[0][0] == "text/plain":
-            result = ""
-            for name in content["name"]:
-                clearedName = str(name).lstrip("\'").rstrip("\'")
-                result = result + clearedName + "\n"
-            content = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
-        #TODO add more
-    return content
-
 def sendNostrReplyEvent(content, originaleventstr):
     # Once the Job is finished we reply with the results with a 68002 event
-    privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
-    pubkey = privkey.public_key
-    originalevent = Event.from_dict(json.loads(originaleventstr.replace("'", "\"")))
+    originalevent = Event.from_json(originaleventstr)
 
-    relay_managers = RelayManager(timeout=relaytimeout)
-    relaystosend = []
-    if len(originalevent.get_tag_list("relays")) > 0:
-        relaystosend = originalevent.get_tag_list("relays")[0]
-    # If no relays are given, use default
-    if (len(relaystosend) == 0):
-        relay_managers.add_relay_list(rl)
-    # else use relays from tags
-    else:
-        for relay in relaystosend:
-            if not relay in ignore_url_list:
-                relay_managers.add_relay(relay)
 
-    filters = FiltersList([Filters(authors=[pubkey.hex()], limit=100)])
-    subscription_id = uuid.uuid1().hex
-    relay_managers.add_subscription_on_all_relays(subscription_id, filters)
-    event = Event(str(content))
-    event.kind = 65001
-    event.add_tag('request', str(originalevent.to_dict()).replace("'", "\""))
-    event.add_tag('e', originalevent.id)
-    event.add_tag('p', originalevent.pubkey)
-    event.add_tag('status', "success")
-    event.sign(privkey.hex())
+    requesttag = Tag.parse(["request", originaleventstr.replace("\\", "")])
+    etag = Tag.parse(["e", originalevent.id().to_hex()])
+    ptag = Tag.parse(["p", originalevent.pubkey().to_hex()])
+    statustag = Tag.parse(["status", "success"])
 
-    relay_managers.publish_event(event)
-    relay_managers.run_sync()
-    time.sleep(relaytimeout)
-    relay_managers.close_all_relay_connections()
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    event = EventBuilder(65001, str(content), [requesttag, etag, ptag, statustag]).to_event(keys)
+    print(event.as_json())
+    sendEvent(event)
 
-    print("[Nostr] 65001 Job Response event sent: " + str(event.to_dict()))
+    print("[Nostr] 65001 Job Response event sent: " + event.as_json())
 
-    return event.to_dict()
+    return event.as_json()
+def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
+        if status == "started":
+            reaction = emoji.emojize(":thumbs_up:")
+        elif status == "success":
+            reaction = emoji.emojize(":call_me_hand:")
+        elif status == "failed":
+            reaction = emoji.emojize(":thumbs_down:")
+        elif status == "payment-required":
+            reaction = emoji.emojize(":orange_heart:")
+        elif status == "payment-accepted":
+            reaction = emoji.emojize(":smiling_face_with_open_hands:")
+        elif status == "payment-rejected":
+            reaction = emoji.emojize(":see_no_evil_monkey:")
+        elif status == "user-blocked-from-service":
+            reaction = emoji.emojize(":see_no_evil_monkey:")
+        else:
+            reaction = emoji.emojize(":see_no_evil_monkey:")
 
-# HELPER
+        etag = Tag.parse(["e", originalevent.id().to_hex()])
+        ptag = Tag.parse(["p", originalevent.pubkey().to_hex()])
+        statustag = Tag.parse(["status", status])
+        tags = [etag, ptag, statustag]
+
+        if status == "success" or status == "failed":  #
+            for x in JobstoWatch:
+                if x.id == originalevent.id():
+                    isPaid = x.isPaid
+                    amount = x.amount
+                    break
+        if status == "payment-required" or (status == "started" and not isPaid):
+            JobstoWatch.append(
+                JobToWatch(id=originalevent.id().to_hex(), timestamp=originalevent.created_at().as_secs(), amount=amount, isPaid=isPaid,
+                           status=status, result="", isProcessed=False))
+            print(str(JobstoWatch))
+        if status == "payment-required" or (status == "started" and not isPaid) or (status == "success" and not isPaid):
+            amounttag = Tag.parse(["amount", str(amount)])
+            tags.append(amounttag)
+
+        keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+        event = EventBuilder(65000, reaction, tags).to_event(keys)
+        event_id = sendEvent(event)
+        print("[Nostr] Sent Kind 65000 Reaction: " + status + " " + event.as_json())
+        return event.as_json()
+def postprocessResult(content, originalevent):
+    for tag in originalevent.tags():
+        if tag.as_vec()[0] == "output":
+            if tag.as_vec()[1] == "text/plain":
+                result = ""
+                for name in content["name"]:
+                    clearedName = str(name).lstrip("\'").rstrip("\'")
+                    result = result + clearedName + "\n"
+                content = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
+            # TODO add more
+
+    return content
+def checkTaskisSupported(event):
+    task = getTask(event)
+    print("Received new Task: " + task)
+    hasitag = False
+    for tag in event.tags():
+        if tag.as_vec()[0] == 'i':
+            input = tag.as_vec()[1]
+            inputtype = tag.as_vec()[2]
+            hasitag = True
+
+        elif tag.as_vec()[0] == 'output':
+            output = tag.as_vec()[1]
+            if output != "text/plain":
+                return False
+
+    if not hasitag:
+        return False
+
+    if task not in ResultConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
+        return False
+    if task == "translation" and (
+            inputtype != "event" and inputtype != "job" and inputtype != "text"):  # The input types per task
+        return False
+    if task == "translation" and len(event.content) > 4999:  # Google Services have a limit of 5000 signs
+        return False
+    if task == "speech-to-text" and inputtype != "url":  # The input types per task
+        return False
+    if task == "image-upscale" and inputtype != "url":  # The input types per task
+        return False
+    if inputtype == 'url' and not CheckUrlisReadable(input):
+        return False
+
+    return True
+def CheckUrlisReadable(url):
+    if not str(url).startswith("http"):
+        return False
+    # If it's a YouTube oder Overcast link, we suppose we support it
+    if str(url).replace("http://", "").replace("https://", "").replace("www.", "").replace("youtu.be/",
+                                                                                           "youtube.com?v=")[
+       0:11] == "youtube.com" and str(url).find("live") == -1:
+        return (checkYoutubeLinkValid(url))  # not live, protected etc
+    elif str(url).startswith("https://overcast.fm/"):
+        return True
+
+    # If link is comaptible with one of these file formats, it's fine.
+    req = requests.get(url)
+    content_type = req.headers['content-type']
+    if content_type == 'audio/x-wav' or str(url).endswith(".wav") \
+            or content_type == 'audio/mpeg' or str(url).endswith(".mp3") \
+            or content_type == 'image/png' or str(url).endswith(".png") \
+            or content_type == 'image/jpg' or str(url).endswith(".jpg") \
+            or content_type == 'image/jpeg' or str(url).endswith(".jpeg") \
+            or content_type == 'audio/ogg' or str(url).endswith(".ogg") \
+            or content_type == 'video/mp4' or str(url).endswith(".mp4") \
+            or content_type == 'video/avi' or str(url).endswith(".avi") \
+            or content_type == 'video/mov' or str(url).endswith(".mov"):
+        return True
+
+    # Otherwise we will not offer to do the job.
+    return False
 def SaveConfig(dbUser, dbPassword, dbServer, database, role, annotator):
     # Get the configparser object
     config_object = ConfigParser()
@@ -968,7 +874,15 @@ def SaveConfig(dbUser, dbPassword, dbServer, database, role, annotator):
     # Write the above sections to config.ini file
     with open('nostrconfig.ini', 'w') as conf:
         config_object.write(conf)
+def getIndexOfFirstLetter(ip):
+    index = 0
+    for c in ip:
+        if c.isalpha():
+            return index
+        else:
+            index = index + 1
 
+    return len(input);
 def ParseBolt11Invoice(invoice):
     remaininginvoice = invoice[4:]
     index = getIndexOfFirstLetter(remaininginvoice)
@@ -986,58 +900,11 @@ def ParseBolt11Invoice(invoice):
 
     return int(number)
 
-def getIndexOfFirstLetter(ip):
-    index = 0
-    for c in ip:
-        if c.isalpha():
-            return index
-        else:
-            index = index + 1
+if __name__ == '__main__':
+    os.environ["NOVA_DATA_DIR"] = "W:\\nova\\data"
+    os.environ["NOVA_NOSTR_KEY"] = "privkey"
+    os.environ["NOVA_HOST"] = "127.0.ß.1"
+    os.environ["NOVA_PORT"] = "27017"
+    nostr_client()
 
-    return len(input);
 
-def isBlackListed(pubkey):
-    # Store  lists of blacklisted npubs that can no do processing
-    #todo blacklisting and whitelsting should be moved to a database and probably get some expiry
-    blacklisted_all_tasks = []
-    if any(pubkey == c for c in blacklisted_all_tasks):
-        return True
-    return False
-
-def isWhiteListed(pubkey, task):
-    privkey = PrivateKey.from_hex(os.environ["NOVA_NOSTR_KEY"])
-    # Store a list of whistlisted npubs that can do free processing
-
-    # Store  ists of whistlisted npubs that can do free processing for specific tasks
-    pablo7z = "fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52"
-    dbth = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
-    localnostrtest = "558497db304332004e59387bc3ba1df5738eac395b0e56b45bfb2eb5400a1e39"
-    # PublicKey.from_npub("npub...").hex()
-    whitelsited_npubs_speechtotext = [localnostrtest, pablo7z]  # remove this to test LN Zaps
-    whitelsited_npubs_translation = [localnostrtest]
-    whitelsited_npubs_texttoimage = [localnostrtest]
-    whitelsited_npubs_imagetoimage = [localnostrtest]
-    whitelsited_npubs_imageupscale = [localnostrtest]
-    whitelsited_npubs_chat = [localnostrtest]
-
-    whitelsited_all_tasks = [privkey.public_key.hex()]
-
-    if (task == "speech-to-text"):
-        if any(pubkey == c for c in whitelsited_npubs_speechtotext) or any(pubkey == c for c in whitelsited_all_tasks):
-            return True
-    elif (task == "translation"):
-        if any(pubkey == c for c in whitelsited_npubs_translation) or any(pubkey == c for c in whitelsited_all_tasks):
-            return True
-    elif (task == "text-to-image"):
-        if any(pubkey == c for c in whitelsited_npubs_texttoimage) or any(pubkey == c for c in whitelsited_all_tasks):
-            return True
-    elif (task == "image-to-image"):
-        if any(pubkey == c for c in whitelsited_npubs_imagetoimage) or any(pubkey == c for c in whitelsited_all_tasks):
-            return
-    elif (task == "image-upscale"):
-        if any(pubkey == c for c in whitelsited_npubs_imageupscale) or any(pubkey == c for c in whitelsited_all_tasks):
-            return True
-    elif (task == "chat"):
-        if any(pubkey == c for c in whitelsited_npubs_chat) or any(pubkey == c for c in whitelsited_all_tasks):
-            return True
-    return False

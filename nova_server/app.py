@@ -16,7 +16,7 @@ import argparse
 import os
 from pathlib import Path
 from waitress import serve
-from nova_server.utils.nostr_utils import nostrReceiveAndManageNewEvents
+from nova_server.utils.nostr_utils import nostr_client
 
 
 print("Starting nova-backend server...")
@@ -143,7 +143,7 @@ print("...done")
 
 def checkNostrStatus():
     while True:
-        nostrReceiveAndManageNewEvents() # Server
+        nostr_client()
         #nostclientWaitforEvents() #Client
         sleep(5)
 # if Nostr key is set, check for new NIP?? events
@@ -153,7 +153,7 @@ if(args.nostr_key != ""):
 
 serve(app, host=host, port=port)
 
-if(args.nostr_key != ""):
-    nostrthread.join()
+#if(args.nostr_key != ""):
+   # nostrthread.join()
 
 
