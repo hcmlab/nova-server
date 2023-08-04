@@ -127,12 +127,22 @@ def extract_data(request_form):
 
             # Load chain link module
             model_script_path = chain_file_path.parent / cl.script
-            source = SourceFileLoader(
-                "ns_cl_" + model_script_path.stem, str(model_script_path)
-            ).load_module()
-            import_utils.assert_or_install_dependencies(
-                source.REQUIREMENTS, Path(model_script_path).stem
-            )
+            if (p := (model_script_path.parent / 'requirements.txt')).exists():
+                with open(p) as f:
+                    import_utils.assert_or_install_dependencies(
+                        f.read().splitlines(), Path(model_script_path).stem
+                    )
+                source = SourceFileLoader(
+                    "ns_cl_" + model_script_path.stem, str(model_script_path)
+                ).load_module()
+            #TODO: remove else block once every script is migrated to requirements.txt
+            else:
+                source = SourceFileLoader(
+                    "ns_cl_" + model_script_path.stem, str(model_script_path)
+                ).load_module()
+                import_utils.assert_or_install_dependencies(
+                    source.REQUIREMENTS, Path(model_script_path).stem
+                )
             logger.info(f"Extraction module {Path(model_script_path).name} loaded")
             extractor_class = getattr(source, cl.create)
             extractor = extractor_class(logger, log_conform_request)

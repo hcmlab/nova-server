@@ -98,12 +98,22 @@ def predict_data(request_form):
 
     # Load Trainer
     model_script_path = (trainer_file_path.parent / PureWindowsPath(trainer.model_script_path)).resolve()
-    source = SourceFileLoader(
-        "ns_tr_" + model_script_path.stem, str(model_script_path)
-    ).load_module()
-    import_utils.assert_or_install_dependencies(
-        source.REQUIREMENTS, Path(model_script_path).stem
-    )
+    if (p := (model_script_path.parent / 'requirements.txt')).exists():
+        with open(p) as f:
+            import_utils.assert_or_install_dependencies(
+                f.read().splitlines(), Path(model_script_path).stem
+            )
+        source = SourceFileLoader(
+            "ns_cl_" + model_script_path.stem, str(model_script_path)
+        ).load_module()
+    # TODO: remove else block once every script is migrated to requirements.txt
+    else:
+        source = SourceFileLoader(
+            "ns_cl_" + model_script_path.stem, str(model_script_path)
+        ).load_module()
+        import_utils.assert_or_install_dependencies(
+            source.REQUIREMENTS, Path(model_script_path).stem
+        )
     logger.info(f"Trainer module {Path(model_script_path).name} loaded")
     trainer_class = getattr(source, trainer.model_create)
     predictor = trainer_class(logger, log_conform_request)
