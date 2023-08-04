@@ -267,6 +267,6 @@ def extract_data(request_form):
 
                     logger.info("...done")
 
-        logger.info("Extraction completed!")
-        update_progress(key, "Done")
-        status_utils.update_status(key, status_utils.JobStatus.FINISHED)
+    logger.info("Extraction completed!")
+    update_progress(key, "Done")
+    status_utils.update_status(key, status_utils.JobStatus.FINISHED)
