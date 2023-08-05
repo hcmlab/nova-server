@@ -92,6 +92,7 @@ def nostr_client():
                     task = getTask(event)
                     if isWhiteListed(event.pubkey().to_hex(), task):
                         print("[Nostr] Whitelisted for task " + task + ". Starting processing..")
+                        sendJobStatusReaction(event, "processing", True, 0)
                         doWork(event, True)
                     # otherwise send payment request
                     else:
@@ -239,8 +240,8 @@ def nostr_client():
                                                                 height = i.replace("height ", "")
                                                         jTag = Tag.parse(["j", "text-to-image"])
                                                         iTag = Tag.parse(["i", prompt, "text"])
-                                                        paramTag = Tag.parse(["params", "negative_prompt", negative_prompt])
-                                                        paramTag2 = Tag.parse(["params", "size", width, height])
+                                                        paramTag = Tag.parse(["param", "negative_prompt", negative_prompt])
+                                                        paramTag2 = Tag.parse(["param", "size", width, height])
                                                         pTag = Tag.parse(["p", evt.pubkey().to_hex()])
                                                         tags = [jTag, iTag, pTag, paramTag, paramTag2]
                                                         event = EventBuilder(4, "", tags).to_event(keys)
@@ -272,9 +273,9 @@ def nostr_client():
                                                      jTag = Tag.parse(["j", "speech-to-text"])
                                                      iTag = Tag.parse(["i", url, "url"])
                                                      oTag = Tag.parse(["output", "text/plain"])
-                                                     paramsTag = Tag.parse(["params", "range", start, end])
+                                                     paramTag = Tag.parse(["param", "range", start, end])
                                                      pTag = Tag.parse(["p", evt.pubkey().to_hex()])
-                                                     tags = [jTag, iTag, oTag, pTag, paramsTag]
+                                                     tags = [jTag, iTag, oTag, pTag, paramTag]
                                                      event = EventBuilder(4, "", tags).to_event(keys)
                                                      doWork(event, isPaid=True, isFromBot=True)
 
@@ -342,12 +343,12 @@ def nostr_client():
         request_form["endTime"] = "0"
 
         for tag in event.tags():
-            if tag.as_vec()[0] == 'params':
+            if tag.as_vec()[0] == 'param':
                 print(tag.as_vec())
                 param = tag.as_vec()[1]
                 if param == "range":  # check for paramtype
-                    request_form["startTime"] = re.sub('\D', '', tag.as_vec()[2])
-                    request_form["endTime"] = re.sub('\D', '', tag.as_vec()[3])
+                    request_form["startTime"] = tag.as_vec()[2]
+                    request_form["endTime"] = tag.as_vec()[3]
                 elif param == "alignment":  # check for paramtype
                     alignment = tag.as_vec()[2]
                 elif param == "length":  # check for paramtype
@@ -420,7 +421,7 @@ def nostr_client():
                     type = tag.as_vec()[2]
                     if type == "url":
                         url = tag.as_vec()[1]
-                elif tag.as_vec()[0] == 'params':
+                elif tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == "prompt":  # check for paramtype
                         prompt = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "negative_prompt":  # check for paramtype
@@ -451,7 +452,7 @@ def nostr_client():
                         #evt = events[0]
                         evt = getEvent(tag.as_vec()[1])
                         prompt = evt.content()
-                elif tag.as_vec()[0] == 'params':
+                elif tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == "extra_prompt":  # check for paramtype
                         extra_prompt = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "negative_prompt":  # check for paramtype
@@ -488,8 +489,7 @@ def nostr_client():
                 print("[Nostr] Adding " + task + " Job event: " + Jobevent.as_json())
 
             if (Jobevent.kind() >= 65002 and Jobevent.kind() < 66000) or Jobevent.kind() == 68001:
-                sendJobStatusReaction(Jobevent, "processing", isPaid, amount)
-            url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(
+                url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(
                 request_form["mode"]).lower()
             headers = {'Content-type': 'application/x-www-form-urlencoded'}
             requests.post(url, headers=headers, data=request_form)
