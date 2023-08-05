@@ -1,7 +1,7 @@
 import os
 import urllib
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import timedelta
 from urllib.parse import urlparse
 import requests
 import emoji
@@ -10,7 +10,7 @@ import ffmpegio
 from decord import AudioReader, cpu
 from nostr_sdk import Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, nip04_decrypt, EventId, init_logger, LogLevel
 import time
-from nostr_sdk.nostr_sdk import Duration, PublicKey
+from nostr_sdk.nostr_sdk import PublicKey
 
 from nova_server.utils.db_utils import db_entry_exists, add_new_session_to_db
 from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube, checkYoutubeLinkValid
@@ -27,6 +27,10 @@ from configparser import ConfigParser
 # add more output formats (webvtt, srt)
 # add summarization task (GPT4all?, OpenAI api?) in own module
 # purge database and files from time to time?
+# Show preview of longer transcriptions, then ask for zap
+# TASK: OCR
+# TASK: LLAMA2
+# TASK:
 
 
 class ResultConfig:
@@ -96,7 +100,7 @@ def nostr_client():
                             if tag.as_vec()[0] == 'bid':
                                 bid = int(tag.as_vec()[1])
 
-                        amount = 1000000
+                        amount = 10000
                         if task == "translation":
                             duration = 1  # todo get task duration
                             amount = ResultConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
@@ -170,7 +174,7 @@ def nostr_client():
                                 for tag in zapableevent.tags():
                                     amount = 0
                                     if tag.as_vec()[0] == 'amount':
-                                        amount = int(tag.as_vec()[0])
+                                        amount = int(float(tag.as_vec()[1]))
                                     elif tag.as_vec()[0] == 'e':
                                         #jobidfilter = Filter().id(tag.as_vec()[1])
                                         #events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
@@ -178,27 +182,26 @@ def nostr_client():
                                         jobevent = getEvent(tag.as_vec()[1])
                                         print("[Nostr] Original Job Request event found...")
 
-                                        if (int(amount) <= invoicesats * 1000):
-                                            print("[Nostr] Payment-request fulfilled...")
-                                            sendJobStatusReaction(jobevent, "payment-accepted")
-                                            print(jobevent.id().to_hex())
-                                            indices = [i for i, x in enumerate(JobstoWatch) if
-                                                       x.id == jobevent.id().to_hex()]
-                                            index = -1
-                                            if len(indices) > 0:
-                                                index = indices[0]
-                                            if (index > -1):
-                                                # todo also remove ids after x time of waiting, need to store pairs of id / timestamp for that
-                                                if (JobstoWatch[index]).isProcessed:  # If payment-required appears after processing
-                                                    JobstoWatch[index].isPaid = True
-                                                    CheckEventStatus(JobstoWatch[index].result, str(jobevent.as_json()))
-                                                elif not (JobstoWatch[
-                                                    index]).isProcessed:  # If payment-required appears before processing
-                                                    JobstoWatch.pop(index)
-                                                    doWork(jobevent, True)
-                                        else:
-                                            sendJobStatusReaction(jobevent, "payment-rejected", invoicesats * 1000)
-                                            print("[Nostr] Invoice was not paid sufficiently")
+                                if amount <= invoicesats * 1000:
+                                    print("[Nostr] Payment-request fulfilled...")
+                                    sendJobStatusReaction(jobevent, "processing")
+                                    #print(jobevent.id().to_hex())
+                                    indices = [i for i, x in enumerate(JobstoWatch) if
+                                               x.id == jobevent.id().to_hex()]
+                                    index = -1
+                                    if len(indices) > 0:
+                                        index = indices[0]
+                                    if (index > -1):
+                                        # todo also remove ids after x time of waiting, need to store pairs of id / timestamp for that
+                                        if (JobstoWatch[index]).isProcessed:  # If payment-required appears after processing
+                                            JobstoWatch[index].isPaid = True
+                                            CheckEventStatus(JobstoWatch[index].result, str(jobevent.as_json()))
+                                        elif not (JobstoWatch[index]).isProcessed:  # If payment-required appears before processing
+                                            JobstoWatch.pop(index)
+                                            doWork(jobevent, True)
+                                else:
+                                    sendJobStatusReaction(jobevent, "payment-rejected", invoicesats * 1000)
+                                    print("[Nostr] Invoice was not paid sufficiently")
 
                             elif zapableevent.kind() == 4:
                                 if invoicesats >= ResultConfig.COSTPERUNIT_IMAGEPROCESSING:
@@ -485,7 +488,7 @@ def nostr_client():
                 print("[Nostr] Adding " + task + " Job event: " + Jobevent.as_json())
 
             if (Jobevent.kind() >= 65002 and Jobevent.kind() < 66000) or Jobevent.kind() == 68001:
-                sendJobStatusReaction(Jobevent, "started", isPaid, amount)
+                sendJobStatusReaction(Jobevent, "processing", isPaid, amount)
             url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(
                 request_form["mode"]).lower()
             headers = {'Content-type': 'application/x-www-form-urlencoded'}
@@ -505,7 +508,7 @@ def getEvent(eventidstr):
     # orginalidfilter = Filter().event(eventid)
     filter = Filter().id(eventidstr)
     events = cl.get_events_of([filter], timedelta(seconds=relaytimeout))
-    #cl.disconnect()
+    cl.disconnect()
     if len(events) > 0:
         return events[0]
 def organizeInputData(event, request_form):
@@ -684,7 +687,7 @@ def sendEvent(event):
 
     cl.connect()
     id = cl.send_event(event)
-    #cl.disconnect()
+    cl.disconnect()
     return id
 def getTask(event):
         if event.kind() == 68001:  # legacy
@@ -765,7 +768,7 @@ def sendNostrReplyEvent(content, originaleventstr):
 
     return event.as_json()
 def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
-        if status == "started":
+        if status == "processing":
             reaction = emoji.emojize(":thumbs_up:")
         elif status == "success":
             reaction = emoji.emojize(":call_me_hand:")
@@ -773,8 +776,8 @@ def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
             reaction = emoji.emojize(":thumbs_down:")
         elif status == "payment-required":
             reaction = emoji.emojize(":orange_heart:")
-        elif status == "payment-accepted":
-            reaction = emoji.emojize(":smiling_face_with_open_hands:")
+       # elif status == "payment-accepted":
+       #     reaction = emoji.emojize(":smiling_face_with_open_hands:")
         elif status == "payment-rejected":
             reaction = emoji.emojize(":see_no_evil_monkey:")
         elif status == "user-blocked-from-service":
@@ -793,12 +796,12 @@ def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
                     isPaid = x.isPaid
                     amount = x.amount
                     break
-        if status == "payment-required" or (status == "started" and not isPaid):
+        if status == "payment-required" or (status == "processing" and not isPaid):
             JobstoWatch.append(
                 JobToWatch(id=originalevent.id().to_hex(), timestamp=originalevent.created_at().as_secs(), amount=amount, isPaid=isPaid,
                            status=status, result="", isProcessed=False))
             print(str(JobstoWatch))
-        if status == "payment-required" or (status == "started" and not isPaid) or (status == "success" and not isPaid):
+        if status == "payment-required" or (status == "processing" and not isPaid) or (status == "success" and not isPaid):
             amounttag = Tag.parse(["amount", str(amount)])
             tags.append(amounttag)
 
