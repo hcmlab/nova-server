@@ -7,7 +7,6 @@ from datetime import timedelta
 from urllib.parse import urlparse
 import requests
 import emoji
-import re
 import ffmpegio
 from decord import AudioReader, cpu
 from nostr_sdk import Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, nip04_decrypt, EventId, init_logger, LogLevel
@@ -35,8 +34,10 @@ from configparser import ConfigParser
 # TASK:
 
 
-class ResultConfig:
+class DVMConfig:
     SUPPORTED_TASKS = ["speech-to-text", "translation", "text-to-image", "image-to-image", "image-upscale", "chat"]
+    LNBITS_INVOICE_KEY = 'bfdfb5ecfc0743daa08749ce58abea74'
+    LNBITS_INVOICE_URL = 'https://ln.novaannotation.com/createLightningInvoice'
     AUTOPROCESS_MIN_AMOUNT: int = 1000000000000  # auto start processing if min Sat amount is given
     AUTOPROCESS_MAX_AMOUNT: int = 0  # if this is 0 and min is very big, autoprocess will not trigger
     SHOWRESULTBEFOREPAYMENT: bool = True  # if this flag is true show results even when not paid (in the end, right after autoprocess)
@@ -73,13 +74,8 @@ def nostr_client():
         client.add_relay(relay)
     client.connect()
 
-    dmzapfilter = Filter().pubkey(pk).kind(4).kind(9735).since(Timestamp.now())
-    dvmfilter = Filter().kind(68001) \
-        .kind(65002) \
-        .kind(65003) \
-        .kind(65004) \
-        .kind(65005) \
-        .since(Timestamp.now())
+    dmzapfilter = Filter().pubkey(pk).kinds([4, 9735]).since(Timestamp.now())
+    dvmfilter = (Filter().kinds([68001, 65002, 65003, 65004, 65005]).since(Timestamp.now()))
     client.subscribe([dmzapfilter, dvmfilter])
 
     class NotificationHandler(HandleNotification):
@@ -88,14 +84,14 @@ def nostr_client():
             print(f"Received new event from {relay_url}: {event.as_json()}")
             if (65002 <= event.kind() <= 66000) or event.kind() == 68001:  # legacy:
                 if isBlackListed(event.pubkey):
-                    sendJobStatusReaction(event, "user-blocked-from-service")
+                    sendJobStatusReaction(event, "error")
                     print("Request by blacklisted user, skipped")
                 elif checkTaskisSupported(event):
                     task = getTask(event)
                     if isWhiteListed(event.pubkey().to_hex(), task):
                         print("[Nostr] Whitelisted for task " + task + ". Starting processing..")
                         sendJobStatusReaction(event, "processing", True, 0)
-                        doWork(event, True)
+                        doWork(event, isFromBot=False)
                     # otherwise send payment request
                     else:
                         bid = 0
@@ -106,33 +102,33 @@ def nostr_client():
                         amount = 10000
                         if task == "translation":
                             duration = 1  # todo get task duration
-                            amount = ResultConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
+                            amount = DVMConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
                             print("[Nostr][Payment required] New Nostr translation Job event: " + event.as_json())
                         elif task == "speech-to-text":
                             duration = 1  # todo get task duration
-                            amount = ResultConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
+                            amount = DVMConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
                             print("[Nostr][Payment required] New Nostr speech-to-text Job event: " + event.as_json())
                         elif task == "text-to-image":
-                            amount = ResultConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
+                            amount = DVMConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
                             print("[Nostr][Payment required] New Nostr generate Image Job event: " + event.as_json())
                         elif task == "image-to-image":
                             # todo get image size
-                            amount = ResultConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
+                            amount = DVMConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
                             print("[Nostr][Payment required] New Nostr convert Image Job event: " + event.as_json())
                         elif task == "image-upscale":
-                            amount = ResultConfig.COSTPERUNIT_IMAGEUPSCALING * 1000  # *1000 because millisats
+                            amount = DVMConfig.COSTPERUNIT_IMAGEUPSCALING * 1000  # *1000 because millisats
                             print("[Nostr][Payment required] New Nostr upscale Image Job event: " + event.as_json())
                         elif task == "chat":
-                            amount = ResultConfig.COSTPERUNIT_IMAGEUPSCALING * 1000  # *1000 because millisats
+                            amount = DVMConfig.COSTPERUNIT_IMAGEUPSCALING * 1000  # *1000 because millisats
                             print("[Nostr][Payment required] New Nostr Chat Job event: " + event.as_json())
                         else:
                             print("[Nostr] Task " + task + " is currently not supported by this instance")
                         if bid > 0:
                             willingtopay = bid
-                            if willingtopay > ResultConfig.AUTOPROCESS_MIN_AMOUNT * 1000 or willingtopay < ResultConfig.AUTOPROCESS_MAX_AMOUNT * 1000:
+                            if willingtopay > DVMConfig.AUTOPROCESS_MIN_AMOUNT * 1000 or willingtopay < DVMConfig.AUTOPROCESS_MAX_AMOUNT * 1000:
                                 print("[Nostr][Auto-processing: Payment suspended to end] Job event: " + str(
                                     event.as_json()))
-                                doWork(event, False, willingtopay)
+                                doWork(event, isFromBot=False)
                             else:
                                 if willingtopay >= amount:
                                     sendJobStatusReaction(event, "payment-required", False,
@@ -151,14 +147,26 @@ def nostr_client():
                 try:
                     dec_text = nip04_decrypt(sk, event.pubkey(), event.content())
                     print(f"Received new msg: {dec_text}")
-                    if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-speech-to-text") or str(
-                            dec_text).startswith("-image-upscale"):
-                        time.sleep(3.0)
-                        event = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "Payment required, please zap this note with at least " + str(ResultConfig.COSTPERUNIT_IMAGEPROCESSING) + " Sats ..", event.id()).to_event(keys)
 
-                        JobstoWatch.append(JobToWatch(id=event.id().to_hex(), timestamp=event.created_at().as_secs(), amount=50,
-                                       isPaid=False, status="payment-required", result="", isProcessed=False))
-                        client.send_event(event)
+                    if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-speech-to-text") or str(dec_text).startswith("-image-upscale"):
+                        task = str(dec_text).split(' ')[0].removeprefix('-')
+                        print(task)
+                        time.sleep(3.0)
+                        if isWhiteListed(event.pubkey().to_hex(), task):
+                            evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
+                                                                          "Whitelisted, processing started.\n\nI will DM you once your task is ready.",
+                                                                          None).to_event(keys)
+                            sendEvent(evt)
+                            tags = parsebotcommandtoevent(dec_text)
+                            tags.append(Tag.parse(["p", event.pubkey().to_hex()]))
+                            evt = EventBuilder(4, "", tags).to_event(keys)
+                            print(evt.as_json())
+                            doWork(evt, isFromBot=True)
+
+                        else:
+                             event = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "Payment required, please zap this note with at least " + str(DVMConfig.COSTPERUNIT_IMAGEPROCESSING) + " Sats ..", event.id()).to_event(keys)
+                             JobstoWatch.append(JobToWatch(id=event.id().to_hex(), timestamp=event.created_at().as_secs(), amount=50,isPaid=False, status="payment-required", result="", isProcessed=False))
+                             client.send_event(event)
                 except Exception as e:
                     print(f"Error during content decryption: {e}")
             elif event.kind() == 9735:
@@ -170,27 +178,19 @@ def nostr_client():
                         elif tag.as_vec()[0] == 'e':
                             print(tag.as_vec()[1])
                             zapableevent = getEvent(tag.as_vec()[1])
-                            #orginalidfilter = Filter().id(tag.as_vec()[1])
-                            #events = client.get_events_of([orginalidfilter], timedelta(seconds=relaytimeout))
-                            #zapableevent = events[0]
                             if (zapableevent.kind() == 65000):  # if a reaction by us got zapped
                                 for tag in zapableevent.tags():
                                     amount = 0
                                     if tag.as_vec()[0] == 'amount':
                                         amount = int(float(tag.as_vec()[1]))
                                     elif tag.as_vec()[0] == 'e':
-                                        #jobidfilter = Filter().id(tag.as_vec()[1])
-                                        #events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
-                                        #jobevent = events[0]
                                         jobevent = getEvent(tag.as_vec()[1])
                                         print("[Nostr] Original Job Request event found...")
 
                                 if amount <= invoicesats * 1000:
                                     print("[Nostr] Payment-request fulfilled...")
                                     sendJobStatusReaction(jobevent, "processing")
-                                    #print(jobevent.id().to_hex())
-                                    indices = [i for i, x in enumerate(JobstoWatch) if
-                                               x.id == jobevent.id().to_hex()]
+                                    indices = [i for i, x in enumerate(JobstoWatch) if x.id == jobevent.id().to_hex()]
                                     index = -1
                                     if len(indices) > 0:
                                         index = indices[0]
@@ -201,22 +201,17 @@ def nostr_client():
                                             CheckEventStatus(JobstoWatch[index].result, str(jobevent.as_json()))
                                         elif not (JobstoWatch[index]).isProcessed:  # If payment-required appears before processing
                                             JobstoWatch.pop(index)
-                                            doWork(jobevent, True)
+                                            doWork(jobevent, isFromBot=False)
                                 else:
                                     sendJobStatusReaction(jobevent, "payment-rejected", invoicesats * 1000)
                                     print("[Nostr] Invoice was not paid sufficiently")
 
                             elif zapableevent.kind() == 4:
-                                if invoicesats >= ResultConfig.COSTPERUNIT_IMAGEPROCESSING:
+                                if invoicesats >= DVMConfig.COSTPERUNIT_IMAGEPROCESSING:
                                     print("[Nostr] Original Prompt Job Request event found...")
                                     for tag in zapableevent.tags():
                                         if tag.as_vec()[0] == 'e':
                                             evt = getEvent(tag.as_vec()[1])
-                                            #jobidfilter = Filter().id(tag.as_vec()[1])
-                                            #events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
-                                            #evt = events[0]
-                                            #print(evt.as_json())
-
                                             indices = [i for i, x in enumerate(JobstoWatch) if x.id == zapableevent.id().to_hex()]
                                             if len(indices) == 1:
                                                 event = EventBuilder.new_encrypted_direct_msg(keys, evt.pubkey(), "Payment received, processing started.\n\nI will DM you once your task is ready.", None).to_event(keys)
@@ -229,7 +224,7 @@ def nostr_client():
                                                 tags.append(Tag.parse(["p", evt.pubkey().to_hex()]))
                                                 event = EventBuilder(4, "", tags).to_event(keys)
                                                 print(event.as_json())
-                                                doWork(event, isPaid=True, isFromBot=True)
+                                                doWork(event, isFromBot=True)
 
 
                                             break
@@ -315,6 +310,7 @@ def nostr_client():
 
         elif task == "translation":
             request_form["mode"] = "PREDICT_STATIC"
+            request_form["trainerFilePath"] = 'translation'
             # outsource this to its own script, ideally. This is not using the database for now, but probably should.
             inputtype = "event"
             for tag in event.tags():
@@ -336,6 +332,17 @@ def nostr_client():
                     if tag.as_vec()[0] == 'i':
                         text = tag.as_vec()[1]
                         break
+
+            elif inputtype == "job":
+                for tag in event.tags():
+                    if tag.as_vec()[0] == 'i':
+                        jobidfilter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
+                        print(jobidfilter.as_json())
+                        events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                        evt = events[0]
+                        text = evt.content()
+                        break
+
             request_form["optStr"] = 'text=' + text + ';translation_lang=' + translation_lang
         elif task == "chat":
             request_form["mode"] = "PREDICT_STATIC"
@@ -396,12 +403,11 @@ def nostr_client():
                         #evt = events[0]
                         evt = getEvent(tag.as_vec()[1])
                         prompt = evt.content()
-                    #elif type == "job":
-                        #jobidfilter = Filter().kind(65001). where e tag =  (tag.as_vec()[1])
-                        #events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
-                        # evt = events[0]
-                        #evt = getEvent(tag.as_vec()[1])
-                        #prompt = evt.content()
+                    elif type == "job":
+                        jobidfilter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
+                        events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                        evt = events[0]
+                        prompt = evt.content()
                 elif tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == "prompt":  # check for paramtype
                         extra_prompt = tag.as_vec()[2]
@@ -423,8 +429,7 @@ def nostr_client():
                         request_form["optStr"] = 'url=' + url
 
         return request_form
-
-    def doWork(Jobevent, isPaid, amount=0, isFromBot=False):
+    def doWork(Jobevent, isFromBot=False):
         if (Jobevent.kind() >= 65002 and Jobevent.kind() <= 66000) or Jobevent.kind() == 68001 or Jobevent.kind() == 4:
             request_form = createRequestFormfromNostrEvent(Jobevent, isFromBot)
             task = getTask(Jobevent)
@@ -453,13 +458,28 @@ def getEvent(eventidstr):
     for relay in relay_list:
         cl.add_relay(relay)
     cl.connect()
-    #eventid = EventId.from_hex(eventidstr)
-    # orginalidfilter = Filter().event(eventid)
-    filter = Filter().id(eventidstr)
+    filter = Filter().id(eventidstr).limit(1)
     events = cl.get_events_of([filter], timedelta(seconds=relaytimeout))
     cl.disconnect()
     if len(events) > 0:
         return events[0]
+def sendEvent(event):
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    cl = Client(keys)
+
+    for tag in event.tags():
+        if tag.as_vec()[0] == 'relays':
+            relays = tag.as_vec()[1].split(',')
+            for relay in relays:
+                cl.add_relay(relay)
+    else:
+        for relay in relay_list:
+            cl.add_relay(relay)
+
+    cl.connect()
+    id = cl.send_event(event)
+    cl.disconnect()
+    return id
 def organizeInputData(event, request_form):
     data_dir = os.environ["NOVA_DATA_DIR"]
 
@@ -586,14 +606,16 @@ def isBlackListed(pubkey):
     return False
 def isWhiteListed(pubkey, task):
     # Store  ists of whistlisted npubs that can do free processing for specific tasks
-    pablof7z = "fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52"
+
     localnostrtest = "558497db304332004e59387bc3ba1df5738eac395b0e56b45bfb2eb5400a1e39"
+    dbth = '99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64'
+    pablof7z = "fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52"
     # PublicKey.from_npub("npub...").hex()
-    whitelsited_npubs_speechtotext = []  # remove this to test LN Zaps
+    whitelsited_npubs_speechtotext = [dbth]  # remove this to test LN Zaps
     whitelsited_npubs_translation = [localnostrtest]
-    whitelsited_npubs_texttoimage = [localnostrtest]
-    whitelsited_npubs_imagetoimage = [localnostrtest]
-    whitelsited_npubs_imageupscale = [localnostrtest]
+    whitelsited_npubs_texttoimage = [localnostrtest, dbth]
+    whitelsited_npubs_imagetoimage = [localnostrtest, dbth]
+    whitelsited_npubs_imageupscale = [localnostrtest, dbth]
     whitelsited_npubs_chat = [localnostrtest]
 
     whitelsited_all_tasks = []
@@ -622,23 +644,6 @@ def isWhiteListed(pubkey, task):
         if any(pubkey == c for c in whitelsited_npubs_chat) or any(pubkey == c for c in whitelsited_all_tasks):
             return True
     return False
-def sendEvent(event):
-    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    cl = Client(keys)
-
-    for tag in event.tags():
-        if tag.as_vec()[0] == 'relays':
-            relays = tag.as_vec()[1].split(',')
-            for relay in relays:
-                cl.add_relay(relay)
-    else:
-        for relay in relay_list:
-            cl.add_relay(relay)
-
-    cl.connect()
-    id = cl.send_event(event)
-    cl.disconnect()
-    return id
 def getTask(event):
         if event.kind() == 68001:  # legacy
             for tag in event.tags():
@@ -672,15 +677,15 @@ def CheckEventStatus(content, originaleventstr: str, useBot=False):
             amount = x.amount
             x.result = content
             x.isProcessed = True
-            if ResultConfig.SHOWRESULTBEFOREPAYMENT and not isPaid:
+            if DVMConfig.SHOWRESULTBEFOREPAYMENT and not isPaid:
                 sendNostrReplyEvent(content, originaleventstr)
                 sendJobStatusReaction(originalevent, "success", amount)  # or payment-required, or both?
-            elif not ResultConfig.SHOWRESULTBEFOREPAYMENT and not isPaid:
+            elif not DVMConfig.SHOWRESULTBEFOREPAYMENT and not isPaid:
                 sendJobStatusReaction(originalevent, "success", amount)  # or payment-required, or both?
 
-            if (ResultConfig.SHOWRESULTBEFOREPAYMENT and isPaid):
+            if (DVMConfig.SHOWRESULTBEFOREPAYMENT and isPaid):
                 JobstoWatch.remove(x)
-            elif not ResultConfig.SHOWRESULTBEFOREPAYMENT and isPaid:
+            elif not DVMConfig.SHOWRESULTBEFOREPAYMENT and isPaid:
                 JobstoWatch.remove(x)
                 sendNostrReplyEvent(content, originaleventstr)
             print(str(JobstoWatch))
@@ -752,15 +757,19 @@ def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
                            status=status, result="", isProcessed=False))
             print(str(JobstoWatch))
         if status == "payment-required" or (status == "processing" and not isPaid) or (status == "success" and not isPaid):
-            try:
-                bolt11 = createBolt11LnBits(amount)
-                amounttag = Tag.parse(["amount", str(amount), bolt11])
-                tags.append(amounttag)
-                print("Added bolt11 invoice")
-            except:
-                amounttag = Tag.parse(["amount", str(amount)])
-                tags.append(amounttag)
-                print("Couldn't get bolt11 invoice")
+            #try:
+            #    if DVMConfig.LNBITS_INVOICE_KEY != "":
+            #        bolt11 = createBolt11LnBits(amount)
+            #        amounttag = Tag.parse(["amount", str(amount), bolt11])
+            #    else:
+            #        amounttag = Tag.parse(["amount", str(amount)])
+            #    tags.append(amounttag)
+            #except:
+            #    amounttag = Tag.parse(["amount", str(amount)])
+            #    tags.append(amounttag)
+            #    print("Couldn't get bolt11 invoice")
+            amounttag = Tag.parse(["amount", str(amount)])
+            tags.append(amounttag)
 
         keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
         event = EventBuilder(65000, reaction, tags).to_event(keys)
@@ -779,7 +788,6 @@ def postprocessResult(content, originalevent):
             # TODO add more
 
     return content
-
 def parsebotcommandtoevent(dec_text):
 
     dec_text = dec_text.replace("\n", "")
@@ -840,16 +848,17 @@ def parsebotcommandtoevent(dec_text):
         iTag = Tag.parse(["i", text, "text"])
         oTag = Tag.parse(["output", "text/plain"])
         return [jTag, iTag, oTag]
-
 def checkTaskisSupported(event):
     task = getTask(event)
     print("Received new Task: " + task)
     hasitag = False
     for tag in event.tags():
         if tag.as_vec()[0] == 'i':
+            print(tag.as_vec())
             input = tag.as_vec()[1]
             inputtype = tag.as_vec()[2]
             hasitag = True
+
 
         elif tag.as_vec()[0] == 'output':
             output = tag.as_vec()[1]
@@ -859,13 +868,12 @@ def checkTaskisSupported(event):
     if not hasitag:
         return False
 
-    if task not in ResultConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
+    if task not in DVMConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
         return False
-    if task == "translation" and (
-            inputtype != "event" and inputtype != "job" and inputtype != "text"):  # The input types per task
+    if task == "translation" and (inputtype != "event" and inputtype != "job" and inputtype != "text"):  # The input types per task
         return False
-    if task == "translation" and len(event.content) > 4999:  # Google Services have a limit of 5000 signs
-        return False
+    #if task == "translation" and len(event.content) > 4999:  # Google Services have a limit of 5000 signs
+    #    return False
     if task == "speech-to-text" and inputtype != "url":  # The input types per task
         return False
     if task == "image-upscale" and inputtype != "url":  # The input types per task
@@ -946,12 +954,11 @@ def ParseBolt11Invoice(invoice):
         number = number * 100000000 * 0.000000000001
 
     return int(number)
-
 def createBolt11LnBits(millisats):
     sats = int(millisats / 1000)
-    url = 'https://ln.novaannotation.com/createLightningInvoice'
+    url = DVMConfig.LNBITS_INVOICE_URL
     data = {}
-    data['invoice_key'] = "bfdfb5ecfc0743daa08749ce58abea74"
+    data['invoice_key'] = DVMConfig.LNBITS_INVOICE_KEY
     data['sats'] = str(sats)
     data['memo'] = "Nostr-DVM"
     res = requests.post(url, data=data)
