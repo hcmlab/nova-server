@@ -947,12 +947,13 @@ def ParseBolt11Invoice(invoice):
 
     return int(number)
 
-def createBolt11LnBits(sats):
+def createBolt11LnBits(millisats):
+    sats = int(millisats / 1000)
     url = 'https://ln.novaannotation.com/createLightningInvoice'
     data = {}
     data['invoice_key'] = "bfdfb5ecfc0743daa08749ce58abea74"
     data['sats'] = str(sats)
-    data['memo'] = "Nova-Server-DVM"
+    data['memo'] = "Nostr-DVM"
     res = requests.post(url, data=data)
     obj = json.loads(res.text)
     return obj["payment_request"]
