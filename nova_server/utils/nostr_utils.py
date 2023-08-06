@@ -225,6 +225,7 @@ def nostr_client():
 
                                                 if str(dec_text).startswith("-text-to-image"):
                                                     negative_prompt = ""
+                                                    dec_text = dec_text.replace("\n", "")
                                                     prompttemp = dec_text.replace("-text-to-image ", "")
                                                     split = prompttemp.split("-")
                                                     prompt = split[0]
@@ -234,6 +235,8 @@ def nostr_client():
                                                         for i in split:
                                                             if i.startswith("negative"):
                                                                 negative_prompt = i.replace("negative ", "")
+                                                            elif i.startswith("extra"):
+                                                                extra_prompt = i.replace("extra ", "")
                                                             elif i.startswith("width"):
                                                                 width = i.replace("width ", "")
                                                             elif i.startswith("height"):
@@ -241,9 +244,10 @@ def nostr_client():
                                                         jTag = Tag.parse(["j", "text-to-image"])
                                                         iTag = Tag.parse(["i", prompt, "text"])
                                                         paramTag = Tag.parse(["param", "negative_prompt", negative_prompt])
-                                                        paramTag2 = Tag.parse(["param", "size", width, height])
+                                                        paramTag2 = Tag.parse(["param", "prompt", extra_prompt])
+                                                        paramTag3 = Tag.parse(["param", "size", width, height])
                                                         pTag = Tag.parse(["p", evt.pubkey().to_hex()])
-                                                        tags = [jTag, iTag, pTag, paramTag, paramTag2]
+                                                        tags = [jTag, iTag, pTag, paramTag, paramTag2, paramTag3]
                                                         event = EventBuilder(4, "", tags).to_event(keys)
                                                         doWork(event, isPaid=True, isFromBot=True)
 
@@ -452,8 +456,14 @@ def nostr_client():
                         #evt = events[0]
                         evt = getEvent(tag.as_vec()[1])
                         prompt = evt.content()
+                    #elif type == "job":
+                        #jobidfilter = Filter().kind(65001). where e tag =  (tag.as_vec()[1])
+                        #events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                        # evt = events[0]
+                    evt = getEvent(tag.as_vec()[1])
+                    prompt = evt.content()
                 elif tag.as_vec()[0] == 'param':
-                    if tag.as_vec()[1] == "extra_prompt":  # check for paramtype
+                    if tag.as_vec()[1] == "prompt":  # check for paramtype
                         extra_prompt = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "negative_prompt":  # check for paramtype
                         negative_prompt = tag.as_vec()[2]
@@ -488,13 +498,12 @@ def nostr_client():
             else:
                 print("[Nostr] Adding " + task + " Job event: " + Jobevent.as_json())
 
-            if (Jobevent.kind() >= 65002 and Jobevent.kind() < 66000) or Jobevent.kind() == 68001:
-                url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(
-                request_form["mode"]).lower()
+            url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(request_form["mode"]).lower()
             headers = {'Content-type': 'application/x-www-form-urlencoded'}
             requests.post(url, headers=headers, data=request_form)
-    client.handle_notifications(NotificationHandler())
 
+
+    client.handle_notifications(NotificationHandler())
     while True:
         time.sleep(5.0)
 
