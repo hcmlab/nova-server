@@ -499,7 +499,7 @@ def organizeInputData(event, request_form):
                 filename = downloadYouTube(input, filepath)
                 o = urlparse(input)
                 q = urllib.parse.parse_qs(o.query)
-                if (o.query.find('t') != -1):
+                if (o.query.find('t=') != -1):
                     request_form["startTime"] = q['t'][0]  # overwrite from link.. why not..
                     print("Setting start time automatically to " + request_form["startTime"])
                     if float(request_form["endTime"]) > 0.0:
@@ -507,6 +507,7 @@ def organizeInputData(event, request_form):
                         print("Moving end time automatically to " + request_form["endTime"])
             except Exception:
                 print("video not available")
+                sendJobStatusReaction(event, "error")
                 return
         # Regular links have a media file ending and/or mime types
         else:
@@ -532,7 +533,7 @@ def organizeInputData(event, request_form):
                 type = "video"
 
             else:
-                sendJobStatusReaction(event, "format not supported")
+                sendJobStatusReaction(event, "error")
                 return
 
             filename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
@@ -549,14 +550,14 @@ def organizeInputData(event, request_form):
             file_reader = AudioReader(filename, ctx=cpu(0), mono=False)
             duration = file_reader.duration()
         except:
-            sendJobStatusReaction(event, "failed")
+            sendJobStatusReaction(event, "error")
             return
 
         print("Duration of the Media file: " + str(duration))
         if float(request_form['endTime']) == 0.0:
-            end_time = duration
+            end_time = float(duration)
         elif float(request_form['endTime']) > duration:
-            end_time = duration
+            end_time = float(duration)
         else:
             end_time = float(request_form['endTime'])
         if (float(request_form['startTime']) < 0.0 or float(request_form['startTime']) > end_time):
@@ -719,7 +720,7 @@ def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
             reaction = emoji.emojize(":thumbs_up:")
         elif status == "success":
             reaction = emoji.emojize(":call_me_hand:")
-        elif status == "failed":
+        elif status == "error":
             reaction = emoji.emojize(":thumbs_down:")
         elif status == "payment-required":
             reaction = emoji.emojize(":orange_heart:")
@@ -737,7 +738,7 @@ def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
         statustag = Tag.parse(["status", status])
         tags = [etag, ptag, statustag]
 
-        if status == "success" or status == "failed":  #
+        if status == "success" or status == "error":  #
             for x in JobstoWatch:
                 if x.id == originalevent.id():
                     isPaid = x.isPaid
