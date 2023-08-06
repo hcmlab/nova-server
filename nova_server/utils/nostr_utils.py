@@ -213,88 +213,26 @@ def nostr_client():
                                             #jobidfilter = Filter().id(tag.as_vec()[1])
                                             #events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
                                             #evt = events[0]
-                                            print(evt.as_json())
+                                            #print(evt.as_json())
 
                                             indices = [i for i, x in enumerate(JobstoWatch) if x.id == zapableevent.id().to_hex()]
                                             if len(indices) == 1:
                                                 event = EventBuilder.new_encrypted_direct_msg(keys, evt.pubkey(), "Payment received, processing started.\n\nI will DM you once your task is ready.", None).to_event(keys)
-                                                sendEvent(event)
                                                 dec_text = nip04_decrypt(sk, evt.pubkey(), evt.content())
                                                 JobstoWatch.pop(indices[0])
                                                 print(JobstoWatch)
+                                                sendEvent(event)
 
-                                                if str(dec_text).startswith("-text-to-image"):
-                                                    negative_prompt = ""
-                                                    dec_text = dec_text.replace("\n", "")
-                                                    prompttemp = dec_text.replace("-text-to-image ", "")
-                                                    split = prompttemp.split("-")
-                                                    prompt = split[0]
-                                                    width = "512"
-                                                    height = "512"
-                                                    if len(split) > 1:
-                                                        for i in split:
-                                                            if i.startswith("negative"):
-                                                                negative_prompt = i.replace("negative ", "")
-                                                            elif i.startswith("extra"):
-                                                                extra_prompt = i.replace("extra ", "")
-                                                            elif i.startswith("width"):
-                                                                width = i.replace("width ", "")
-                                                            elif i.startswith("height"):
-                                                                height = i.replace("height ", "")
-                                                        jTag = Tag.parse(["j", "text-to-image"])
-                                                        iTag = Tag.parse(["i", prompt, "text"])
-                                                        paramTag = Tag.parse(["param", "negative_prompt", negative_prompt])
-                                                        paramTag2 = Tag.parse(["param", "prompt", extra_prompt])
-                                                        paramTag3 = Tag.parse(["param", "size", width, height])
-                                                        pTag = Tag.parse(["p", evt.pubkey().to_hex()])
-                                                        tags = [jTag, iTag, pTag, paramTag, paramTag2, paramTag3]
-                                                        event = EventBuilder(4, "", tags).to_event(keys)
-                                                        doWork(event, isPaid=True, isFromBot=True)
+                                                tags = parsebotcommandtoevent(dec_text)
+                                                tags.append(Tag.parse(["p", evt.pubkey().to_hex()]))
+                                                event = EventBuilder(4, "", tags).to_event(keys)
+                                                print(event.as_json())
+                                                doWork(event, isPaid=True, isFromBot=True)
 
-                                                elif str(dec_text).startswith("-image-upscale"):
-                                                    prompttemp = dec_text.replace("-image-upscale", "")
-                                                    split = prompttemp.split("-")
-                                                    url = split[0]
-                                                    jTag = Tag.parse(["j", "image-upscale"])
-                                                    iTag = Tag.parse(["i", url, "url"])
-                                                    pTag = Tag.parse(["p", evt.pubkey().to_hex()])
-                                                    tags = [jTag, iTag, pTag]
-                                                    event = EventBuilder(4, "", tags).to_event(keys)
-                                                    doWork(event, isPaid=True, isFromBot=True)
 
-                                                elif str(dec_text).startswith("-speech-to-text"):
-                                                     prompttemp = dec_text.replace("-speech-to-text ", "")
-                                                     split = prompttemp.split("-")
-                                                     url = split[0]
-                                                     start = "0"
-                                                     end = "0"
-                                                     if len(split) > 1:
-                                                         for i in split:
-                                                             if i.startswith("from"):
-                                                                 start = i.replace("from ", "")
-                                                             elif i.startswith("to"):
-                                                                 end = i.replace("to ", "")
-                                                     jTag = Tag.parse(["j", "speech-to-text"])
-                                                     iTag = Tag.parse(["i", url, "url"])
-                                                     oTag = Tag.parse(["output", "text/plain"])
-                                                     paramTag = Tag.parse(["param", "range", start, end])
-                                                     pTag = Tag.parse(["p", evt.pubkey().to_hex()])
-                                                     tags = [jTag, iTag, oTag, pTag, paramTag]
-                                                     event = EventBuilder(4, "", tags).to_event(keys)
-                                                     doWork(event, isPaid=True, isFromBot=True)
-
-                                                elif str(dec_text).startswith("-chat"):
-                                                    text = dec_text.replace("-chat ", "")
-                                                    jTag = Tag.parse(["j", "chat"])
-                                                    iTag = Tag.parse(["i", text, "text"])
-                                                    oTag = Tag.parse(["output", "text/plain"])
-                                                    pTag = Tag.parse(["p", evt.pubkey().to_hex()])
-                                                    tags = [jTag, iTag, oTag, pTag]
-                                                    event = EventBuilder(4, "", tags).to_event(keys)
-                                                    doWork(event, isPaid=True, isFromBot=True)
                                             break
-                                else:
-                                    print("[Nostr] Zap was not for a kind 65000 or 4 reaction, skipping")
+                            else:
+                                print("[Nostr] Zap was not for a kind 65000 or 4 reaction, skipping")
 
                 except Exception as e:
                     print(f"Error during content decryption: {e}")
@@ -460,8 +398,8 @@ def nostr_client():
                         #jobidfilter = Filter().kind(65001). where e tag =  (tag.as_vec()[1])
                         #events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
                         # evt = events[0]
-                    evt = getEvent(tag.as_vec()[1])
-                    prompt = evt.content()
+                        #evt = getEvent(tag.as_vec()[1])
+                        #prompt = evt.content()
                 elif tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == "prompt":  # check for paramtype
                         extra_prompt = tag.as_vec()[2]
@@ -831,6 +769,68 @@ def postprocessResult(content, originalevent):
             # TODO add more
 
     return content
+
+def parsebotcommandtoevent(dec_text):
+
+    dec_text = dec_text.replace("\n", "")
+    if str(dec_text).startswith("-text-to-image"):
+        negative_prompt = ""
+        prompttemp = dec_text.replace("-text-to-image ", "")
+        split = prompttemp.split("-")
+        prompt = split[0]
+        width = "512"
+        height = "512"
+        if len(split) > 1:
+            for i in split:
+                if i.startswith("negative"):
+                    negative_prompt = i.replace("negative ", "")
+                elif i.startswith("extra"):
+                    extra_prompt = i.replace("extra ", "")
+                elif i.startswith("width"):
+                    width = i.replace("width ", "")
+                elif i.startswith("height"):
+                    height = i.replace("height ", "")
+            jTag = Tag.parse(["j", "text-to-image"])
+            iTag = Tag.parse(["i", prompt, "text"])
+            paramTag = Tag.parse(["param", "negative_prompt", negative_prompt])
+            paramTag2 = Tag.parse(["param", "prompt", extra_prompt])
+            paramTag3 = Tag.parse(["param", "size", width, height])
+
+            return [jTag, iTag, paramTag, paramTag2, paramTag3]
+
+    elif str(dec_text).startswith("-image-upscale"):
+        prompttemp = dec_text.replace("-image-upscale", "")
+        split = prompttemp.split("-")
+        url = split[0]
+        jTag = Tag.parse(["j", "image-upscale"])
+        iTag = Tag.parse(["i", url, "url"])
+        return [jTag, iTag]
+
+    elif str(dec_text).startswith("-speech-to-text"):
+        prompttemp = dec_text.replace("-speech-to-text ", "")
+        split = prompttemp.split("-")
+        url = split[0]
+        start = "0"
+        end = "0"
+        if len(split) > 1:
+            for i in split:
+                if i.startswith("from"):
+                    start = i.replace("from ", "")
+                elif i.startswith("to"):
+                    end = i.replace("to ", "")
+        jTag = Tag.parse(["j", "speech-to-text"])
+        iTag = Tag.parse(["i", url, "url"])
+        oTag = Tag.parse(["output", "text/plain"])
+        paramTag = Tag.parse(["param", "range", start, end])
+        return [jTag, iTag, oTag, paramTag]
+
+    elif str(dec_text).startswith("-chat"):
+        text = dec_text.replace("-chat ", "")
+        jTag = Tag.parse(["j", "chat"])
+        iTag = Tag.parse(["i", text, "text"])
+        oTag = Tag.parse(["output", "text/plain"])
+        return [jTag, iTag, oTag]
+
 def checkTaskisSupported(event):
     task = getTask(event)
     print("Received new Task: " + task)
