@@ -61,11 +61,11 @@ def predict_static_data(request_form):
 
     #TODO move these to separate files
     if task == "text-to-image":
-        anno = textToImage(options[0], options[1], options[2], options[3], options[4])
+        anno = textToImage(options[0], options[1], options[2], options[3], options[4], options[5])
     elif task == "image-to-image":
         anno = imageToImage(options[0], options[1], options[2], options[3], options[4])
     elif task == "image-upscale":
-        anno = imageUpscale2x(options[0])
+        anno = imageUpscaleRealESRGANUrl(options[0], options[1])
     elif task == "translation":
         anno = GoogleTranslate(options[0], options[1])
     elif task == "chat":
@@ -111,7 +111,7 @@ def uploadToHoster(filepath):
 
 
 # SCRIPTS (TO BE MOVED TO FILES)
-def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", height="512"):
+def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", height="512", upscale="1"):
     import torch
     from diffusers import DiffusionPipeline
     from diffusers import StableDiffusionPipeline
@@ -131,14 +131,15 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
     image = pipe(prompt=prompt, negative_prompt=negative_prompt, width=min(int(width), 1024), height=min(int(height), 1024)).images[0]
     uniquefilepath = uniquify("outputs/sd.jpg")
     image.save(uniquefilepath)
-
-
     if torch.cuda.is_available():
         del pipe
         gc.collect()
         torch.cuda.empty_cache()
         torch.cuda.ipc_collect()
 
+    if(int(upscale) > 1 and int(upscale) <= 4):
+        print("Upscaling by factor " + upscale + " using RealESRGAN")
+        uniquefilepath = imageUpscaleRealESRGAN(uniquefilepath, upscale)
 
     return uploadToHoster(uniquefilepath)
 
@@ -177,6 +178,29 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale):
 
     return uploadToHoster((uniquefilepath))
 
+def imageUpscaleRealESRGANUrl(url, upscale="4"):
+    import requests
+    from PIL import Image
+    from io import BytesIO
+
+    response = requests.get(url)
+    init_image = Image.open(BytesIO(response.content)).convert("RGB")
+    init_image.save("temp.jpg")
+    uniquefilepath = imageUpscaleRealESRGAN("temp.jpg", upscale)
+    return uploadToHoster(uniquefilepath)
+
+
+def imageUpscaleRealESRGAN(filepath, upscale="4"):
+    import subprocess
+    uniquefilepath = uniquify("outputs/sd.jpg")
+    if upscale == "4":
+        model = "realesrgan-x4plus"
+    else:
+        model = "realesr-animevideov3"
+    FNULL = open(os.devnull, 'w')  # use this if you want to suppress output to stdout from the subprocess
+    args = "tools\\realesrgan_upscaler\\realesrgan-ncnn-vulkan.exe -n " + model +" -s " + upscale + " -i "+ filepath +  " -o " + uniquefilepath
+    subprocess.call(args, stdout=FNULL, stderr=FNULL, shell=False)
+    return uniquefilepath
 
 def imageUpscale2x(url):
     from diffusers import StableDiffusionLatentUpscalePipeline, StableDiffusionPipeline
@@ -203,7 +227,7 @@ def imageUpscale2x(url):
     upscaled_image = upscaler(
         prompt=prompt,
         image=low_res_img,
-        num_inference_steps=30,
+        num_inference_steps=20,
         guidance_scale=0,
         generator=generator,
     ).images[0]

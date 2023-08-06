@@ -1,10 +1,13 @@
 import json
 
 import os
+import re
 import urllib
 from dataclasses import dataclass
 from datetime import timedelta
 from urllib.parse import urlparse
+
+import nostr_sdk.nostr_sdk
 import requests
 import emoji
 import ffmpegio
@@ -74,7 +77,7 @@ def nostr_client():
         client.add_relay(relay)
     client.connect()
 
-    dmzapfilter = Filter().pubkey(pk).kinds([4, 9735]).since(Timestamp.now())
+    dmzapfilter = Filter().pubkey(pk).kinds([4, 9734, 9735]).since(Timestamp.now())
     dvmfilter = (Filter().kinds([68001, 65002, 65003, 65004, 65005]).since(Timestamp.now()))
     client.subscribe([dmzapfilter, dvmfilter])
 
@@ -169,6 +172,9 @@ def nostr_client():
                              client.send_event(event)
                 except Exception as e:
                     print(f"Error during content decryption: {e}")
+            elif event.kind() == 9734:
+                print(event.as_json())
+
             elif event.kind() == 9735:
                 print("Zap received")
                 try:
@@ -320,9 +326,6 @@ def nostr_client():
             if inputtype == "event":
                 for tag in event.tags():
                     if tag.as_vec()[0] == 'i':
-                        #jobidfilter = Filter().id(tag.as_vec()[1])
-                        #events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
-                        #evt = events[0]
                         evt = getEvent(tag.as_vec()[1])
                         text = evt.content()
                         break
@@ -344,6 +347,99 @@ def nostr_client():
                         break
 
             request_form["optStr"] = 'text=' + text + ';translation_lang=' + translation_lang
+
+        elif task == "image-to-image":
+            request_form["mode"] = "PREDICT_STATIC"
+            prompt = ""
+            negative_prompt = ""
+            strength = 0.75
+            guidance_scale = 7.5
+
+            for tag in event.tags():
+                if tag.as_vec()[0] == 'i':
+                    inputtype = tag.as_vec()[2]
+                    if inputtype == "url":
+                        url = tag.as_vec()[1]
+                    elif inputtype == "event":
+                        evt = getEvent(tag.as_vec()[1])
+                        url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
+                    elif inputtype == "job":
+                        jobidfilter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
+                        print(jobidfilter.as_json())
+                        events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                        evt = events[0]
+                        url = evt.content()
+                elif tag.as_vec()[0] == 'param':
+                    if tag.as_vec()[1] == "prompt":  # check for paramtype
+                        prompt = tag.as_vec()[2]
+                    elif tag.as_vec()[1] == "negative_prompt":  # check for paramtype
+                        negative_prompt = tag.as_vec()[2]
+                    elif tag.as_vec()[1] == "strength":  # check for paramtype
+                        strength = float(tag.as_vec()[2])
+                    elif tag.as_vec()[1] == "guidance_scale":  # check for paramtype
+                        guidance_scale = float(tag.as_vec()[2])
+            request_form[
+                "optStr"] = 'url=' + url + ';prompt=' + prompt + ';negative_prompt=' + negative_prompt + ';strength=' + strength + ';guidance_scale=' + guidance_scale
+
+        elif task == "text-to-image":
+            request_form["mode"] = "PREDICT_STATIC"
+            request_form["trainerFilePath"] = 'text-to-image'
+            width = "768"
+            height = "768"
+            extra_prompt = ""
+            negative_prompt = ""
+            upscale = "4"
+
+            for tag in event.tags():
+                if tag.as_vec()[0] == 'i':
+                    type = tag.as_vec()[2]
+                    if type == "text":
+                        prompt = tag.as_vec()[1]
+                    elif type == "event":
+                        evt = getEvent(tag.as_vec()[1])
+                        prompt = evt.content()
+                    elif type == "job":
+                        jobidfilter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
+                        events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                        evt = events[0]
+                        prompt = evt.content()
+                elif tag.as_vec()[0] == 'param':
+                    if tag.as_vec()[1] == "prompt":  # check for paramtype
+                        extra_prompt = tag.as_vec()[2]
+                    elif tag.as_vec()[1] == "negative_prompt":  # check for paramtype
+                        negative_prompt = tag.as_vec()[2]
+                    elif tag.as_vec()[1] == "size":  # check for paramtype
+                        width = tag.as_vec()[2]
+                        height = tag.as_vec()[3]
+                    elif tag.as_vec()[1] == "upscale":  # check for paramtype
+                        upscale = tag.as_vec()[2]
+
+            request_form["optStr"] = 'prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt=' + negative_prompt + ';width=' + width + ';height=' + height + ';upscale=' + upscale
+
+        elif task == "image-upscale":
+            request_form["mode"] = "PREDICT_STATIC"
+            request_form["trainerFilePath"] = 'image-upscale'
+            upscale = "4"
+            for tag in event.tags():
+                if tag.as_vec()[0] == 'i':
+                    inputtype = tag.as_vec()[2]
+                    if inputtype == "url":
+                        url = tag.as_vec()[1]
+                    elif inputtype == "event":
+                        evt = getEvent(tag.as_vec()[1])
+                        url = re.search("(?P<url>https?://[^\s]+)",  evt.content()).group("url")
+                    elif inputtype == "job":
+                        jobidfilter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
+                        print(jobidfilter.as_json())
+                        events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                        evt = events[0]
+                        url = evt.content()
+                elif tag.as_vec()[0] == 'param':
+                    if tag.as_vec()[1] == "upscale":  # check for paramtype
+                        upscale = tag.as_vec()[2]
+
+            request_form["optStr"] = 'url=' + url + ";upscale=" + upscale
+
         elif task == "chat":
             request_form["mode"] = "PREDICT_STATIC"
             request_form["trainerFilePath"] = 'chat'
@@ -360,73 +456,6 @@ def nostr_client():
             print("[Nostr] Not supported yet")
             # call OpenAI API or use a local LLM
             # add length variableF
-        elif task == "image-to-image":
-            request_form["mode"] = "PREDICT_STATIC"
-            prompt = ""
-            negative_prompt = ""
-            strength = 0.75
-            guidance_scale = 7.5
-
-            for tag in event.tags():
-                if tag.as_vec()[0] == 'i':
-                    type = tag.as_vec()[2]
-                    if type == "url":
-                        url = tag.as_vec()[1]
-                elif tag.as_vec()[0] == 'param':
-                    if tag.as_vec()[1] == "prompt":  # check for paramtype
-                        prompt = tag.as_vec()[2]
-                    elif tag.as_vec()[1] == "negative_prompt":  # check for paramtype
-                        negative_prompt = tag.as_vec()[2]
-                    elif tag.as_vec()[1] == "strength":  # check for paramtype
-                        strength = float(tag.as_vec()[2])
-                    elif tag.as_vec()[1] == "guidance_scale":  # check for paramtype
-                        guidance_scale = float(tag.as_vec()[2])
-            request_form[
-                "optStr"] = 'url=' + url + ';prompt=' + prompt + ';negative_prompt=' + negative_prompt + ';strength=' + strength + ';guidance_scale=' + guidance_scale
-
-        elif task == "text-to-image":
-            request_form["mode"] = "PREDICT_STATIC"
-            request_form["trainerFilePath"] = 'text-to-image'
-            width = "512"
-            height = "512"
-            extra_prompt = ""
-            negative_prompt = ""
-
-            for tag in event.tags():
-                if tag.as_vec()[0] == 'i':
-                    type = tag.as_vec()[2]
-                    if type == "text":
-                        prompt = tag.as_vec()[1]
-                    elif type == "event":
-                        #jobidfilter = Filter().id(tag.as_vec()[1])
-                        #events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
-                        #evt = events[0]
-                        evt = getEvent(tag.as_vec()[1])
-                        prompt = evt.content()
-                    elif type == "job":
-                        jobidfilter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
-                        events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
-                        evt = events[0]
-                        prompt = evt.content()
-                elif tag.as_vec()[0] == 'param':
-                    if tag.as_vec()[1] == "prompt":  # check for paramtype
-                        extra_prompt = tag.as_vec()[2]
-                    elif tag.as_vec()[1] == "negative_prompt":  # check for paramtype
-                        negative_prompt = tag.as_vec()[2]
-                    elif tag.as_vec()[1] == "size":  # check for paramtype
-                        width = tag.as_vec()[2]
-                        height = tag.as_vec()[3]
-            request_form["optStr"] = 'prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt=' + negative_prompt + ';width=' + width + ';height=' + height
-
-        elif task == "image-upscale":
-            request_form["mode"] = "PREDICT_STATIC"
-            request_form["trainerFilePath"] = 'image-upscale'
-            for tag in event.tags():
-                if tag.as_vec()[0] == 'i':
-                    type = tag.as_vec()[2]
-                    if type == "url":
-                        url = tag.as_vec()[1]
-                        request_form["optStr"] = 'url=' + url
 
         return request_form
     def doWork(Jobevent, isFromBot=False):
@@ -796,33 +825,50 @@ def parsebotcommandtoevent(dec_text):
         prompttemp = dec_text.replace("-text-to-image ", "")
         split = prompttemp.split("-")
         prompt = split[0]
-        width = "512"
-        height = "512"
+        width = "768"
+        height = "768"
+        jTag = Tag.parse(["j", "text-to-image"])
+        iTag = Tag.parse(["i", prompt, "text"])
+        tags = [jTag, iTag]
         if len(split) > 1:
             for i in split:
                 if i.startswith("negative"):
                     negative_prompt = i.replace("negative ", "")
+                    paramTag = Tag.parse(["param", "negative_prompt", negative_prompt])
+                    tags.append(paramTag)
                 elif i.startswith("extra"):
                     extra_prompt = i.replace("extra ", "")
+                    paramTag = Tag.parse(["param", "prompt", extra_prompt])
+                    tags.append(paramTag)
+                elif i.startswith("upscale"):
+                    upscale_factor = i.replace("upscale ", "")
+                    paramTag = Tag.parse(["param", "upscale", upscale_factor])
+                    tags.append(paramTag)
                 elif i.startswith("width"):
                     width = i.replace("width ", "")
+
                 elif i.startswith("height"):
                     height = i.replace("height ", "")
-            jTag = Tag.parse(["j", "text-to-image"])
-            iTag = Tag.parse(["i", prompt, "text"])
-            paramTag = Tag.parse(["param", "negative_prompt", negative_prompt])
-            paramTag2 = Tag.parse(["param", "prompt", extra_prompt])
-            paramTag3 = Tag.parse(["param", "size", width, height])
 
-            return [jTag, iTag, paramTag, paramTag2, paramTag3]
+            paramSizeTag = Tag.parse(["param", "size", width, height])
+            tags.append(paramSizeTag)
+
+            return tags
 
     elif str(dec_text).startswith("-image-upscale"):
-        prompttemp = dec_text.replace("-image-upscale", "")
+        prompttemp = dec_text.replace("-image-upscale ", "")
         split = prompttemp.split("-")
         url = split[0]
         jTag = Tag.parse(["j", "image-upscale"])
         iTag = Tag.parse(["i", url, "url"])
-        return [jTag, iTag]
+        tags = [jTag, iTag]
+        if len(split) > 1:
+            for i in split:
+                if i.startswith("upscale"):
+                    upscale_factor = i.replace("upscale ", "")
+                    paramTag = Tag.parse(["param", "upscale", upscale_factor])
+                    tags.append(paramTag)
+        return tags
 
     elif str(dec_text).startswith("-speech-to-text"):
         prompttemp = dec_text.replace("-speech-to-text ", "")
@@ -874,9 +920,9 @@ def checkTaskisSupported(event):
         return False
     #if task == "translation" and len(event.content) > 4999:  # Google Services have a limit of 5000 signs
     #    return False
-    if task == "speech-to-text" and inputtype != "url":  # The input types per task
+    if task == "speech-to-text" and (inputtype != "event" and inputtype != "job" and inputtype != "text"): # The input types per task
         return False
-    if task == "image-upscale" and inputtype != "url":  # The input types per task
+    if task == "image-upscale" and (inputtype != "event" and inputtype != "job" and inputtype != "url"):
         return False
     if inputtype == 'url' and not CheckUrlisReadable(input):
         return False
@@ -965,6 +1011,11 @@ def createBolt11LnBits(millisats):
     obj = json.loads(res.text)
     return obj["payment_request"]
 
+def zap():
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+
+    event = EventBuilder.new_zap_request(PublicKey.from_hex("99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64", None, 1000)).to_event(keys)
+    sendEvent(event)
 if __name__ == '__main__':
     os.environ["NOVA_DATA_DIR"] = "W:\\nova\\data"
     os.environ["NOVA_NOSTR_KEY"] = "privkey"
