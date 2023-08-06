@@ -19,7 +19,6 @@ from pathlib import Path
 from waitress import serve
 from nova_server.utils.nostr_utils import nostr_client
 
-
 print("Starting nova-backend server...")
 app = Flask(__name__, template_folder="./templates")
 app.register_blueprint(train)
@@ -146,16 +145,15 @@ print("...done")
 def checkNostrStatus():
     while True:
         nostr_client()
-        #nostclientWaitforEvents() #Client
         sleep(5)
+
+        #nostclientWaitforEvents() #Client
+
+
 # if Nostr key is set, check for new NIP?? events
 if(args.nostr_key != ""):
     nostrthread = Thread(target=checkNostrStatus)
     nostrthread.start()
 
 serve(app, host=host, port=port)
-
-#if(args.nostr_key != ""):
-   # nostrthread.join()
-
 

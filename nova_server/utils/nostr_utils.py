@@ -1011,11 +1011,6 @@ def createBolt11LnBits(millisats):
     obj = json.loads(res.text)
     return obj["payment_request"]
 
-def zap():
-    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-
-    event = EventBuilder.new_zap_request(PublicKey.from_hex("99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64", None, 1000)).to_event(keys)
-    sendEvent(event)
 if __name__ == '__main__':
     os.environ["NOVA_DATA_DIR"] = "W:\\nova\\data"
     os.environ["NOVA_NOSTR_KEY"] = "privkey"
