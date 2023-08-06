@@ -37,3 +37,6 @@ def get_random_name(
             part_name = part_name.upper()
         random_name.append(part_name)
     return separator.join(random_name)
+
+def str2bool(v):
+  return v.lower() in ("yes", "true", "t", "1")

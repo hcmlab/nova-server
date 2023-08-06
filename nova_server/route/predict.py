@@ -8,7 +8,7 @@ from nova_utils.ssi_utils.ssi_xml_utils import Trainer
 from importlib.machinery import SourceFileLoader
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
-from nova_server.utils.key_utils import get_key_from_request_form
+from nova_server.utils.key_utils import get_key_from_request_form, str2bool
 from nova_server.utils import (
     thread_utils,
     status_utils,
@@ -151,10 +151,7 @@ def predict_data(request_form):
         for anno in annos:
             db_utils.write_annotation_to_db(request_form_copy, anno, logger)
             if request_form["nostrEvent"] is not None:
-                usebot = False
-                if request_form["isBot"] == "True":
-                    usebot = True
-                nostr_utils.CheckEventStatus(anno.data, str(request_form["nostrEvent"]), usebot)
+                nostr_utils.CheckEventStatus(anno.data, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
         logger.info("...done")
 
     logger.info("Prediction completed!")

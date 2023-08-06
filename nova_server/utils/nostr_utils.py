@@ -1,3 +1,5 @@
+import json
+
 import os
 import urllib
 from dataclasses import dataclass
@@ -557,7 +559,7 @@ def organizeInputData(event, request_form):
         if float(request_form['endTime']) == 0.0:
             end_time = float(duration)
         elif float(request_form['endTime']) > duration:
-            end_time = float(duration)
+            end_time =  float(duration)
         else:
             end_time = float(request_form['endTime'])
         if (float(request_form['startTime']) < 0.0 or float(request_form['startTime']) > end_time):
@@ -750,8 +752,15 @@ def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
                            status=status, result="", isProcessed=False))
             print(str(JobstoWatch))
         if status == "payment-required" or (status == "processing" and not isPaid) or (status == "success" and not isPaid):
-            amounttag = Tag.parse(["amount", str(amount)])
-            tags.append(amounttag)
+            try:
+                bolt11 = createBolt11LnBits(amount)
+                amounttag = Tag.parse(["amount", str(amount), bolt11])
+                tags.append(amounttag)
+                print("Added bolt11 invoice")
+            except:
+                amounttag = Tag.parse(["amount", str(amount)])
+                tags.append(amounttag)
+                print("Couldn't get bolt11 invoice")
 
         keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
         event = EventBuilder(65000, reaction, tags).to_event(keys)
@@ -937,6 +946,16 @@ def ParseBolt11Invoice(invoice):
         number = number * 100000000 * 0.000000000001
 
     return int(number)
+
+def createBolt11LnBits(sats):
+    url = 'https://ln.novaannotation.com/createLightningInvoice'
+    data = {}
+    data['invoice_key'] = "bfdfb5ecfc0743daa08749ce58abea74"
+    data['sats'] = str(sats)
+    data['memo'] = "Nova-Server-DVM"
+    res = requests.post(url, data=data)
+    obj = json.loads(res.text)
+    return obj["payment_request"]
 
 if __name__ == '__main__':
     os.environ["NOVA_DATA_DIR"] = "W:\\nova\\data"
