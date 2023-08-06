@@ -65,7 +65,7 @@ def predict_static_data(request_form):
     elif task == "image-to-image":
         anno = imageToImage(options[0], options[1], options[2], options[3], options[4])
     elif task == "image-upscale":
-        anno = imageUpscale(options[0])
+        anno = imageUpscale2x(options[0])
     elif task == "translation":
         anno = GoogleTranslate(options[0], options[1])
     elif task == "chat":
@@ -178,7 +178,48 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale):
     return uploadToHoster((uniquefilepath))
 
 
-def imageUpscale(url):
+def imageUpscale2x(url):
+    from diffusers import StableDiffusionLatentUpscalePipeline, StableDiffusionPipeline
+    import torch
+    import requests
+    from PIL import Image
+    from io import BytesIO
+
+    pipeline = StableDiffusionPipeline.from_pretrained(
+        "CompVis/stable-diffusion-v1-4", torch_dtype=torch.float16
+    )
+    pipeline.to("cuda")
+
+    model_id = "stabilityai/sd-x2-latent-upscaler"
+    upscaler = StableDiffusionLatentUpscalePipeline.from_pretrained(model_id, torch_dtype=torch.float16)
+    upscaler.to("cuda")
+
+    prompt = "UHD, 4k, hyper realistic, extremely detailed, professional, vibrant, not grainy, smooth, sharp"
+    generator = torch.manual_seed(33)
+
+    response = requests.get(url)
+    low_res_img = Image.open(BytesIO(response.content)).convert("RGB")
+
+    upscaled_image = upscaler(
+        prompt=prompt,
+        image=low_res_img,
+        num_inference_steps=30,
+        guidance_scale=0,
+        generator=generator,
+    ).images[0]
+
+    uniquefilepath = uniquify("outputs/sd.jpg")
+    upscaled_image.save(uniquefilepath)
+
+    if torch.cuda.is_available():
+        del pipeline
+        gc.collect()
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
+    return uploadToHoster(uniquefilepath)
+
+def imageUpscale4x(url):
     import requests
     from PIL import Image
     from io import BytesIO
