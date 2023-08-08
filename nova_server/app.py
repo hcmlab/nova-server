@@ -12,12 +12,13 @@ from nova_server.route.ui import ui
 from nova_server.route.cancel import cancel
 from nova_server.route.predict import predict
 from nova_server.route.predict_static import predict_static
-from nova_server.route.nostr import nostr, nostclientWaitforEvents
+from nova_server.route.nostrclient import nostr, nostr_client
+from nova_server.utils.nostr_utils import nostr_server
 import argparse
 import os
 from pathlib import Path
 from waitress import serve
-from nova_server.utils.nostr_utils import nostr_client
+
 
 print("Starting nova-backend server...")
 app = Flask(__name__, template_folder="./templates")
@@ -142,18 +143,14 @@ os.environ["NOVA_LOG_DIR"] = get_dir_from_arg(
 os.environ["NOVA_NOSTR_KEY"] = args.nostr_key
 print("...done")
 
-def checkNostrStatus():
-    while True:
-        nostr_client()
-        sleep(5)
-
-        #nostclientWaitforEvents() #Client
-
-
 # if Nostr key is set, check for new NIP?? events
 if(args.nostr_key != ""):
-    nostrthread = Thread(target=checkNostrStatus)
-    nostrthread.start()
+    nostrserverthread = Thread(target=nostr_server)
+    nostrserverthread.start()
+
+    #only run when needed, this will show results from the webclient
+    #nostrclientthread = Thread(target=nostr_client)
+    #nostrclientthread.start()
 
 serve(app, host=host, port=port)
 

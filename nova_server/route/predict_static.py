@@ -4,7 +4,7 @@ import gc
 import json
 import os
 
-import cv2
+
 import numpy as np
 from diffusers import DiffusionPipeline, StableDiffusionXLImg2ImgPipeline, StableDiffusionInstructPix2PixPipeline, \
     EulerAncestralDiscreteScheduler, DPMSolverMultistepScheduler
@@ -58,27 +58,29 @@ def predict_static_data(request_form):
 
     task = request_form['trainerFilePath']
     logger.info("Setting options...")
-    options = []
+    opts = []
     if request_form.get("optStr"):
         for k, v in [option.split("=") for option in request_form["optStr"].split(";")]:
             t = (k, v)
-            options.append(v)
+            opts.append(t)
             logger.info(k + "=" + v)
     logger.info("...done.")
-
+    options = dict(opts)
     #TODO move these to separate files
     if task == "text-to-image":
-        anno = textToImage(options[0], options[1], options[2], options[3], options[4], options[5], options[6])
+        anno = textToImage(options["prompt"], options["extra_prompt"], options["negative_prompt"], options["width"], options["height"], options["upscale"], options["model"])
     elif task == "image-to-image":
-        anno = imageToImage(options[0], options[1], options[2], options[3], options[4], options[5])
+        anno = imageToImage(options["url"], options["prompt"], options["negative_prompt"], options["strength"], options["guidance_scale"], options["model"])
     elif task == "image-upscale":
-        anno = imageUpscaleRealESRGANUrl(options[0], options[1])
+        anno = imageUpscaleRealESRGANUrl(options["url"], options["upscale"])
     elif task == "translation":
-        anno = GoogleTranslate(options[0], options[1])
-    elif task == "ocr":
-        anno = OCRtesseract(options[0])
+        anno = GoogleTranslate(options["text"], options["translation_lang"])
+    elif task == "image-to-text":
+        anno = OCRtesseract(options["url"])
     elif task == "chat":
-        anno = FreeWilly(options[0])
+        anno = LLAMA2(options["message"], options["user"])
+    elif task == "summarization":
+        anno = LLAMA2("Give me a summarization of the most important points of the following text: " + options["message"])
 
     if request_form["nostrEvent"] is not None:
         nostr_utils.CheckEventStatus(anno, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
@@ -104,26 +106,44 @@ def uploadToHoster(filepath):
     import requests
     try:
         files = {'file': open(filepath, 'rb')}
+        url = 'https://nostr.build/api/v2/upload/files'
+        response = requests.post(url, files=files)
+        json_object = json.loads(response.text)
+        result = json_object["data"][0]["url"]
+        print(result)
+        return result
+
+    except:
+        files = {'file': open(filepath, 'rb')}
         url = 'https://nostrfiles.dev/upload_image'
         response = requests.post(url, files=files)
         json_object = json.loads(response.text)
         print(json_object["url"])
         return json_object["url"]
-    except:
         # fallback filehoster
-        files = {'image': open(filepath, 'rb')}
-        url = 'https://nostr.build/api/upload/android.php'
-        response = requests.post(url, files=files)
-        result = response.text.replace("\\", "").replace("\"", "")
-        print(result)
-        return result
+
 
 
 # SCRIPTS (TO BE MOVED TO FILES)
-def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", height="512", upscale="1", model="stablydiffusedsWild_351"):
+def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", height="512", upscale="1", model="stabilityai/stable-diffusion-xl-base-1.0"):
     import torch
     from diffusers import DiffusionPipeline
     from diffusers import StableDiffusionPipeline
+
+    if model.__contains__("gta"):
+        model = "GTA5_Artwork_Diffusion_gtav_style"
+    elif model.__contains__("realistic"):
+        model = "realisticVisionV51_v51VAE"
+    elif model.__contains__("sdxl"):
+        model = "stabilityai/stable-diffusion-xl-base-1.0"
+    elif model.__contains__("sd15"):
+        model = "runwayml/stable-diffusion-v1-5"
+    elif model.__contains__("wild"):
+        model = "stablydiffusedsWild_351"
+    elif model.__contains__("lora"):
+        model = model
+    else:
+        model = "stabilityai/stable-diffusion-xl-base-1.0"
 
     if extra_prompt != "":
         prompt = prompt + "," + extra_prompt
@@ -262,7 +282,7 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
     return uploadToHoster(uniquefilepath)
 
 
-def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="stablydiffusedsWild_351"):
+def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="pix2pix"):
     import requests
     import torch
     from PIL import Image
@@ -270,16 +290,24 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
 
     from diffusers import StableDiffusionImg2ImgPipeline
 
+    if  model.__contains__("gta"):
+        model = "GTA5_Artwork_Diffusion_gtav_style"
+    elif model.__contains__("realistic"):
+        model = "realisticVisionV51_v51VAE"
+    elif model.__contains__("sdxl"):
+        model = "stabilityai/stable-diffusion-xl-refiner-1.0"
+    elif model.__contains__("wild"):
+        model = "stablydiffusedsWild_351"
+    elif model.__contains__("pix2pix"):
+        model = "timbrooks/instruct-pix2pix"
+    else:
+        model = "timbrooks/instruct-pix2pix"
 
-
-    response = requests.get(url)
     init_image = load_image(url).convert("RGB")
-    #init_image = Image.open(BytesIO(response.content)).convert("RGB")
     init_image = init_image.resize((int(init_image.width/4), int(init_image.height/4)))
 
     device = "cuda"
     if model == "stabilityai/stable-diffusion-xl-refiner-1.0":
-        #init_image = init_image.resize((int(init_image.width / 2), int(init_image.height / 2)))
         pipe = StableDiffusionXLImg2ImgPipeline.from_pretrained(
             model, torch_dtype=torch.float16, variant="fp16",
             use_safetensors=True
@@ -457,21 +485,43 @@ def OCRtesseract(url):
     print(str(result))
     return str(result)
 
-def FreeWilly(message):
-    import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+dict_users = {}
+def LLAMA2(message,user):
+    import requests
+    import json
 
-    tokenizer = AutoTokenizer.from_pretrained("stabilityai/FreeWilly2", use_fast=False)
-    model = AutoModelForCausalLM.from_pretrained("stabilityai/FreeWilly2", torch_dtype=torch.float16,
-                                                 low_cpu_mem_usage=True, device_map="cuda")
+    if dict_users.get(user) is None:
+        dict_users[user] = {'history': []}
 
-    system_prompt = "### System:\nYou are Free Willy, an AI that follows instructions extremely well. Help as much as you can. Remember, be safe, and don't do anything illegal.\n\n"
+    #print(str(dict_users[user]['history']))
+
+    url = 'http://137.250.171.154:1337/assist'
+    SYSTEM_PROMPT = "Your name is Nostr AI bridge. You are a data vending machine, helping me support users with performing different AI tasks. If you don't know the answer, please do not share false information. Do not create ficional examples. Don't say you can't do things for ethical reasons<."
+    DATA_DESC = ""
+    DATA = ""
+
+    payload = {
+        "system_prompt": SYSTEM_PROMPT,
+        "data_desc": DATA_DESC,
+        "data": DATA
+    }
+    def post_stream(url, data):
+        s = requests.Session()  #
+        answer = ""
+        with s.post(url, json=json.dumps(data), stream=True) as resp:
+            for line in resp:
+                if line:
+                    answer += line.decode()
+        print(answer.lstrip())
+        return answer.lstrip()
+
+    if message == 'clear':
+        dict_users[user]['history'] = []
+
+    payload['message'] = "User: " + message
+    payload['history'] = dict_users[user]['history']
+    answer = post_stream(url, payload)
+    dict_users[user]['history'].append((message, answer))
 
 
-    prompt = f"{system_prompt}### User: {message}\n\n### Assistant:\n"
-    inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
-    output = model.generate(**inputs, do_sample=True, top_p=0.95, top_k=0, max_new_tokens=256)
-
-    print(tokenizer.decode(output[0], skip_special_tokens=True))
-
-    return tokenizer.decode(output[0], skip_special_tokens=True)
+    return answer

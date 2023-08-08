@@ -29,9 +29,11 @@ tzdata==2023.3
 waitress==2.1.2
 Werkzeug==2.3.4
 zipp==3.15.0
+nostr-sdk
 emoji
 requests
 pytube
 translatepy
 diffusers
 accelerate
+pytesseract
