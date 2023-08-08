@@ -214,3 +214,5 @@ nova_server/nostrconfig.ini
 nova_server/outputs/
 dvm/
 nova_server/temp.jpg
+nova_server/ocr.jpg
+nova_server/ocr_procesed.jpg

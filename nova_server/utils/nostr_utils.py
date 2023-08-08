@@ -38,7 +38,7 @@ from configparser import ConfigParser
 
 
 class DVMConfig:
-    SUPPORTED_TASKS = ["speech-to-text", "translation", "text-to-image", "image-to-image", "image-upscale", "chat"]
+    SUPPORTED_TASKS = ["speech-to-text", "translation", "text-to-image", "image-to-image", "image-upscale", "chat", "ocr"]
     LNBITS_INVOICE_KEY = 'bfdfb5ecfc0743daa08749ce58abea74'
     LNBITS_INVOICE_URL = 'https://ln.novaannotation.com/createLightningInvoice'
     AUTOPROCESS_MIN_AMOUNT: int = 1000000000000  # auto start processing if min Sat amount is given
@@ -78,14 +78,14 @@ def nostr_client():
     client.connect()
 
     dmzapfilter = Filter().pubkey(pk).kinds([4, 9734, 9735]).since(Timestamp.now())
-    dvmfilter = (Filter().kinds([68001, 65002, 65003, 65004, 65005]).since(Timestamp.now()))
+    dvmfilter = (Filter().kinds([66000, 65002, 65003, 65004, 65005]).since(Timestamp.now()))
     client.subscribe([dmzapfilter, dvmfilter])
 
     class NotificationHandler(HandleNotification):
 
         def handle(self, relay_url, event):
             print(f"Received new event from {relay_url}: {event.as_json()}")
-            if (65002 <= event.kind() <= 66000) or event.kind() == 68001:  # legacy:
+            if (65002 <= event.kind() <= 66000):
                 if isBlackListed(event.pubkey):
                     sendJobStatusReaction(event, "error")
                     print("Request by blacklisted user, skipped")
@@ -124,6 +124,9 @@ def nostr_client():
                         elif task == "chat":
                             amount = DVMConfig.COSTPERUNIT_IMAGEUPSCALING * 1000  # *1000 because millisats
                             print("[Nostr][Payment required] New Nostr Chat Job event: " + event.as_json())
+                        elif task == "ocr":
+                            amount = DVMConfig.COSTPERUNIT_TRANSLATION * 1000  # *1000 because millisats
+                            print("[Nostr][Payment required] New Nostr OCR Job event: " + event.as_json())
                         else:
                             print("[Nostr] Task " + task + " is currently not supported by this instance")
                         if bid > 0:
@@ -151,9 +154,8 @@ def nostr_client():
                     dec_text = nip04_decrypt(sk, event.pubkey(), event.content())
                     print(f"Received new msg: {dec_text}")
 
-                    if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-speech-to-text") or str(dec_text).startswith("-image-upscale"):
+                    if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-image-to-image") or str(dec_text).startswith("-speech-to-text") or str(dec_text).startswith("-image-upscale"):
                         task = str(dec_text).split(' ')[0].removeprefix('-')
-                        print(task)
                         time.sleep(3.0)
                         if isWhiteListed(event.pubkey().to_hex(), task):
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
@@ -218,6 +220,11 @@ def nostr_client():
                                     for tag in zapableevent.tags():
                                         if tag.as_vec()[0] == 'e':
                                             evt = getEvent(tag.as_vec()[1])
+                                            if evt == None:
+                                                filter = Filter().id(tag.as_vec()[1]).limit(1)
+                                                events = client.get_events_of([filter], timedelta(seconds=5))
+                                                evt = events[0]
+                                            print(evt.as_json())
                                             indices = [i for i, x in enumerate(JobstoWatch) if x.id == zapableevent.id().to_hex()]
                                             if len(indices) == 1:
                                                 event = EventBuilder.new_encrypted_direct_msg(keys, evt.pubkey(), "Payment received, processing started.\n\nI will DM you once your task is ready.", None).to_event(keys)
@@ -277,41 +284,61 @@ def nostr_client():
         request_form["rightContext"] = 0
         request_form["nostrEvent"] = event.as_json()
         request_form["sessions"] = event.id().to_hex()
-        if (isBot):
-            request_form["isBot"] = "True"
-        else:
-            request_form["isBot"] = "False"
+
+        request_form["isBot"] = str(isBot)
 
         # defaults might be overwritten by nostr event
-        alignment = "raw"
+
         request_form["startTime"] = "0"
         request_form["endTime"] = "0"
-
-        for tag in event.tags():
-            if tag.as_vec()[0] == 'param':
-                print(tag.as_vec())
-                param = tag.as_vec()[1]
-                if param == "range":  # check for paramtype
-                    request_form["startTime"] = tag.as_vec()[2]
-                    request_form["endTime"] = tag.as_vec()[3]
-                elif param == "alignment":  # check for paramtype
-                    alignment = tag.as_vec()[2]
-                elif param == "length":  # check for paramtype
-                    length = tag.as_vec()[2]
-                elif param == "language":  # check for paramtype
-                    translation_lang = str(tag.as_vec()[2]).split('-')[0]
 
         if task == "speech-to-text":
             # Declare specific model type e.g. whisperx_large-v2
             request_form["mode"] = "PREDICT"
+            alignment = "raw"
             modelopt = "large-v2"
+
+            for tag in event.tags():
+                if tag.as_vec()[0] == 'param':
+                    print(tag.as_vec())
+                    param = tag.as_vec()[1]
+                    if param == "range":  # check for paramtype
+                        try:
+                            t = time.strptime(tag.as_vec()[2], "%H:%M:%S")
+                            seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
+                            request_form["startTime"] = str(seconds)
+                        except:
+                            try:
+                                t = time.strptime(tag.as_vec()[2], "%M:%S")
+                                seconds = t.tm_min * 60 + t.tm_sec
+                                request_form["startTime"] = str(seconds)
+                            except:
+                                request_form["startTime"] = tag.as_vec()[2]
+                        try:
+                            t = time.strptime(tag.as_vec()[3], "%H:%M:%S")
+                            seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
+                            request_form["endTime"] = str(seconds)
+                        except:
+                            try:
+                                t = time.strptime(tag.as_vec()[3], "%M:%S")
+                                seconds = t.tm_min * 60 + t.tm_sec
+                                request_form["endTime"] = str(seconds)
+                            except:
+                                request_form["endTime"] = tag.as_vec()[3]
+
+                    elif param == "alignment":  # check for paramtype
+                        alignment = tag.as_vec()[2]
+                    elif param == "model":  # check for paramtype
+                        modelopt = tag.as_vec()[2]
+
+
 
             request_form["schemeType"] = "FREE"
             request_form["scheme"] = "transcript"
             request_form["streamName"] = "audio"
             request_form["trainerFilePath"] = 'models\\trainer\\' + str(
-                request_form["schemeType"]).lower() + '\\' + str(
-                request_form["scheme"]) + '\\audio{audio}\\whisperx\\whisperx_transcript.trainer'
+            request_form["schemeType"]).lower() + '\\' + str(
+            request_form["scheme"]) + '\\audio{audio}\\whisperx\\whisperx_transcript.trainer'
             request_form["optStr"] = 'model=' + modelopt + ';alignment_mode=' + alignment + ';batch_size=2'
 
         elif task == "translation":
@@ -322,7 +349,12 @@ def nostr_client():
             for tag in event.tags():
                 if tag.as_vec()[0] == 'i':
                     inputtype = tag.as_vec()[2]
-                    break
+
+                elif tag.as_vec()[0] == 'param':
+                    param = tag.as_vec()[1]
+                    if param == "language":  # check for paramtype
+                        translation_lang = str(tag.as_vec()[2]).split('-')[0]
+
             if inputtype == "event":
                 for tag in event.tags():
                     if tag.as_vec()[0] == 'i':
@@ -348,12 +380,37 @@ def nostr_client():
 
             request_form["optStr"] = 'text=' + text + ';translation_lang=' + translation_lang
 
+        elif task == "ocr":
+            request_form["mode"] = "PREDICT_STATIC"
+            request_form["trainerFilePath"] = 'ocr'
+            # outsource this to its own script, ideally. This is not using the database for now, but probably should.
+            inputtype = "url"
+            for tag in event.tags():
+                if tag.as_vec()[0] == 'i':
+                    inputtype = tag.as_vec()[2]
+
+                #elif tag.as_vec()[0] == 'param':
+                #    param = tag.as_vec()[1]
+                #    if param == "language":  # check for paramtype
+                #        translation_lang = str(tag.as_vec()[2]).split('-')[0]
+
+
+            if inputtype == "url":
+                for tag in event.tags():
+                    if tag.as_vec()[0] == 'i':
+                        url = tag.as_vec()[1]
+                        break
+
+            request_form["optStr"] = 'url=' + url
+
         elif task == "image-to-image":
             request_form["mode"] = "PREDICT_STATIC"
+            request_form["trainerFilePath"] = 'image-to-image'
             prompt = ""
             negative_prompt = ""
-            strength = 0.75
+            strength = 0.5
             guidance_scale = 7.5
+            model = "timbrooks/instruct-pix2pix"
 
             for tag in event.tags():
                 if tag.as_vec()[0] == 'i':
@@ -378,8 +435,21 @@ def nostr_client():
                         strength = float(tag.as_vec()[2])
                     elif tag.as_vec()[1] == "guidance_scale":  # check for paramtype
                         guidance_scale = float(tag.as_vec()[2])
-            request_form[
-                "optStr"] = 'url=' + url + ';prompt=' + prompt + ';negative_prompt=' + negative_prompt + ';strength=' + strength + ';guidance_scale=' + guidance_scale
+                    elif tag.as_vec()[1] == "model":  # check for paramtype
+                        if str(tag.as_vec()[2]).lower().__contains__("gta"):
+                            model = "GTA5_Artwork_Diffusion_gtav_style"
+                        elif str(tag.as_vec()[2]).lower().__contains__("realistic"):
+                            model = "realisticVisionV51_v51VAE"
+                        elif str(tag.as_vec()[2]).lower().__contains__("sdxl"):
+                            model = "stabilityai/stable-diffusion-xl-refiner-1.0"
+                        elif str(tag.as_vec()[2]).lower().__contains__("wild"):
+                            model = "stablydiffusedsWild_351"
+                        elif str(tag.as_vec()[2]).lower().__contains__("pix2pix"):
+                            model = "timbrooks/instruct-pix2pix"
+                        else:
+                            model = "timbrooks/instruct-pix2pix"
+
+            request_form["optStr"] = 'url=' + url + ';prompt=' + prompt + ';negative_prompt=' + negative_prompt + ';strength=' + str(strength) + ';guidance_scale=' + str(guidance_scale) + ';model=' + model
 
         elif task == "text-to-image":
             request_form["mode"] = "PREDICT_STATIC"
@@ -389,6 +459,7 @@ def nostr_client():
             extra_prompt = ""
             negative_prompt = ""
             upscale = "4"
+            model = "stabilityai/stable-diffusion-xl-base-1.0"
 
             for tag in event.tags():
                 if tag.as_vec()[0] == 'i':
@@ -413,8 +484,23 @@ def nostr_client():
                         height = tag.as_vec()[3]
                     elif tag.as_vec()[1] == "upscale":  # check for paramtype
                         upscale = tag.as_vec()[2]
+                    elif tag.as_vec()[1] == "model":  # check for paramtype
+                        if str(tag.as_vec()[2]).lower().__contains__("gta"):
+                            model  = "GTA5_Artwork_Diffusion_gtav_style"
+                        elif str(tag.as_vec()[2]).lower().__contains__("realistic"):
+                            model = "realisticVisionV51_v51VAE"
+                        elif str(tag.as_vec()[2]).lower().__contains__("sdxl"):
+                            model = "stabilityai/stable-diffusion-xl-base-1.0"
+                        elif str(tag.as_vec()[2]).lower().__contains__("sd15"):
+                            model = "runwayml/stable-diffusion-v1-5"
+                        elif str(tag.as_vec()[2]).lower().__contains__("wild"):
+                            model = "stablydiffusedsWild_351"
+                        elif str(tag.as_vec()[2]).lower().__contains__("lora"):
+                            model = str(tag.as_vec()[2])
+                        else:
+                            model = "stabilityai/stable-diffusion-xl-base-1.0"
 
-            request_form["optStr"] = 'prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt=' + negative_prompt + ';width=' + width + ';height=' + height + ';upscale=' + upscale
+            request_form["optStr"] = 'prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt=' + negative_prompt + ';width=' + width + ';height=' + height + ';upscale=' + upscale + ';model=' + model
 
         elif task == "image-upscale":
             request_form["mode"] = "PREDICT_STATIC"
@@ -492,6 +578,8 @@ def getEvent(eventidstr):
     cl.disconnect()
     if len(events) > 0:
         return events[0]
+    else:
+        return None
 def sendEvent(event):
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
     cl = Client(keys)
@@ -530,15 +618,15 @@ def organizeInputData(event, request_form):
             print("Found overcast.fm Link.. downloading")
             download_podcast(input, filename)
             finaltag = str(input).replace("https://overcast.fm/", "").split('/')
-
-            if (len(finaltag) > 1):
-                t = time.strptime(finaltag[1], "%H:%M:%S")
-                seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
-                request_form["startTime"] = str(seconds)  # overwrite from link.. why not..
-                print("Setting start time automatically to " + request_form["startTime"])
-                if float(request_form["endTime"]) > 0.0:
-                    request_form["endTime"] = seconds + float(request_form["endTime"])
-                    print("Moving end time automatically to " + request_form["endTime"])
+            if float(request_form["startTime"]) == 0.0:
+                if (len(finaltag) > 1):
+                    t = time.strptime(finaltag[1], "%H:%M:%S")
+                    seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
+                    request_form["startTime"] = str(seconds)  # overwrite from link.. why not..
+                    print("Setting start time automatically to " + request_form["startTime"])
+                    if float(request_form["endTime"]) > 0.0:
+                        request_form["endTime"] = seconds + float(request_form["endTime"])
+                        print("Moving end time automatically to " + request_form["endTime"])
 
         # is youtube link?
         elif str(input).replace("http://", "").replace("https://", "").replace("www.", "").replace("youtu.be/",
@@ -550,12 +638,14 @@ def organizeInputData(event, request_form):
                 filename = downloadYouTube(input, filepath)
                 o = urlparse(input)
                 q = urllib.parse.parse_qs(o.query)
-                if (o.query.find('t=') != -1):
-                    request_form["startTime"] = q['t'][0]  # overwrite from link.. why not..
-                    print("Setting start time automatically to " + request_form["startTime"])
-                    if float(request_form["endTime"]) > 0.0:
-                        request_form["endTime"] = str(float(q['t'][0]) + float(request_form["endTime"]))
-                        print("Moving end time automatically to " + request_form["endTime"])
+
+                if float(request_form["startTime"]) == 0.0:
+                    if (o.query.find('t=') != -1):
+                        request_form["startTime"] = q['t'][0]  # overwrite from link.. why not..
+                        print("Setting start time automatically to " + request_form["startTime"])
+                        if float(request_form["endTime"]) > 0.0:
+                            request_form["endTime"] = str(float(q['t'][0]) + float(request_form["endTime"]))
+                            print("Moving end time automatically to " + request_form["endTime"])
             except Exception:
                 print("video not available")
                 sendJobStatusReaction(event, "error")
@@ -640,14 +730,15 @@ def isWhiteListed(pubkey, task):
     dbth = '99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64'
     pablof7z = "fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52"
     # PublicKey.from_npub("npub...").hex()
-    whitelsited_npubs_speechtotext = [dbth]  # remove this to test LN Zaps
+    whitelsited_npubs_speechtotext = []  # remove this to test LN Zaps
     whitelsited_npubs_translation = [localnostrtest]
-    whitelsited_npubs_texttoimage = [localnostrtest, dbth]
-    whitelsited_npubs_imagetoimage = [localnostrtest, dbth]
-    whitelsited_npubs_imageupscale = [localnostrtest, dbth]
+    whitelsited_npubs_texttoimage = [localnostrtest]
+    whitelsited_npubs_imagetoimage = [localnostrtest]
+    whitelsited_npubs_imageupscale = [localnostrtest]
     whitelsited_npubs_chat = [localnostrtest]
+    whitelsited_npubs_ocr = [localnostrtest]
 
-    whitelsited_all_tasks = []
+    whitelsited_all_tasks = [dbth, localnostrtest]
 
     if (task == "speech-to-text"):
         if any(pubkey == c for c in whitelsited_npubs_speechtotext) or any(
@@ -664,7 +755,7 @@ def isWhiteListed(pubkey, task):
     elif (task == "image-to-image"):
         if any(pubkey == c for c in whitelsited_npubs_imagetoimage) or any(
                 pubkey == c for c in whitelsited_all_tasks):
-            return
+            return True
     elif (task == "image-upscale"):
         if any(pubkey == c for c in whitelsited_npubs_imageupscale) or any(
                 pubkey == c for c in whitelsited_all_tasks):
@@ -672,9 +763,12 @@ def isWhiteListed(pubkey, task):
     elif (task == "chat"):
         if any(pubkey == c for c in whitelsited_npubs_chat) or any(pubkey == c for c in whitelsited_all_tasks):
             return True
+    elif (task == "ocr"):
+        if any(pubkey == c for c in whitelsited_npubs_ocr) or any(pubkey == c for c in whitelsited_all_tasks):
+            return True
     return False
 def getTask(event):
-        if event.kind() == 68001:  # legacy
+        if event.kind() == 66000:  # use this for events that have no id yet
             for tag in event.tags():
                 if tag.as_vec()[0] == 'j':
                     return tag.as_vec()[1]
@@ -687,7 +781,16 @@ def getTask(event):
             else:
                 return "unknown job: " + event.as_json()
         elif event.kind() == 65002:
-            return "speech-to-text"
+            for tag in event.tags():
+                if tag.as_vec()[0] == "i":
+                    if tag.as_vec()[2] == "url":
+                       type = CheckUrlisReadable(tag.as_vec()[1])
+                       if type == "audio" or type == "video":
+                           return "speech-to-text"
+                       elif type == "image":
+                            return "ocr"
+                       else:
+                           return "unknown job"
         elif event.kind() == 65003:
             return "summarization"
         elif event.kind() == 65004:
@@ -735,44 +838,53 @@ def CheckEventStatus(content, originaleventstr: str, useBot=False):
             sendNostrReplyEvent(resultcontent, originaleventstr)
             sendJobStatusReaction(originalevent, "success")
 def sendNostrReplyEvent(content, originaleventstr):
-    # Once the Job is finished we reply with the results with a 68002 event
     originalevent = Event.from_json(originaleventstr)
-
-
     requesttag = Tag.parse(["request", originaleventstr.replace("\\", "")])
     etag = Tag.parse(["e", originalevent.id().to_hex()])
     ptag = Tag.parse(["p", originalevent.pubkey().to_hex()])
+    alttag = Tag.parse(["alt", "This is the result of a NIP90 DVM AI task with kind " + str(originalevent.kind()) + ". The task was: "+ originalevent.content()])
     statustag = Tag.parse(["status", "success"])
 
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    event = EventBuilder(65001, str(content), [requesttag, etag, ptag, statustag]).to_event(keys)
+    event = EventBuilder(65001, str(content), [requesttag, etag, ptag, alttag, statustag]).to_event(keys)
     sendEvent(event)
-
     print("[Nostr] 65001 Job Response event sent: " + event.as_json())
-
     return event.as_json()
 def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
+        altdesc = "This is a reaction to a NIP90 DVM AI task."
+        task = getTask(originalevent)
         if status == "processing":
             reaction = emoji.emojize(":thumbs_up:")
+            altdesc =   "NIP90 DVM AI task " + task + " started processing."
         elif status == "success":
             reaction = emoji.emojize(":call_me_hand:")
+            altdesc = "NIP90 DVM AI task " + task + " finished successfully."
         elif status == "error":
             reaction = emoji.emojize(":thumbs_down:")
+            altdesc = "NIP90 DVM AI task " + task + " had an error. So sorry. In the future zaps will be sent back but I can't do that just yet."
         elif status == "payment-required":
             reaction = emoji.emojize(":orange_heart:")
-       # elif status == "payment-accepted":
-       #     reaction = emoji.emojize(":smiling_face_with_open_hands:")
+            altdesc = "NIP90 DVM AI task " + task + " requires payment of min "+ int(amount/1000) + " Sats."
+            if task == "speech-to-text":
+                altdesc = altdesc + " Providing results with WhisperX large-v2. Accepted input formats: wav,mp3,mp4,ogg,avi,mov,youtube,overcast. Possible outputs: text/plain, timestamped labels depending on alignment parameter (word,segment,raw)"
+            elif task == "ocr":
+                altdesc = altdesc + " Accepted input formats: jpg. Possible outputs: text/plain. This is very experimental, make sure your text is well readable."
+
         elif status == "payment-rejected":
             reaction = emoji.emojize(":see_no_evil_monkey:")
+            altdesc = "NIP90 DVM AI task " + task + " payment is below required amount of " + int(amount/1000) + " Sats."
         elif status == "user-blocked-from-service":
             reaction = emoji.emojize(":see_no_evil_monkey:")
+            altdesc = "NIP90 DVM AI task " + task + " can't be performed. User has been blocked from Service"
         else:
             reaction = emoji.emojize(":see_no_evil_monkey:")
 
+
         etag = Tag.parse(["e", originalevent.id().to_hex()])
         ptag = Tag.parse(["p", originalevent.pubkey().to_hex()])
+        alttag = Tag.parse(["alt", altdesc])
         statustag = Tag.parse(["status", status])
-        tags = [etag, ptag, statustag]
+        tags = [etag, ptag, alttag, statustag]
 
         if status == "success" or status == "error":  #
             for x in JobstoWatch:
@@ -785,7 +897,7 @@ def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
                 JobToWatch(id=originalevent.id().to_hex(), timestamp=originalevent.created_at().as_secs(), amount=amount, isPaid=isPaid,
                            status=status, result="", isProcessed=False))
             print(str(JobstoWatch))
-        if status == "payment-required" or (status == "processing" and not isPaid) or (status == "success" and not isPaid):
+        if status == "payment-required" or status == "payment-rejected" or (status == "processing" and not isPaid) or (status == "success" and not isPaid):
             #try:
             #    if DVMConfig.LNBITS_INVOICE_KEY != "":
             #        bolt11 = createBolt11LnBits(amount)
@@ -810,10 +922,13 @@ def postprocessResult(content, originalevent):
         if tag.as_vec()[0] == "output":
             if tag.as_vec()[1] == "text/plain":
                 result = ""
-                for name in content["name"]:
-                    clearedName = str(name).lstrip("\'").rstrip("\'")
-                    result = result + clearedName + "\n"
-                content = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
+                try:
+                    for name in content["name"]:
+                        clearedName = str(name).lstrip("\'").rstrip("\'")
+                        result = result + clearedName + "\n"
+                    content = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
+                except:
+                    print("Can't transform text, or text already in text/plain format.")
             # TODO add more
 
     return content
@@ -844,11 +959,52 @@ def parsebotcommandtoevent(dec_text):
                     upscale_factor = i.replace("upscale ", "")
                     paramTag = Tag.parse(["param", "upscale", upscale_factor])
                     tags.append(paramTag)
+                elif i.startswith("model"):
+                    model = i.replace("model ", "")
+                    paramTag = Tag.parse(["param", "model", model])
+                    tags.append(paramTag)
                 elif i.startswith("width"):
                     width = i.replace("width ", "")
-
                 elif i.startswith("height"):
                     height = i.replace("height ", "")
+
+        paramSizeTag = Tag.parse(["param", "size", width, height])
+        tags.append(paramSizeTag)
+
+        return tags
+
+    elif str(dec_text).startswith("-image-to-image"):
+        negative_prompt = ""
+        prompttemp = dec_text.replace("-image-to-image ", "")
+        split = prompttemp.split("-")
+        url = str(split[0]).replace(' ', '')
+        width = "768"
+        height = "768"
+        jTag = Tag.parse(["j", "image-to-image"])
+        iTag = Tag.parse(["i", url, "url"])
+        tags = [jTag, iTag]
+        if len(split) > 1:
+            for i in split:
+                if i.startswith("negative"):
+                    negative_prompt = i.replace("negative ", "")
+                    paramTag = Tag.parse(["param", "negative_prompt", negative_prompt])
+                    tags.append(paramTag)
+                elif i.startswith("prompt"):
+                    extra_prompt = i.replace("prompt ", "")
+                    paramTag = Tag.parse(["param", "prompt", extra_prompt])
+                    tags.append(paramTag)
+                elif i.startswith("strength"):
+                    strength = i.replace("strength ", "")
+                    paramTag = Tag.parse(["param", "strength", strength])
+                    tags.append(paramTag)
+                elif i.startswith("guidance_scale"):
+                    strength = i.replace("guidance_scale ", "")
+                    paramTag = Tag.parse(["param", "guidance_scale", strength])
+                    tags.append(paramTag)
+                elif i.startswith("model"):
+                    model = i.replace("model ", "")
+                    paramTag = Tag.parse(["param", "model", model])
+                    tags.append(paramTag)
 
             paramSizeTag = Tag.parse(["param", "size", width, height])
             tags.append(paramSizeTag)
@@ -876,17 +1032,21 @@ def parsebotcommandtoevent(dec_text):
         url = split[0]
         start = "0"
         end = "0"
+        model = "large-v2"
         if len(split) > 1:
             for i in split:
                 if i.startswith("from"):
                     start = i.replace("from ", "")
                 elif i.startswith("to"):
                     end = i.replace("to ", "")
+                elif i.startswith("model"):
+                    model = i.replace("model ", "")
         jTag = Tag.parse(["j", "speech-to-text"])
         iTag = Tag.parse(["i", url, "url"])
         oTag = Tag.parse(["output", "text/plain"])
+        paramTag1 = Tag.parse(["param", "model", model])
         paramTag = Tag.parse(["param", "range", start, end])
-        return [jTag, iTag, oTag, paramTag]
+        return [jTag, iTag, oTag, paramTag1, paramTag]
 
     elif str(dec_text).startswith("-chat"):
         text = dec_text.replace("-chat ", "")
@@ -920,41 +1080,38 @@ def checkTaskisSupported(event):
         return False
     #if task == "translation" and len(event.content) > 4999:  # Google Services have a limit of 5000 signs
     #    return False
-    if task == "speech-to-text" and (inputtype != "event" and inputtype != "job" and inputtype != "text"): # The input types per task
+    if task == "speech-to-text" and (inputtype != "event" and inputtype != "job" and inputtype != "url"): # The input types per task
         return False
     if task == "image-upscale" and (inputtype != "event" and inputtype != "job" and inputtype != "url"):
         return False
-    if inputtype == 'url' and not CheckUrlisReadable(input):
+    if inputtype == 'url' and CheckUrlisReadable(input) is None:
         return False
 
     return True
 def CheckUrlisReadable(url):
     if not str(url).startswith("http"):
-        return False
+        return None
     # If it's a YouTube oder Overcast link, we suppose we support it
     if str(url).replace("http://", "").replace("https://", "").replace("www.", "").replace("youtu.be/",
                                                                                            "youtube.com?v=")[
        0:11] == "youtube.com" and str(url).find("live") == -1:
-        return (checkYoutubeLinkValid(url))  # not live, protected etc
+        if (checkYoutubeLinkValid(url)):
+            return "video"
+
     elif str(url).startswith("https://overcast.fm/"):
-        return True
+        return "audio"
 
     # If link is comaptible with one of these file formats, it's fine.
     req = requests.get(url)
     content_type = req.headers['content-type']
-    if content_type == 'audio/x-wav' or str(url).endswith(".wav") \
-            or content_type == 'audio/mpeg' or str(url).endswith(".mp3") \
-            or content_type == 'image/png' or str(url).endswith(".png") \
-            or content_type == 'image/jpg' or str(url).endswith(".jpg") \
-            or content_type == 'image/jpeg' or str(url).endswith(".jpeg") \
-            or content_type == 'audio/ogg' or str(url).endswith(".ogg") \
-            or content_type == 'video/mp4' or str(url).endswith(".mp4") \
-            or content_type == 'video/avi' or str(url).endswith(".avi") \
-            or content_type == 'video/mov' or str(url).endswith(".mov"):
-        return True
-
+    if content_type == 'audio/x-wav' or str(url).endswith(".wav") or content_type == 'audio/mpeg' or str(url).endswith(".mp3") or content_type == 'audio/ogg' or str(url).endswith(".ogg"):
+            return "audio"
+    elif content_type == 'image/png' or str(url).endswith(".png") or content_type == 'image/jpg' or str(url).endswith(".jpg") or content_type == 'image/jpeg' or str(url).endswith(".jpeg") or content_type == 'image/png' or str(url).endswith(".png"):
+            return "image"
+    elif content_type == 'video/mp4' or str(url).endswith(".mp4")  or content_type == 'video/avi' or str(url).endswith(".avi")  or content_type == 'video/mov' or str(url).endswith(".mov"):
+            return "video"
     # Otherwise we will not offer to do the job.
-    return False
+    return None
 def SaveConfig(dbUser, dbPassword, dbServer, database, role, annotator):
     # Get the configparser object
     config_object = ConfigParser()

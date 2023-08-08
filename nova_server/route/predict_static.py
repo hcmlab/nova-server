@@ -3,7 +3,14 @@ import copy
 import gc
 import json
 import os
+
+import cv2
+import numpy as np
+from diffusers import DiffusionPipeline, StableDiffusionXLImg2ImgPipeline, StableDiffusionInstructPix2PixPipeline, \
+    EulerAncestralDiscreteScheduler, DPMSolverMultistepScheduler
+from diffusers.utils import load_image
 from flask import Blueprint, request, jsonify
+from huggingface_hub import model_info
 
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
@@ -61,13 +68,15 @@ def predict_static_data(request_form):
 
     #TODO move these to separate files
     if task == "text-to-image":
-        anno = textToImage(options[0], options[1], options[2], options[3], options[4], options[5])
+        anno = textToImage(options[0], options[1], options[2], options[3], options[4], options[5], options[6])
     elif task == "image-to-image":
-        anno = imageToImage(options[0], options[1], options[2], options[3], options[4])
+        anno = imageToImage(options[0], options[1], options[2], options[3], options[4], options[5])
     elif task == "image-upscale":
         anno = imageUpscaleRealESRGANUrl(options[0], options[1])
     elif task == "translation":
         anno = GoogleTranslate(options[0], options[1])
+    elif task == "ocr":
+        anno = OCRtesseract(options[0])
     elif task == "chat":
         anno = FreeWilly(options[0])
 
@@ -111,7 +120,7 @@ def uploadToHoster(filepath):
 
 
 # SCRIPTS (TO BE MOVED TO FILES)
-def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", height="512", upscale="1"):
+def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", height="512", upscale="1", model="stablydiffusedsWild_351"):
     import torch
     from diffusers import DiffusionPipeline
     from diffusers import StableDiffusionPipeline
@@ -119,23 +128,132 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
     if extra_prompt != "":
         prompt = prompt + "," + extra_prompt
 
-    # model_id_or_path = "runwayml/stable-diffusion-v1-5"
-    # pipe = DiffusionPipeline.from_pretrained(model_id_or_path, torch_dtype=torch.float16)
+    mwidth = 512
+    mheight = 512
 
-    pipe = StableDiffusionPipeline.from_single_file(
-     os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/stablydiffusedsWild_351.safetensors"
+    if model == "stablydiffusedsWild_351" or model == "realisticVisionV51_v51VAE-inpainting" or model == "realisticVisionV51_v51VAE" or model == "stabilityai/stable-diffusion-xl-base-1.0":
+        mwidth = 1024
+        mheight = 1024
 
-    )
-    # pipe.unet.load_attn_procs(model_id_or_path)
-    pipe = pipe.to("cuda")
-    image = pipe(prompt=prompt, negative_prompt=negative_prompt, width=min(int(width), 1024), height=min(int(height), 1024)).images[0]
+    elif model == "GTA5_Artwork_Diffusion_gtav_style" or "runwayml/stable-diffusion-v1-5":
+        mwidth = 512
+        mheight = 512
+
+
+
+
+    if model == "stabilityai/stable-diffusion-xl-base-1.0":
+
+        base = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
+        base.to("cuda")
+        loramodelsfolder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
+        #base.load_lora_weights(loramodelsfolder + "cyborg_style_xl-alpha.safetensors")
+        #base.unet = torch.compile(base.unet, mode="reduce-overhead", fullgraph=True)
+        refiner = DiffusionPipeline.from_pretrained(
+            "stabilityai/stable-diffusion-xl-refiner-1.0",
+            text_encoder_2=base.text_encoder_2,
+            vae=base.vae,
+            torch_dtype=torch.float16,
+            use_safetensors=True,
+            variant="fp16",
+        )
+        #refiner.to("cuda")
+        refiner.enable_model_cpu_offload()
+        #refiner.load_lora_weights(loramodelsfolder + "cyborg_style_xl-alpha.safetensors")
+        #refiner.load_lora_weights(loramodelsfolder + "ghibli_last.safetensors")
+        #refiner.unet = torch.compile(refiner.unet, mode="reduce-overhead", fullgraph=True)
+        # Define how many steps and what % of steps to be run on each experts (80/20) here
+        n_steps = 35
+        high_noise_frac = 0.8
+        image = base(
+            prompt=prompt,
+            num_inference_steps=n_steps,
+            denoising_end=high_noise_frac,
+            negative_prompt=negative_prompt,
+            output_type="latent",
+        ).images
+        image = refiner(
+            prompt=prompt,
+            num_inference_steps=n_steps,
+            denoising_start=high_noise_frac,
+            negative_prompt=negative_prompt,
+            image=image,
+        ).images[0]
+        if torch.cuda.is_available():
+            del base, refiner
+            gc.collect()
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+
+    elif model.startswith("lora"):
+        split = model.split("_")
+        if len(split) > 1:
+            model = split[1]
+        else:
+            model = "ghibli"
+        from diffusers import StableDiffusionPipeline
+        import torch
+
+        loramodelsfolder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
+        base_model = os.environ[ 'TRANSFORMERS_CACHE'] + "stablediffusionmodels/anyloraCheckpoint_bakedvaeBlessedFp16.safetensors"
+
+        if model == "ghibli" or model == "monster" or model == "chad" or model == "inks":
+            #local lora models
+            if model == "ghibli":
+                model_path = loramodelsfolder + "ghibli_style_offset.safetensors"
+            elif model == "monster":
+                model_path = loramodelsfolder + "m0nst3rfy3(0.5-1)M.safetensors"
+            elif model == "chad":
+                model_path = loramodelsfolder + "Gigachadv1.safetensors"
+            elif model == "inks":
+                model_path = loramodelsfolder + "Inkscenery.safetensors"
+
+            pipe = StableDiffusionPipeline.from_single_file(base_model, torch_dtype=torch.float16)
+            pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+            pipe.to("cuda")
+            pipe.load_lora_weights(model_path)
+        else:
+            #huggingface repo lora models
+            if model == "t4":
+                model_path = "sayakpaul/sd-model-finetuned-lora-t4"
+            elif model == "pokemon":
+                model_path = "pcuenq/pokemon-lora"
+
+            info = model_info(model_path)
+            base_model = info.cardData["base_model"]
+            pipe = StableDiffusionPipeline.from_pretrained(base_model, torch_dtype=torch.float16)
+            pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+            pipe.to("cuda")
+            pipe.unet.load_attn_procs(model_path)
+
+        image = pipe(prompt, num_inference_steps=30, guidance_scale=7.5, cross_attention_kwargs={"scale": 1.0}).images[0]
+
+        if torch.cuda.is_available():
+            del pipe
+            gc.collect()
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+
+    else:
+        if model == "runwayml/stable-diffusion-v1-5":
+            pipe = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16,
+                                                     use_safetensors=True, variant="fp16")
+        else:
+            pipe = StableDiffusionPipeline.from_single_file(os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/" + model + ".safetensors")
+
+        # pipe.unet.load_attn_procs(model_id_or_path)
+        pipe = pipe.to("cuda")
+        image = pipe(prompt=prompt, negative_prompt=negative_prompt, width=min(int(width), mwidth), height=min(int(height), mheight) ).images[0]
+        if torch.cuda.is_available():
+            del pipe
+            gc.collect()
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+
+
     uniquefilepath = uniquify("outputs/sd.jpg")
     image.save(uniquefilepath)
-    if torch.cuda.is_available():
-        del pipe
-        gc.collect()
-        torch.cuda.empty_cache()
-        torch.cuda.ipc_collect()
+
 
     if(int(upscale) > 1 and int(upscale) <= 4):
         print("Upscaling by factor " + upscale + " using RealESRGAN")
@@ -144,7 +262,7 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
     return uploadToHoster(uniquefilepath)
 
 
-def imageToImage(url, prompt, negative_prompt, strength, guidance_scale):
+def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="stablydiffusedsWild_351"):
     import requests
     import torch
     from PIL import Image
@@ -152,23 +270,44 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale):
 
     from diffusers import StableDiffusionImg2ImgPipeline
 
-    device = "cuda"
-    # model_id_or_path = "runwayml/stable-diffusion-v1-5"
-    # pipe = StableDiffusionImg2ImgPipeline.from_pretrained(model_id_or_path, torch_dtype=torch.float16)
 
-    pipe = StableDiffusionImg2ImgPipeline.from_single_file(
-        os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/stablydiffusedsWild_351.safetensors"
-    )
-    # pipe.unet.load_attn_procs(model_id_or_path)
-    pipe = pipe.to(device)
 
     response = requests.get(url)
-    init_image = Image.open(BytesIO(response.content)).convert("RGB")
-    # init_image = init_image.resize((768, 512))
+    init_image = load_image(url).convert("RGB")
+    #init_image = Image.open(BytesIO(response.content)).convert("RGB")
+    init_image = init_image.resize((int(init_image.width/4), int(init_image.height/4)))
 
-    image = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, strength=strength,
-                 guidance_scale=guidance_scale).images[0]
+    device = "cuda"
+    if model == "stabilityai/stable-diffusion-xl-refiner-1.0":
+        #init_image = init_image.resize((int(init_image.width / 2), int(init_image.height / 2)))
+        pipe = StableDiffusionXLImg2ImgPipeline.from_pretrained(
+            model, torch_dtype=torch.float16, variant="fp16",
+            use_safetensors=True
+        )
+        pipe = pipe.to("cuda")
+        image = pipe(prompt, image=init_image, strength=float(strength),guidance_scale=float(guidance_scale)).images[0]
+    elif model == "timbrooks/instruct-pix2pix":
+        pipe = StableDiffusionInstructPix2PixPipeline.from_pretrained(model, torch_dtype=torch.float16,
+                                                                      safety_checker=None)
+        pipe.to("cuda")
+        pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
+        # `image` is an RGB PIL.Image
+        guidance_scale="7.5"
+        image = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, guidance_scale=float(guidance_scale),  image_guidance_scale=1.5, num_inference_steps=50).images[0]
+
+        # 'CompVis/stable-diffusion-v1-4'
+    else:
+        pipe = StableDiffusionImg2ImgPipeline.from_single_file(
+            os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/"+model+".safetensors"
+        )
+        pipe = pipe.to(device)
+
+        image = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, strength=float(strength),
+                     guidance_scale=float(guidance_scale)).images[0]
+    # pipe.unet.load_attn_procs(model_id_or_path)
+
     uniquefilepath = uniquify("outputs/sd.jpg")
+    image.save(uniquefilepath)
 
     if torch.cuda.is_available():
         del pipe
@@ -176,6 +315,9 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale):
         torch.cuda.empty_cache()
         torch.cuda.ipc_collect()
 
+
+        print("Upscaling by factor " + "4" + " using RealESRGAN")
+        uniquefilepath = imageUpscaleRealESRGAN(uniquefilepath)
     return uploadToHoster((uniquefilepath))
 
 def imageUpscaleRealESRGANUrl(url, upscale="4"):
@@ -189,7 +331,6 @@ def imageUpscaleRealESRGANUrl(url, upscale="4"):
     uniquefilepath = imageUpscaleRealESRGAN("temp.jpg", upscale)
     return uploadToHoster(uniquefilepath)
 
-
 def imageUpscaleRealESRGAN(filepath, upscale="4"):
     import subprocess
     uniquefilepath = uniquify("outputs/sd.jpg")
@@ -200,6 +341,8 @@ def imageUpscaleRealESRGAN(filepath, upscale="4"):
     FNULL = open(os.devnull, 'w')  # use this if you want to suppress output to stdout from the subprocess
     args = "tools\\realesrgan_upscaler\\realesrgan-ncnn-vulkan.exe -n " + model +" -s " + upscale + " -i "+ filepath +  " -o " + uniquefilepath
     subprocess.call(args, stdout=FNULL, stderr=FNULL, shell=False)
+    #if os.path.isfile(filepath):
+    #    os.remove(filepath)
     return uniquefilepath
 
 def imageUpscale2x(url):
@@ -285,6 +428,34 @@ def GoogleTranslate(text, translation_lang):
     except:
         translated_text = "An error occured"
     return translated_text
+
+def OCRtesseract(url):
+    import cv2
+    import pytesseract
+    import requests
+    from PIL import Image
+    from io import BytesIO
+
+    response = requests.get(url)
+    imgd = Image.open(BytesIO(response.content)).convert("RGB")
+    imgd.save("ocr.jpg")
+    img = cv2.imread("ocr.jpg")
+    img = cv2.resize(img, None, fx=1.2, fy=1.2, interpolation=cv2.INTER_CUBIC)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    kernel = np.ones((1, 1), np.uint8)
+    #img = cv2.dilate(img, kernel, iterations=1)
+    #img = cv2.erode(img, kernel, iterations=1)
+    #img = cv2.threshold(cv2.bilateralFilter(img, 5, 75, 75), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    cv2.imwrite("ocr_procesed.jpg", img)
+    #img = cv2.threshold(cv2.medianBlur(img, 3), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+
+
+
+    # Adding custom options
+    custom_config = r'--oem 3 --psm 6'
+    result = pytesseract.image_to_string(img, config=custom_config)
+    print(str(result))
+    return str(result)
 
 def FreeWilly(message):
     import torch
