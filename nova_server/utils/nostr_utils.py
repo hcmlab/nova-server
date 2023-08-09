@@ -5,6 +5,7 @@ import re
 import urllib
 from dataclasses import dataclass
 from datetime import timedelta
+from sqlite3 import Error
 from urllib.parse import urlparse
 
 import nostr_sdk.nostr_sdk
@@ -19,6 +20,7 @@ from nostr_sdk.nostr_sdk import PublicKey
 from nova_server.utils.db_utils import db_entry_exists, add_new_session_to_db
 from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube, checkYoutubeLinkValid
 from configparser import ConfigParser
+import sqlite3
 
 # TODO
 # check expiry of tasks/available output format/model/ (task is checked already). if not available ignore the job,
@@ -29,12 +31,8 @@ from configparser import ConfigParser
 # consider max-sat amount at all,
 # consider reactions from customers (Kind 65000 event)
 # add more output formats (webvtt, srt)
-# add summarization task (GPT4all?, OpenAI api?) in own module
 # purge database and files from time to time?
 # Show preview of longer transcriptions, then ask for zap
-# TASK: OCR
-# TASK: LLAMA2
-# TASK:
 
 
 class DVMConfig:
@@ -47,7 +45,7 @@ class DVMConfig:
     COSTPERUNIT_TRANSLATION: int = 2  # Still need to multiply this by duration
     COSTPERUNIT_SPEECHTOTEXT: int = 5  # Still need to multiply this by duration
     COSTPERUNIT_IMAGEPROCESSING: int = 50  # Generate / Transform one image
-    COSTPERUNIT_IMAGEUPSCALING: int = 500  # This takes quite long..
+    COSTPERUNIT_IMAGEUPSCALING: int = 25  # This takes quite long..
 
 
 @dataclass
@@ -65,6 +63,7 @@ JobstoWatch = []
 relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://relayable.org", "wss://nostr-pub.wellorder.net"]
 relaytimeout = 1
 
+
 #init_logger(LogLevel.DEBUG)
 
 def nostr_server():
@@ -77,20 +76,35 @@ def nostr_server():
         client.add_relay(relay)
     client.connect()
 
+
     dmzapfilter = Filter().pubkey(pk).kinds([4, 9734, 9735]).since(Timestamp.now())
     dvmfilter = (Filter().kinds([66000, 65002, 65003, 65004, 65005]).since(Timestamp.now()))
     client.subscribe([dmzapfilter, dvmfilter])
+
+    createSQLTable()
+    makeDatabaseUpdates()
 
     class NotificationHandler(HandleNotification):
         def handle(self, relay_url, event):
             print(f"[Nostr] Received new event from {relay_url}: {event.as_json()}")
             if (65002 <= event.kind() <= 66000):
-                if isBlackListed(event.pubkey):
+                user = getFromSQLTable(event.pubkey().to_hex())
+                if user == None:
+                    addtoSQLtable(event.pubkey().to_hex(), 150, False, False)
+                    user = getFromSQLTable(event.pubkey().to_hex())
+                iswhitelisted = user[2]
+                isblacklisted = user[3]
+
+                if isblacklisted:
                     sendJobStatusReaction(event, "error")
                     print("[Nostr] Request by blacklisted user, skipped")
                 elif checkTaskisSupported(event):
                     task = getTask(event)
-                    if isWhiteListed(event.pubkey().to_hex(), task) or task == "chat":
+                    amount = getAmountPerTask(task)
+                    if amount == None:
+                        return
+
+                    if iswhitelisted or task == "chat":
                         print("[Nostr] Whitelisted for task " + task + ". Starting processing..")
                         sendJobStatusReaction(event, "processing", True, 0)
                         doWork(event, isFromBot=False)
@@ -102,32 +116,9 @@ def nostr_server():
                                 bid = int(tag.as_vec()[1])
 
                         print("[Nostr][Payment required] New Nostr " + task + " Job event: " + event.as_json())
-                        #TODO adjust these costs
-                        if task == "translation":
-                            duration = 1  # todo get task duration
-                            amount = DVMConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
-                        elif task == "speech-to-text":
-                            duration = 1  # todo get task duration
-                            amount = DVMConfig.COSTPERUNIT_TRANSLATION * duration * 1000  # *1000 because millisats
-                        elif task == "text-to-image":
-                            amount = DVMConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
-                        elif task == "image-to-image":
-                            amount = DVMConfig.COSTPERUNIT_IMAGEPROCESSING * 1000  # *1000 because millisats
-                        elif task == "image-upscale":
-                            amount = DVMConfig.COSTPERUNIT_IMAGEUPSCALING * 1000  # *1000 because millisats
-                        elif task == "chat":
-                            amount = DVMConfig.COSTPERUNIT_IMAGEUPSCALING * 1000  # *1000 because millisats
-                        elif task == "image-to-text":
-                            amount = DVMConfig.COSTPERUNIT_TRANSLATION * 1000  # *1000 because millisats
-                        elif task == "summarization":
-                            amount = DVMConfig.COSTPERUNIT_TRANSLATION * 1000  # *1000 because millisats
-                        else:
-                            print("[Nostr] Task " + task + " is currently not supported by this instance, skipping")
-                            return
-
                         if bid > 0:
-                            willingtopay = bid
-                            if willingtopay > DVMConfig.AUTOPROCESS_MIN_AMOUNT * 1000 or willingtopay < DVMConfig.AUTOPROCESS_MAX_AMOUNT * 1000:
+                            willingtopay = int(bid/1000)
+                            if willingtopay > DVMConfig.AUTOPROCESS_MIN_AMOUNT or willingtopay < DVMConfig.AUTOPROCESS_MAX_AMOUNT:
                                 print("[Nostr][Auto-processing: Payment suspended to end] Job event: " + str(
                                     event.as_json()))
                                 doWork(event, isFromBot=False)
@@ -146,17 +137,37 @@ def nostr_server():
                     print("[Nostr] Got new Task but can't process it, skipping..")
 
             elif event.kind() == 4:
+                sender = event.pubkey().to_hex()
+
                 try:
                     dec_text = nip04_decrypt(sk, event.pubkey(), event.content())
                     print(f"Received new msg: {dec_text}")
 
                     if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-image-to-image") or str(dec_text).startswith("-speech-to-text") or str(dec_text).startswith("-image-upscale"):
                         task = str(dec_text).split(' ')[0].removeprefix('-')
+                        reqamount = getAmountPerTask(task)  # TODO adjust this to task
+
+                        user = getFromSQLTable(sender)
+                        if user == None:
+                            addtoSQLtable(sender, 150, False, False)
+                            user = getFromSQLTable(sender)
+                        balance = user[1]
+                        iswhitelisted = user[2]
+                        isblacklisted = user[3]
                         time.sleep(3.0)
-                        if isWhiteListed(event.pubkey().to_hex(), task):
-                            evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
-                                                                          "Whitelisted, processing started.\n\nI will DM you once your task is ready.",
-                                                                          None).to_event(keys)
+                        if isblacklisted:
+                            evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "Your are currently blocked from all services.",None).to_event(keys)
+                            sendEvent(evt)
+                        elif iswhitelisted or balance >= reqamount:
+                            if not iswhitelisted:
+                                balance = max(balance - reqamount, 0)
+                                updateSQLtable(sender, balance, iswhitelisted, isblacklisted)
+                                evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),"Your Job is now scheduled. New balance is " + str(balance) +" Sats.\nI will DM you once I'm done processing.",None).to_event(keys)
+                            else:
+                                evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
+                                                                            "Your Job is now scheduled. As you are whitlisted, your balance remains at " + str(
+                                                                                balance) + " Sats.\nI will DM you once I'm done processing.",
+                                                                            None).to_event(keys)
                             sendEvent(evt)
                             tags = parsebotcommandtoevent(dec_text)
                             tags.append(Tag.parse(["p", event.pubkey().to_hex()]))
@@ -165,10 +176,20 @@ def nostr_server():
                             doWork(evt, isFromBot=True)
 
                         else:
-                             event = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "Payment required, please zap this note with at least " + str(DVMConfig.COSTPERUNIT_IMAGEPROCESSING) + " Sats ..", event.id()).to_event(keys)
-                             JobstoWatch.append(JobToWatch(id=event.id().to_hex(), timestamp=event.created_at().as_secs(), amount=50,isPaid=False, status="payment-required", result="", isProcessed=False))
-                             client.send_event(event)
+                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "Balance required, please zap this note to start directly, or zap me at least " + str(reqamount) + " Sats, then try again. For now, for adding balance, only public Zaps are supported (Non anon/private).", event.id()).to_event(keys)
+                             JobstoWatch.append(JobToWatch(id=evt.id().to_hex(), timestamp=event.created_at().as_secs(), amount=reqamount, isPaid=False, status="payment-required", result="", isProcessed=False))
+                             client.send_event(evt)
+
+                    elif str(dec_text).startswith("-balance"):
+                        user = getFromSQLTable(sender)
+                        balance = user[1]
+                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
+                                                                    "You're current balance is " + str(balance) + " Sats. Zap me to add to your balance. For now only public Zaps are supported (Non anon/private).",
+                                                                    None).to_event(keys)
+                        sendEvent(evt)
+
                     else:
+                        #TODO dont run this on scheduler, it blocks, run this in parallel
                         task = "chat"
                         tags = parsebotcommandtoevent(dec_text)
                         tags.append(Tag.parse(["p", event.pubkey().to_hex()]))
@@ -182,14 +203,23 @@ def nostr_server():
                 print(event.as_json())
 
             elif event.kind() == 9735:
+                print(event.as_json())
                 print("Zap received")
                 try:
                     for tag in event.tags():
                         if tag.as_vec()[0] == 'bolt11':
                             invoicesats = ParseBolt11Invoice(tag.as_vec()[1])
                         elif tag.as_vec()[0] == 'e':
-                            print(tag.as_vec()[1])
                             zapableevent = getEvent(tag.as_vec()[1])
+                        elif tag.as_vec()[0] == 'description':
+                            desc = str(tag.as_vec()[1])
+                            senderevt = Event.from_json(desc)
+                            print(senderevt.pubkey().to_hex())
+                            sender = senderevt.pubkey().to_hex()
+
+
+
+                    if zapableevent is not None:
                             if (zapableevent.kind() == 65000):  # if a reaction by us got zapped
                                 for tag in zapableevent.tags():
                                     amount = 0
@@ -199,54 +229,79 @@ def nostr_server():
                                         jobevent = getEvent(tag.as_vec()[1])
                                         print("[Nostr] Original Job Request event found...")
 
-                                if amount <= invoicesats * 1000:
-                                    print("[Nostr] Payment-request fulfilled...")
-                                    sendJobStatusReaction(jobevent, "processing")
-                                    indices = [i for i, x in enumerate(JobstoWatch) if x.id == jobevent.id().to_hex()]
-                                    index = -1
-                                    if len(indices) > 0:
-                                        index = indices[0]
-                                    if (index > -1):
-                                        # todo also remove ids after x time of waiting, need to store pairs of id / timestamp for that
-                                        if (JobstoWatch[index]).isProcessed:  # If payment-required appears after processing
-                                            JobstoWatch[index].isPaid = True
-                                            CheckEventStatus(JobstoWatch[index].result, str(jobevent.as_json()))
-                                        elif not (JobstoWatch[index]).isProcessed:  # If payment-required appears before processing
-                                            JobstoWatch.pop(index)
-                                            doWork(jobevent, isFromBot=False)
-                                else:
-                                    sendJobStatusReaction(jobevent, "payment-rejected", invoicesats * 1000)
-                                    print("[Nostr] Invoice was not paid sufficiently")
+                                if jobevent is not None:
+                                    if amount <= invoicesats:
+                                        print("[Nostr] Payment-request fulfilled...")
+                                        sendJobStatusReaction(jobevent, "processing")
+                                        indices = [i for i, x in enumerate(JobstoWatch) if x.id == jobevent.id().to_hex()]
+                                        index = -1
+                                        if len(indices) > 0:
+                                            index = indices[0]
+                                        if (index > -1):
+                                            # todo also remove ids after x time of waiting, need to store pairs of id / timestamp for that
+                                            if (JobstoWatch[index]).isProcessed:  # If payment-required appears after processing
+                                                JobstoWatch[index].isPaid = True
+                                                CheckEventStatus(JobstoWatch[index].result, str(jobevent.as_json()))
+                                            elif not (JobstoWatch[index]).isProcessed:  # If payment-required appears before processing
+                                                JobstoWatch.pop(index)
+                                                doWork(jobevent, isFromBot=False)
+                                    else:
+                                        sendJobStatusReaction(jobevent, "payment-rejected", invoicesats)
+                                        print("[Nostr] Invoice was not paid sufficiently")
 
                             elif zapableevent.kind() == 4:
-                                if invoicesats >= DVMConfig.COSTPERUNIT_IMAGEPROCESSING:
-                                    print("[Nostr] Original Prompt Job Request event found...")
-                                    for tag in zapableevent.tags():
-                                        if tag.as_vec()[0] == 'e':
-                                            evt = getEvent(tag.as_vec()[1])
-                                            if evt == None:
-                                                filter = Filter().id(tag.as_vec()[1]).limit(1)
-                                                events = client.get_events_of([filter], timedelta(seconds=5))
-                                                evt = events[0]
-                                            print(evt.as_json())
-                                            indices = [i for i, x in enumerate(JobstoWatch) if x.id == zapableevent.id().to_hex()]
-                                            if len(indices) == 1:
-                                                event = EventBuilder.new_encrypted_direct_msg(keys, evt.pubkey(), "Payment received, processing started.\n\nI will DM you once your task is ready.", None).to_event(keys)
-                                                dec_text = nip04_decrypt(sk, evt.pubkey(), evt.content())
-                                                JobstoWatch.pop(indices[0])
-                                                print(JobstoWatch)
-                                                sendEvent(event)
 
-                                                tags = parsebotcommandtoevent(dec_text)
-                                                tags.append(Tag.parse(["p", evt.pubkey().to_hex()]))
-                                                event = EventBuilder(4, "", tags).to_event(keys)
-                                                print(event.as_json())
-                                                doWork(event, isFromBot=True)
+                                reqamount = 50
+                                jobevt = None
+                                for tag in zapableevent.tags():
+                                    if tag.as_vec()[0] == 'e':
+                                        jobevt = getEvent(tag.as_vec()[1])
+                                        print(jobevt.as_json())
+                                        print("[Nostr] Original Prompt Job Request event found...")
+
+                                if jobevt is not None:
+                                    indices = [i for i, x in enumerate(JobstoWatch) if x.id == zapableevent.id().to_hex()]
+                                    print(str(indices))
+                                    if len(indices) == 1:
+
+                                        dec_text = nip04_decrypt(sk, jobevt.pubkey(), jobevt.content())
+                                        tags = parsebotcommandtoevent(dec_text)
+                                        tags.append(Tag.parse(["p", jobevt.pubkey().to_hex()]))
+                                        event = EventBuilder(4, "", tags).to_event(keys)
+                                        for tag in tags:
+                                            if tag.as_vec()[0] == "j":
+                                                task = tag.as_vec()[1]
+                                                reqamount = getAmountPerTask(task)
+                                                #TODO adjust cost to task
 
 
-                                            break
+                                        if invoicesats >= reqamount:
+                                           # user = getFromSQLTable(sender)
+                                           # newbalance =  max(0,user[1] - reqamount)
+                                           # updateSQLtable(sender, (newbalance),
+                                        #               user[2], user[3])
+                                            dmevent = EventBuilder.new_encrypted_direct_msg(keys, jobevt.pubkey(), "Zap received ⚡️! Your Job is now scheduled. I will DM you once I'm done processing.", None).to_event(keys)
+                                            sendEvent(dmevent)
+                                            JobstoWatch.pop(indices[0])
+                                            #print(JobstoWatch)
+
+                                            print(event.as_json())
+                                            doWork(event, isFromBot=True)
+                                else:
+                                    user = getFromSQLTable(sender)
+                                    if user == None:
+                                        addtoSQLtable(sender, (invoicesats + 150), False, False)
+                                        print("NEW USER")
+                                    else:
+                                        user = getFromSQLTable(sender)
+                                        print(invoicesats)
+                                        updateSQLtable(sender, (user[1] + invoicesats), user[2], user[3])
+                                        print("UPDATE USER BALANCE")
+
+
                             else:
                                 print("[Nostr] Zap was not for a kind 65000 or 4 reaction, skipping")
+
 
                 except Exception as e:
                     print(f"Error during content decryption: {e}")
@@ -405,7 +460,7 @@ def nostr_server():
             negative_prompt = ""
             strength = 0.5
             guidance_scale = 7.5
-            model = "timbrooks/instruct-pix2pix"
+            model = "sdxl"
 
             for tag in event.tags():
                 if tag.as_vec()[0] == 'i':
@@ -438,12 +493,13 @@ def nostr_server():
         elif task == "text-to-image":
             request_form["mode"] = "PREDICT_STATIC"
             request_form["trainerFilePath"] = 'text-to-image'
-            width = "768"
-            height = "768"
             extra_prompt = ""
             negative_prompt = ""
             upscale = "4"
             model = "stabilityai/stable-diffusion-xl-base-1.0"
+
+            width = "1024"
+            height = "1024"
 
             for tag in event.tags():
                 if tag.as_vec()[0] == 'i':
@@ -469,7 +525,8 @@ def nostr_server():
                     elif tag.as_vec()[1] == "upscale":  # check for paramtype
                         upscale = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "model":  # check for paramtype
-                            model = tag.as_vec()[2]
+                        model = tag.as_vec()[2]
+
 
             request_form["optStr"] = 'prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt=' + negative_prompt + ';width=' + width + ';height=' + height + ';upscale=' + upscale + ';model=' + model
 
@@ -617,6 +674,29 @@ def getTask(event):
     else:
         return "unknown type"
 
+def getAmountPerTask(task):
+    if task == "translation":
+        duration = 1  # todo get task duration
+        amount = DVMConfig.COSTPERUNIT_TRANSLATION * duration
+    elif task == "speech-to-text":
+        duration = 1  # todo get task duration
+        amount = DVMConfig.COSTPERUNIT_IMAGEPROCESSING * duration
+    elif task == "text-to-image":
+        amount = DVMConfig.COSTPERUNIT_IMAGEPROCESSING
+    elif task == "image-to-image":
+        amount = DVMConfig.COSTPERUNIT_IMAGEPROCESSING
+    elif task == "image-upscale":
+        amount = DVMConfig.COSTPERUNIT_IMAGEUPSCALING
+    elif task == "chat":
+        amount = 0
+    elif task == "image-to-text":
+        amount = DVMConfig.COSTPERUNIT_IMAGEPROCESSING
+    elif task == "summarization":
+        amount = DVMConfig.COSTPERUNIT_IMAGEPROCESSING
+    else:
+        print("[Nostr] Task " + task + " is currently not supported by this instance, skipping")
+        return None
+    return amount
 def organizeInputData(event, request_form):
     data_dir = os.environ["NOVA_DATA_DIR"]
 
@@ -737,69 +817,6 @@ def organizeInputData(event, request_form):
             duration = end_time - start_time
             add_new_session_to_db(request_form, duration)
 
-def isBlackListed(pubkey):
-    # Store  lists of blacklisted npubs that can no do processing
-    # todo blacklisting and whitelsting should be moved to a database and probably get some expiry
-    blacklisted_all_tasks = []
-    if any(pubkey == c for c in blacklisted_all_tasks):
-        return True
-    return False
-def isWhiteListed(pubkey, task):
-    # Store  ists of whistlisted npubs that can do free processing for specific tasks
-
-    localnostrtest = "558497db304332004e59387bc3ba1df5738eac395b0e56b45bfb2eb5400a1e39"
-    localclienttest = "828c4d2b20ae3d679f9ddad0917ff9aa4c98e16612f5b4551faf447c6ce93ed8"
-    dbth = '99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64'
-    pablof7z = "fa984bd7dbb282f07e16e7ae87b26a2a7b9b90b7246a44771f0cf5ae58018f52"
-    # PublicKey.from_npub("npub...").hex()
-    whitelsited_npubs_speechtotext = []  # remove this to test LN Zaps
-    whitelsited_npubs_translation = []
-    whitelsited_npubs_summarization = []
-    whitelsited_npubs_texttoimage = []
-    whitelsited_npubs_imagetoimage = []
-    whitelsited_npubs_imageupscale = []
-    whitelsited_npubs_chat = []
-    whitelsited_npubs_imagetotext = []
-
-    whitelsited_all_tasks = [dbth, localnostrtest, localclienttest]
-
-    if (task == "speech-to-text"):
-        if any(pubkey == c for c in whitelsited_npubs_speechtotext) or any(
-                pubkey == c for c in whitelsited_all_tasks):
-            return True
-    elif (task == "translation"):
-        if any(pubkey == c for c in whitelsited_npubs_translation) or any(
-                pubkey == c for c in whitelsited_all_tasks):
-            return True
-    elif (task == "text-to-image"):
-        if any(pubkey == c for c in whitelsited_npubs_texttoimage) or any(
-                pubkey == c for c in whitelsited_all_tasks):
-            return True
-    elif (task == "image-to-image"):
-        if any(pubkey == c for c in whitelsited_npubs_imagetoimage) or any(
-                pubkey == c for c in whitelsited_all_tasks):
-            return True
-    elif (task == "image-upscale"):
-        if any(pubkey == c for c in whitelsited_npubs_imageupscale) or any(
-                pubkey == c for c in whitelsited_all_tasks):
-            return True
-    elif (task == "chat"):
-        if any(pubkey == c for c in whitelsited_npubs_chat) or any(pubkey == c for c in whitelsited_all_tasks):
-            return True
-    elif (task == "image-to-text"):
-        if any(pubkey == c for c in whitelsited_npubs_imagetotext) or any(pubkey == c for c in whitelsited_all_tasks):
-            return True
-    elif (task == "summarization"):
-        if any(pubkey == c for c in whitelsited_npubs_summarization) or any(pubkey == c for c in whitelsited_all_tasks):
-            return True
-
-
-    else:
-        if any(pubkey == c for c in whitelsited_all_tasks):
-            return True
-    return False
-
-
 def CheckEventStatus(content, originaleventstr: str, useBot=False):
     originalevent = Event.from_json(originaleventstr)
     for x in JobstoWatch:
@@ -864,7 +881,7 @@ def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
             altdesc = "NIP90 DVM AI task " + task + " had an error. So sorry. In the future zaps will be sent back but I can't do that just yet."
         elif status == "payment-required":
             reaction = emoji.emojize(":orange_heart:")
-            altdesc = "NIP90 DVM AI task " + task + " requires payment of min " + str(int(amount/1000)) + " Sats."
+            altdesc = "NIP90 DVM AI task " + task + " requires payment of min " + str(amount) + " Sats."
             if task == "speech-to-text":
                 altdesc = altdesc + " Providing results with WhisperX large-v2. Accepted input formats: wav,mp3,mp4,ogg,avi,mov,youtube,overcast. Possible outputs: text/plain, timestamped labels depending on alignment parameter (word,segment,raw)"
             elif task == "image-to-text":
@@ -872,7 +889,7 @@ def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
 
         elif status == "payment-rejected":
             reaction = emoji.emojize(":see_no_evil_monkey:")
-            altdesc = "NIP90 DVM AI task " + task + " payment is below required amount of " + str(int(amount/1000)) + " Sats."
+            altdesc = "NIP90 DVM AI task " + task + " payment is below required amount of " + str(amount) + " Sats."
         elif status == "user-blocked-from-service":
             reaction = emoji.emojize(":see_no_evil_monkey:")
             altdesc = "NIP90 DVM AI task " + task + " can't be performed. User has been blocked from Service"
@@ -909,7 +926,7 @@ def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0):
             #    amounttag = Tag.parse(["amount", str(amount)])
             #    tags.append(amounttag)
             #    print("Couldn't get bolt11 invoice")
-            amounttag = Tag.parse(["amount", str(amount)])
+            amounttag = Tag.parse(["amount", str(amount*1000)]) #to millisats
             tags.append(amounttag)
 
         keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
@@ -940,8 +957,8 @@ def parsebotcommandtoevent(dec_text):
         prompttemp = dec_text.replace("-text-to-image ", "")
         split = prompttemp.split("-")
         prompt = split[0]
-        width = "768"
-        height = "768"
+        width = "1024"
+        height = "1024"
         jTag = Tag.parse(["j", "text-to-image"])
         iTag = Tag.parse(["i", prompt, "text"])
         tags = [jTag, iTag]
@@ -1166,6 +1183,104 @@ def createBolt11LnBits(millisats):
     res = requests.post(url, data=data)
     obj = json.loads(res.text)
     return obj["payment_request"]
+
+
+#DATABASE LOGIC
+
+db = "nostrzaps.db"
+
+def createSQLTable():
+    try:
+        con = sqlite3.connect(db)
+    except Error as e:
+        print(e)
+    cur = con.cursor()
+    cur.execute(""" CREATE TABLE IF NOT EXISTS users (
+                                        npub text PRIMARY KEY,
+                                        sats integer NOT NULL,
+                                        iswhitelisted boolean,
+                                        isblacklisted boolean
+                                    ); """)
+    res = cur.execute("SELECT name FROM sqlite_master")
+    con.close()
+
+def addtoSQLtable(npub, sats, iswhitelisted, isblacklisted):
+    try:
+        con = sqlite3.connect(db)
+    except Error as e:
+        print(e)
+    cur = con.cursor()
+    data = (npub, sats, iswhitelisted, isblacklisted)
+    cur.execute("INSERT INTO users VALUES(?, ?, ?, ?)", data)
+    con.commit()
+    con.close()
+def updateSQLtable(npub, sats, iswhitelisted, isblacklisted):
+    try:
+        con = sqlite3.connect(db)
+    except Error as e:
+        print(e)
+    cur = con.cursor()
+    data = (sats, iswhitelisted, isblacklisted, npub)
+
+    res = cur.execute(""" UPDATE users
+              SET sats = ? ,
+                  iswhitelisted = ? ,
+                  isblacklisted = ?
+              WHERE npub = ?""", data)
+    con.commit()
+    con.close()
+def getFromSQLTable(npub):
+    try:
+        con = sqlite3.connect(db)
+    except Error as e:
+        print(e)
+    cur = con.cursor()
+    cur.execute("SELECT * FROM users WHERE npub=?", (npub,))
+    row = cur.fetchone()
+    con.close()
+    return row
+
+def deleteFromSQLTable(npub):
+    try:
+        con = sqlite3.connect(db)
+    except Error as e:
+        print(e)
+    cur = con.cursor()
+    cur.execute("DELETE FROM users WHERE npub=?", (npub,))
+    con.commit()
+    con.close()
+
+def makeDatabaseUpdates():
+    #This is called on start of Server, Admin function to manually whitelist/blacklist/add balance/delete users
+    deleteuser = False
+    whitelistuser = False
+    unwhitelistuser = False
+    blacklistuser = False
+    addbalance = False
+
+    #publickey = PublicKey.from_bech32("....").to_hex()  #use this if you have the npub
+    publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
+
+    if whitelistuser:
+        user = getFromSQLTable(publickey)
+        updateSQLtable(user[0], user[1], True, False)
+
+    if unwhitelistuser:
+        user = getFromSQLTable(publickey)
+        updateSQLtable(user[0], user[1], False, False)
+
+    if blacklistuser:
+        user = getFromSQLTable(publickey)
+        updateSQLtable(user[0], user[1], False, True)
+
+    if addbalance:
+        additionalbalance = 100
+        user = getFromSQLTable(publickey)
+        updateSQLtable(user[0], user[1] + additionalbalance, user[2], user[3])
+
+    if deleteuser:
+        deleteFromSQLTable(publickey)
+
 
 if __name__ == '__main__':
     os.environ["NOVA_DATA_DIR"] = "W:\\nova\\data"

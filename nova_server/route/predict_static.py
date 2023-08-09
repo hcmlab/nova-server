@@ -155,12 +155,6 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
         mwidth = 1024
         mheight = 1024
 
-    elif model == "GTA5_Artwork_Diffusion_gtav_style" or "runwayml/stable-diffusion-v1-5":
-        mwidth = 512
-        mheight = 512
-
-
-
 
     if model == "stabilityai/stable-diffusion-xl-base-1.0":
 
@@ -187,6 +181,8 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
         high_noise_frac = 0.8
         image = base(
             prompt=prompt,
+            width=min(int(width), mwidth),
+            height=min(int(height), mheight),
             num_inference_steps=n_steps,
             denoising_end=high_noise_frac,
             negative_prompt=negative_prompt,
@@ -306,14 +302,23 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
     init_image = load_image(url).convert("RGB")
     init_image = init_image.resize((int(init_image.width/4), int(init_image.height/4)))
 
-    device = "cuda"
     if model == "stabilityai/stable-diffusion-xl-refiner-1.0":
+
         pipe = StableDiffusionXLImg2ImgPipeline.from_pretrained(
             model, torch_dtype=torch.float16, variant="fp16",
             use_safetensors=True
         )
+        n_steps = 35
+        high_noise_frac = 0.8
+
         pipe = pipe.to("cuda")
-        image = pipe(prompt, image=init_image, strength=float(strength),guidance_scale=float(guidance_scale)).images[0]
+        image = pipe(prompt, image=init_image,
+            negative_prompt=negative_prompt,).images[0]
+
+
+
+
+
     elif model == "timbrooks/instruct-pix2pix":
         pipe = StableDiffusionInstructPix2PixPipeline.from_pretrained(model, torch_dtype=torch.float16,
                                                                       safety_checker=None)
@@ -328,7 +333,7 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
         pipe = StableDiffusionImg2ImgPipeline.from_single_file(
             os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/"+model+".safetensors"
         )
-        pipe = pipe.to(device)
+        pipe = pipe.to("cuda")
 
         image = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, strength=float(strength),
                      guidance_scale=float(guidance_scale)).images[0]
