@@ -3,7 +3,7 @@ import copy
 import gc
 import json
 import os
-
+from datetime import timedelta
 
 import numpy as np
 from diffusers import DiffusionPipeline, StableDiffusionXLImg2ImgPipeline, StableDiffusionInstructPix2PixPipeline, \
@@ -11,6 +11,7 @@ from diffusers import DiffusionPipeline, StableDiffusionXLImg2ImgPipeline, Stabl
 from diffusers.utils import load_image
 from flask import Blueprint, request, jsonify
 from huggingface_hub import model_info
+from nostr_sdk import PublicKey, Timestamp
 
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
@@ -25,6 +26,7 @@ from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
     HcaiNovaDynamicIterable,
 )
 from nova_utils.interfaces.server_module import Trainer as iTrainer
+
 os.environ['TRANSFORMERS_CACHE'] = 'W:/nova/cml/models/trainer/.cache/'
 
 predict_static = Blueprint("predict_static", __name__)
@@ -66,11 +68,13 @@ def predict_static_data(request_form):
             logger.info(k + "=" + v)
     logger.info("...done.")
     options = dict(opts)
-    #TODO move these to separate files
+    # TODO move these to separate files
     if task == "text-to-image":
-        anno = textToImage(options["prompt"], options["extra_prompt"], options["negative_prompt"], options["width"], options["height"], options["upscale"], options["model"])
+        anno = textToImage(options["prompt"], options["extra_prompt"], options["negative_prompt"], options["width"],
+                           options["height"], options["upscale"], options["model"])
     elif task == "image-to-image":
-        anno = imageToImage(options["url"], options["prompt"], options["negative_prompt"], options["strength"], options["guidance_scale"], options["model"])
+        anno = imageToImage(options["url"], options["prompt"], options["negative_prompt"], options["strength"],
+                            options["guidance_scale"], options["model"])
     elif task == "image-upscale":
         anno = imageUpscaleRealESRGANUrl(options["url"], options["upscale"])
     elif task == "translation":
@@ -80,7 +84,10 @@ def predict_static_data(request_form):
     elif task == "chat":
         anno = LLAMA2(options["message"], options["user"])
     elif task == "summarization":
-        anno = LLAMA2("Give me a summarization of the most important points of the following text: " + options["message"])
+        anno = LLAMA2(
+            "Give me a summarization of the most important points of the following text: " + options["message"],  options["user"])
+    elif task == "inactive-following":
+        anno = InactiveNostrFollowers(options["user"], int(options["since"]), int(options["num"]) )
 
     if request_form["nostrEvent"] is not None:
         nostr_utils.CheckEventStatus(anno, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
@@ -123,9 +130,9 @@ def uploadToHoster(filepath):
         # fallback filehoster
 
 
-
 # SCRIPTS (TO BE MOVED TO FILES)
-def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", height="512", upscale="1", model="stabilityai/stable-diffusion-xl-base-1.0"):
+def textToImage(prompt, extra_prompt="", negative_prompt="", width="512", height="512", upscale="1",
+                model="stabilityai/stable-diffusion-xl-base-1.0"):
     import torch
     from diffusers import DiffusionPipeline
     from diffusers import StableDiffusionPipeline
@@ -155,14 +162,13 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
         mwidth = 1024
         mheight = 1024
 
-
     if model == "stabilityai/stable-diffusion-xl-base-1.0":
 
         base = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
         base.to("cuda")
         loramodelsfolder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
-        #base.load_lora_weights(loramodelsfolder + "cyborg_style_xl-alpha.safetensors")
-        #base.unet = torch.compile(base.unet, mode="reduce-overhead", fullgraph=True)
+        # base.load_lora_weights(loramodelsfolder + "cyborg_style_xl-alpha.safetensors")
+        # base.unet = torch.compile(base.unet, mode="reduce-overhead", fullgraph=True)
         refiner = DiffusionPipeline.from_pretrained(
             "stabilityai/stable-diffusion-xl-refiner-1.0",
             text_encoder_2=base.text_encoder_2,
@@ -171,11 +177,11 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
             use_safetensors=True,
             variant="fp16",
         )
-        #refiner.to("cuda")
+        # refiner.to("cuda")
         refiner.enable_model_cpu_offload()
-        #refiner.load_lora_weights(loramodelsfolder + "cyborg_style_xl-alpha.safetensors")
-        #refiner.load_lora_weights(loramodelsfolder + "ghibli_last.safetensors")
-        #refiner.unet = torch.compile(refiner.unet, mode="reduce-overhead", fullgraph=True)
+        # refiner.load_lora_weights(loramodelsfolder + "cyborg_style_xl-alpha.safetensors")
+        # refiner.load_lora_weights(loramodelsfolder + "ghibli_last.safetensors")
+        # refiner.unet = torch.compile(refiner.unet, mode="reduce-overhead", fullgraph=True)
         # Define how many steps and what % of steps to be run on each experts (80/20) here
         n_steps = 35
         high_noise_frac = 0.8
@@ -211,10 +217,11 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
         import torch
 
         loramodelsfolder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
-        base_model = os.environ[ 'TRANSFORMERS_CACHE'] + "stablediffusionmodels/anyloraCheckpoint_bakedvaeBlessedFp16.safetensors"
+        base_model = os.environ[
+                         'TRANSFORMERS_CACHE'] + "stablediffusionmodels/anyloraCheckpoint_bakedvaeBlessedFp16.safetensors"
 
         if model == "ghibli" or model == "monster" or model == "chad" or model == "inks":
-            #local lora models
+            # local lora models
             if model == "ghibli":
                 model_path = loramodelsfolder + "ghibli_style_offset.safetensors"
             elif model == "monster":
@@ -229,7 +236,7 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
             pipe.to("cuda")
             pipe.load_lora_weights(model_path)
         else:
-            #huggingface repo lora models
+            # huggingface repo lora models
             if model == "t4":
                 model_path = "sayakpaul/sd-model-finetuned-lora-t4"
             elif model == "pokemon":
@@ -242,7 +249,8 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
             pipe.to("cuda")
             pipe.unet.load_attn_procs(model_path)
 
-        image = pipe(prompt, num_inference_steps=30, guidance_scale=7.5, cross_attention_kwargs={"scale": 1.0}).images[0]
+        image = pipe(prompt, num_inference_steps=30, guidance_scale=7.5, cross_attention_kwargs={"scale": 1.0}).images[
+            0]
 
         if torch.cuda.is_available():
             del pipe
@@ -255,23 +263,23 @@ def textToImage(prompt, extra_prompt="",  negative_prompt="", width="512", heigh
             pipe = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16,
                                                      use_safetensors=True, variant="fp16")
         else:
-            pipe = StableDiffusionPipeline.from_single_file(os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/" + model + ".safetensors")
+            pipe = StableDiffusionPipeline.from_single_file(
+                os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/" + model + ".safetensors")
 
         # pipe.unet.load_attn_procs(model_id_or_path)
         pipe = pipe.to("cuda")
-        image = pipe(prompt=prompt, negative_prompt=negative_prompt, width=min(int(width), mwidth), height=min(int(height), mheight) ).images[0]
+        image = pipe(prompt=prompt, negative_prompt=negative_prompt, width=min(int(width), mwidth),
+                     height=min(int(height), mheight)).images[0]
         if torch.cuda.is_available():
             del pipe
             gc.collect()
             torch.cuda.empty_cache()
             torch.cuda.ipc_collect()
 
-
     uniquefilepath = uniquify("outputs/sd.jpg")
     image.save(uniquefilepath)
 
-
-    if(int(upscale) > 1 and int(upscale) <= 4):
+    if (int(upscale) > 1 and int(upscale) <= 4):
         print("Upscaling by factor " + upscale + " using RealESRGAN")
         uniquefilepath = imageUpscaleRealESRGAN(uniquefilepath, upscale)
 
@@ -286,7 +294,7 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
 
     from diffusers import StableDiffusionImg2ImgPipeline
 
-    if  model.__contains__("gta"):
+    if model.__contains__("gta"):
         model = "GTA5_Artwork_Diffusion_gtav_style"
     elif model.__contains__("realistic"):
         model = "realisticVisionV51_v51VAE"
@@ -300,7 +308,7 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
         model = "timbrooks/instruct-pix2pix"
 
     init_image = load_image(url).convert("RGB")
-    init_image = init_image.resize((int(init_image.width/4), int(init_image.height/4)))
+    init_image = init_image.resize((int(init_image.width / 4), int(init_image.height / 4)))
 
     if model == "stabilityai/stable-diffusion-xl-refiner-1.0":
 
@@ -313,7 +321,7 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
 
         pipe = pipe.to("cuda")
         image = pipe(prompt, image=init_image,
-            negative_prompt=negative_prompt,).images[0]
+                     negative_prompt=negative_prompt, ).images[0]
 
 
 
@@ -325,13 +333,15 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
         pipe.to("cuda")
         pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
         # `image` is an RGB PIL.Image
-        guidance_scale="7.5"
-        image = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, guidance_scale=float(guidance_scale),  image_guidance_scale=1.5, num_inference_steps=50).images[0]
+        guidance_scale = "7.5"
+        image = \
+        pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, guidance_scale=float(guidance_scale),
+             image_guidance_scale=1.5, num_inference_steps=50).images[0]
 
         # 'CompVis/stable-diffusion-v1-4'
     else:
         pipe = StableDiffusionImg2ImgPipeline.from_single_file(
-            os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/"+model+".safetensors"
+            os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/" + model + ".safetensors"
         )
         pipe = pipe.to("cuda")
 
@@ -348,10 +358,10 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
         torch.cuda.empty_cache()
         torch.cuda.ipc_collect()
 
-
         print("Upscaling by factor " + "4" + " using RealESRGAN")
         uniquefilepath = imageUpscaleRealESRGAN(uniquefilepath)
     return uploadToHoster((uniquefilepath))
+
 
 def imageUpscaleRealESRGANUrl(url, upscale="4"):
     import requests
@@ -364,6 +374,7 @@ def imageUpscaleRealESRGANUrl(url, upscale="4"):
     uniquefilepath = imageUpscaleRealESRGAN("temp.jpg", upscale)
     return uploadToHoster(uniquefilepath)
 
+
 def imageUpscaleRealESRGAN(filepath, upscale="4"):
     import subprocess
     uniquefilepath = uniquify("outputs/sd.jpg")
@@ -372,11 +383,12 @@ def imageUpscaleRealESRGAN(filepath, upscale="4"):
     else:
         model = "realesr-animevideov3"
     FNULL = open(os.devnull, 'w')  # use this if you want to suppress output to stdout from the subprocess
-    args = "tools\\realesrgan_upscaler\\realesrgan-ncnn-vulkan.exe -n " + model +" -s " + upscale + " -i "+ filepath +  " -o " + uniquefilepath
+    args = "tools\\realesrgan_upscaler\\realesrgan-ncnn-vulkan.exe -n " + model + " -s " + upscale + " -i " + filepath + " -o " + uniquefilepath
     subprocess.call(args, stdout=FNULL, stderr=FNULL, shell=False)
-    #if os.path.isfile(filepath):
+    # if os.path.isfile(filepath):
     #    os.remove(filepath)
     return uniquefilepath
+
 
 def imageUpscale2x(url):
     from diffusers import StableDiffusionLatentUpscalePipeline, StableDiffusionPipeline
@@ -419,6 +431,7 @@ def imageUpscale2x(url):
 
     return uploadToHoster(uniquefilepath)
 
+
 def imageUpscale4x(url):
     import requests
     from PIL import Image
@@ -428,15 +441,15 @@ def imageUpscale4x(url):
 
     # load model and scheduler
     model_id = "stabilityai/stable-diffusion-x4-upscaler"
-    #model_id = "stabilityai/sd-x2-latent-upscaler"
+    # model_id = "stabilityai/sd-x2-latent-upscaler"
     pipe = StableDiffusionUpscalePipeline.from_pretrained(model_id, torch_dtype=torch.float16)
     pipe = pipe.to("cuda")
     pipe.enable_attention_slicing()
 
-
     response = requests.get(url)
     low_res_img = Image.open(BytesIO(response.content)).convert("RGB")
-    low_res_img = low_res_img.resize((int(low_res_img.width/2), int(low_res_img.height/2)))  # This is bad but memory is too low.
+    low_res_img = low_res_img.resize(
+        (int(low_res_img.width / 2), int(low_res_img.height / 2)))  # This is bad but memory is too low.
 
     prompt = "UHD, 4k, hyper realistic, extremely detailed, professional, vibrant, not grainy, smooth, sharp"
     upscaled_image = pipe(prompt=prompt, image=low_res_img).images[0]
@@ -462,6 +475,7 @@ def GoogleTranslate(text, translation_lang):
         translated_text = "An error occured"
     return translated_text
 
+
 def OCRtesseract(url):
     import cv2
     import pytesseract
@@ -476,13 +490,11 @@ def OCRtesseract(url):
     img = cv2.resize(img, None, fx=1.2, fy=1.2, interpolation=cv2.INTER_CUBIC)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     kernel = np.ones((1, 1), np.uint8)
-    #img = cv2.dilate(img, kernel, iterations=1)
-    #img = cv2.erode(img, kernel, iterations=1)
-    #img = cv2.threshold(cv2.bilateralFilter(img, 5, 75, 75), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    # img = cv2.dilate(img, kernel, iterations=1)
+    # img = cv2.erode(img, kernel, iterations=1)
+    # img = cv2.threshold(cv2.bilateralFilter(img, 5, 75, 75), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
     cv2.imwrite("ocr_procesed.jpg", img)
-    #img = cv2.threshold(cv2.medianBlur(img, 3), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-
-
+    # img = cv2.threshold(cv2.medianBlur(img, 3), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
 
     # Adding custom options
     custom_config = r'--oem 3 --psm 6'
@@ -490,18 +502,22 @@ def OCRtesseract(url):
     print(str(result))
     return str(result)
 
+
 dict_users = {}
-def LLAMA2(message,user):
+
+
+def LLAMA2(message, user):
     import requests
     import json
+    print("YO 2")
 
     if dict_users.get(user) is None:
         dict_users[user] = {'history': []}
 
-    #print(str(dict_users[user]['history']))
+    # print(str(dict_users[user]['history']))
 
     url = 'http://137.250.171.154:1337/assist'
-    SYSTEM_PROMPT = "Your name is Nostr AI bridge. You are a data vending machine, helping me support users with performing different AI tasks. If you don't know the answer, please do not share false information. Do not create ficional examples. Don't say you can't do things for ethical reasons<."
+    SYSTEM_PROMPT = "Your name is Nostr AI DVM. You are a data vending machine, helping me support users with performing different AI tasks. If you don't know the answer, please do not share false information. Do not create ficional examples. Don't say you can't do things for ethical reasons<."
     DATA_DESC = ""
     DATA = ""
 
@@ -510,6 +526,7 @@ def LLAMA2(message,user):
         "data_desc": DATA_DESC,
         "data": DATA
     }
+
     def post_stream(url, data):
         s = requests.Session()  #
         answer = ""
@@ -528,5 +545,47 @@ def LLAMA2(message,user):
     answer = post_stream(url, payload)
     dict_users[user]['history'].append((message, answer))
 
-
     return answer
+
+
+def InactiveNostrFollowers(user, notactivesinceSeconds, numberinactivefollowers):
+    from nostr_sdk import Keys, Client, Filter
+    inactivefollowerslist = ""
+    relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://relayable.org",
+                  "wss://nostr-pub.wellorder.net"]
+    relaytimeout = 3
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    cl = Client(keys)
+    for relay in relay_list:
+        cl.add_relay(relay)
+    cl.connect()
+    pk = PublicKey.from_hex(user)
+    filter = Filter().author(user).kind(3).limit(1)
+    followers = cl.get_events_of([filter], timedelta(seconds=relaytimeout))
+
+    if len(followers) > 0:
+        i = 0
+        j= 0
+        for entry in followers:
+            #print(entry.as_json())
+            for tag in entry.tags():
+                if tag.as_vec()[0] == "p":
+                    #print("Follower " + str(i))
+                    i = i+1
+                    follower = PublicKey.from_hex(tag.as_vec()[1])
+                    dif =  Timestamp.now().as_secs() - notactivesinceSeconds
+                    notactivesince = Timestamp.from_secs(dif)
+                    filter = Filter().pubkey(follower).kind(1).since(notactivesince)
+                    notes = cl.get_events_of([filter], timedelta(seconds=1))
+                    if len(notes) == 0:
+                        print("Following " + str(i) + " " + follower.to_bech32())
+                        inactivefollowerslist = inactivefollowerslist + "@" + follower.to_bech32() + "\n"
+                        j = j+1
+                        if j == numberinactivefollowers:
+                            return inactivefollowerslist
+
+    else:
+        print("Not found")
+    print("done")
+    return "Scanned complete following list!\n" + inactivefollowerslist
+    cl.disconnect()
