@@ -4,14 +4,20 @@ import os
 import re
 import urllib
 from dataclasses import dataclass
-from datetime import timedelta, datetime
+from datetime import timedelta
 from sqlite3 import Error
 from urllib.parse import urlparse
+from bech32 import bech32_decode, convertbits
+
 
 import nostr_sdk.nostr_sdk
 import requests
 import emoji
 import ffmpegio
+
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import unpad
+
 from decord import AudioReader, cpu
 from nostr_sdk import Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, nip04_decrypt, EventId, init_logger, LogLevel
 import time
@@ -40,6 +46,9 @@ class DVMConfig:
     SUPPORTED_TASKS = ["speech-to-text", "summarization", "translation", "text-to-image", "image-to-image", "image-upscale", "chat", "image-to-text, inactive-following"]
     LNBITS_INVOICE_KEY = 'bfdfb5ecfc0743daa08749ce58abea74'
     LNBITS_INVOICE_URL = 'https://ln.novaannotation.com/createLightningInvoice'
+    USERDB = "nostrzaps.db"
+    RELAY_LIST = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net"]
+    RELAY_TIMEOUT = 1
     AUTOPROCESS_MIN_AMOUNT: int = 1000000000000  # auto start processing if min Sat amount is given
     AUTOPROCESS_MAX_AMOUNT: int = 0  # if this is 0 and min is very big, autoprocess will not trigger
     SHOWRESULTBEFOREPAYMENT: bool = True  # if this flag is true show results even when not paid (in the end, right after autoprocess)
@@ -64,9 +73,6 @@ class JobToWatch:
 
 
 JobstoWatch = []
-relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net"]
-relaytimeout = 1
-
 
 #init_logger(LogLevel.DEBUG)
 
@@ -76,7 +82,7 @@ def nostr_server():
     pk = keys.public_key()
     print(f"Nostr Bot public key: {pk.to_bech32()}")
     client = Client(keys)
-    for relay in relay_list:
+    for relay in DVMConfig.RELAY_LIST:
         client.add_relay(relay)
     client.connect()
 
@@ -138,7 +144,6 @@ def nostr_server():
                             sendJobStatusReaction(event, "payment-required", False, amount, client=client)
                 else:
                     print("[Nostr] Got new Task but can't process it, skipping..")
-
             elif event.kind() == 4:
                 sender = event.pubkey().to_hex()
 
@@ -196,19 +201,7 @@ def nostr_server():
                                                                     None).to_event(keys)
                         sendEvent(evt, client)
                     elif str(dec_text).startswith("-help"):
-                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
-                                                                    "Hi there. I'm a bot interface to the first NIP90 Data Vending Machine and I can perform several AI tasks for you. Currently I can do the following jobs:\n\n"
-                                                                       "Generate an Image with Stable Diffusion XL ("+ str(DVMConfig.COSTPERUNIT_IMAGEGENERATION) +" Sats)\n"
-                                                                    "-text-to-image someprompt\nAdditional parameters:\n-negative some negative prompt\n-model anothermodel\nOther Models are: realistic, wild, sd15, lora_ghibli, lora_chad, lora_monster, lora_inks, lora_t4, lora_pokemon\n\n"
-                                                                    "Transform an existing Image with Stable Diffusion XL ("+ str(DVMConfig.COSTPERUNIT_IMAGETRANSFORMING) +" Sats)\n"
-                                                                    "-image-to-image urltoimage -prompt someprompt\n\n"
-                                                                     "Upscale the resolution of an Image 4x and improve quality ("+ str(DVMConfig.COSTPERUNIT_IMAGEUPSCALING) +" Sats)\n"
-                                                                    "-image-upscale urltofile \n\n"
-                                                                    "Transcribe Audio/Video/Youtube/Overcast from an URL with WhisperX large-v2 ("+ str(DVMConfig.COSTPERUNIT_SPEECHTOTEXT) +" Sats)\n"
-                                                                    "-speech-to-text urltofile \nAdditional parameters:\n-from timeinseconds -to timeinseconds\n\n"
-                                                                    "To show your current balance\n"
-                                                                    "-balance \n\n"
-                                                                    "You can either zap my responses directly if your client supports it (e.g. Amethyst) or you can zap any post or my profile (e.g. in Damus) to top up your balance.", None).to_event(keys)
+                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), getbothelptext(), None).to_event(keys)
                         time.sleep(2.0)
                         sendEvent(evt, client)
 
@@ -223,12 +216,11 @@ def nostr_server():
                     print(f"Error during content decryption: {e}")
             elif event.kind() == 9734:
                 print(event.as_json())
-
             elif event.kind() == 9735:
                 print(event.as_json())
                 print("Zap received")
                 zapableevent = None
-
+                anon = False
                 try:
                     for tag in event.tags():
                         if tag.as_vec()[0] == 'bolt11':
@@ -240,6 +232,17 @@ def nostr_server():
                             senderevt = Event.from_json(desc)
                             print(senderevt.pubkey().to_hex())
                             sender = senderevt.pubkey().to_hex()
+                            for tag in senderevt.tags():
+                                if tag.as_vec()[0] == 'anon':
+                                    if len(tag.as_vec()) > 1:
+                                        print("Private Zap received. Unlucky, I don't know from whom, but I will learn soon.")
+                                        #encodedstr = tag.as_vec()[1]
+                                        #realcontent = decrypt_private_zap_message(encodedstr, keys.secret_key(), event.pubkey())
+                                        anon = True #remove when it works
+                                        #sender = Event.from_json(realcontent).pubkey()
+                                    else:
+                                        anon = True
+                                        print("Anonymous Zap received. Unlucky, I don't know from whom, and never will")
 
 
                     if zapableevent is not None:
@@ -302,7 +305,7 @@ def nostr_server():
 
                                             print(event.as_json())
                                             doWork(event, isFromBot=True)
-                                else:
+                                elif not anon:
                                     user = getFromSQLTable(sender)
                                     if user == None:
                                         addtoSQLtable(sender, (invoicesats + DVMConfig.NEW_USER_BALANCE), False, False)
@@ -316,7 +319,7 @@ def nostr_server():
                                 print("Someone zapped the result of an Exisiting Task. Nice")
                             else:
                                 print("[Nostr] Zap was not for a kind 65000, 65001 or 4 reaction. Seems someone being nice.")
-                    else:
+                    elif not anon:
                         #profile zap
                         user = getFromSQLTable(sender)
                         if user == None:
@@ -334,6 +337,9 @@ def nostr_server():
         def handle_msg(self, relay_url, msg):
             None
 
+
+
+    # PREPARE REQUEST FORM AND DATA AND SEND TO PROCESSING
     def createRequestFormfromNostrEvent(event, isBot=False):
         # Only call this if config is not available, adjust function to your db
         # savConfig()
@@ -456,7 +462,7 @@ def nostr_server():
                 for tag in event.tags():
                     if tag.as_vec()[0] == 'i':
                         jobidfilter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
-                        events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                        events = client.get_events_of([jobidfilter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
                         evt = events[0]
                         text = evt.content()
                         break
@@ -496,7 +502,7 @@ def nostr_server():
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
                     elif inputtype == "job":
                         jobidfilter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
-                        events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                        events = client.get_events_of([jobidfilter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
                         evt = events[0]
                         url = evt.content()
                 elif tag.as_vec()[0] == 'param':
@@ -523,6 +529,8 @@ def nostr_server():
 
             width = "1024"
             height = "1024"
+            ratiow = "1"
+            ratioh = "1"
 
             for tag in event.tags():
                 if tag.as_vec()[0] == 'i':
@@ -534,7 +542,7 @@ def nostr_server():
                         prompt = evt.content()
                     elif type == "job":
                         jobidfilter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
-                        events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                        events = client.get_events_of([jobidfilter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
                         evt = events[0]
                         prompt = evt.content()
                 elif tag.as_vec()[0] == 'param':
@@ -545,13 +553,22 @@ def nostr_server():
                     elif tag.as_vec()[1] == "size":  # check for paramtype
                         width = tag.as_vec()[2]
                         height = tag.as_vec()[3]
+                    elif tag.as_vec()[1] == "ratio":  # check for paramtype
+                        ratiow = int(tag.as_vec()[2])
+                        ratioh = int(tag.as_vec()[3])
                     elif tag.as_vec()[1] == "upscale":  # check for paramtype
                         upscale = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "model":  # check for paramtype
                         model = tag.as_vec()[2]
 
+            if ratiow > ratioh:
+                height = int((ratioh/ratiow) * float(width))
+            elif ratiow < ratioh:
+                width =  int((ratiow/ratioh) * float(height))
+            elif ratiow == ratioh:
+                width = height
 
-            request_form["optStr"] = 'prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt=' + negative_prompt + ';width=' + width + ';height=' + height + ';upscale=' + upscale + ';model=' + model
+            request_form["optStr"] = 'prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt=' + negative_prompt + ';width=' + str(width) + ';height=' + str(height) + ';upscale=' + str(upscale) + ';model=' + model
 
         elif task == "image-upscale":
             request_form["mode"] = "PREDICT_STATIC"
@@ -567,7 +584,7 @@ def nostr_server():
                         url = re.search("(?P<url>https?://[^\s]+)",  evt.content()).group("url")
                     elif inputtype == "job":
                         jobidfilter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
-                        events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                        events = client.get_events_of([jobidfilter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
                         evt = events[0]
                         url = evt.content()
                 elif tag.as_vec()[0] == 'param':
@@ -604,7 +621,7 @@ def nostr_server():
                         text = evt.content().replace(";", "")
                     elif inputtype == "job":
                         jobidfilter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
-                        events = client.get_events_of([jobidfilter], timedelta(seconds=relaytimeout))
+                        events = client.get_events_of([jobidfilter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
                         if len(events) > 0:
                             evt = events[0]
                             text = evt.content().replace(";", "")
@@ -620,14 +637,134 @@ def nostr_server():
             for tag in event.tags():
                 if tag.as_vec()[0] == 'p':
                     user = tag.as_vec()[1]
-                elif tag.as_vec()[0] == 'since':
-                    days = int(tag.as_vec()[1])
-                elif tag.as_vec()[0] == 'numusers':
-                    number = int(tag.as_vec()[1])
+                elif tag.as_vec()[0] == 'param':
+                    if tag.as_vec()[1] == 'since':
+                        days = int(tag.as_vec()[2])
+                    elif tag.as_vec()[1] == 'numusers':
+                        number = int(tag.as_vec()[2])
             request_form["optStr"] = 'user=' + user + ';since=' + str(60 * 60 * 24 * days) + ';num=' + str(number)
 
 
         return request_form
+    def organizeInputData(event, request_form):
+        data_dir = os.environ["NOVA_DATA_DIR"]
+
+        session = event.id().to_hex()
+        inputtype = "url"
+        for tag in event.tags():
+            if tag.as_vec()[0] == 'i':
+                input = tag.as_vec()[1]
+                inputtype = tag.as_vec()[2]
+                break
+
+        if inputtype == "url":
+            if not os.path.exists(data_dir + '\\' + request_form["database"] + '\\' + session):
+                os.mkdir(data_dir + '\\' + request_form["database"] + '\\' + session)
+            # We can support some services that don't use default media links, like overcastfm for podcasts
+            if str(input).startswith("https://overcast.fm/"):
+                filename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
+                    "roles"] + ".originalaudio.mp3"
+                print("Found overcast.fm Link.. downloading")
+                download_podcast(input, filename)
+                finaltag = str(input).replace("https://overcast.fm/", "").split('/')
+                if float(request_form["startTime"]) == 0.0:
+                    if (len(finaltag) > 1):
+                        t = time.strptime(finaltag[1], "%H:%M:%S")
+                        seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
+                        request_form["startTime"] = str(seconds)  # overwrite from link.. why not..
+                        print("Setting start time automatically to " + request_form["startTime"])
+                        if float(request_form["endTime"]) > 0.0:
+                            request_form["endTime"] = seconds + float(request_form["endTime"])
+                            print("Moving end time automatically to " + request_form["endTime"])
+
+            # is youtube link?
+            elif str(input).replace("http://", "").replace("https://", "").replace("www.", "").replace("youtu.be/",
+                                                                                                       "youtube.com?v=")[
+                 0:11] == "youtube.com":
+
+                filepath = data_dir + '\\' + request_form["database"] + '\\' + session + '\\'
+                try:
+                    filename = downloadYouTube(input, filepath)
+                    o = urlparse(input)
+                    q = urllib.parse.parse_qs(o.query)
+
+                    if float(request_form["startTime"]) == 0.0:
+                        if (o.query.find('t=') != -1):
+                            request_form["startTime"] = q['t'][0]  # overwrite from link.. why not..
+                            print("Setting start time automatically to " + request_form["startTime"])
+                            if float(request_form["endTime"]) > 0.0:
+                                request_form["endTime"] = str(float(q['t'][0]) + float(request_form["endTime"]))
+                                print("Moving end time automatically to " + request_form["endTime"])
+                except Exception:
+                    print("video not available")
+                    sendJobStatusReaction(event, "error")
+                    return
+            # Regular links have a media file ending and/or mime types
+            else:
+                req = requests.get(input)
+                content_type = req.headers['content-type']
+                if content_type == 'audio/x-wav' or str(input).endswith(".wav"):
+                    ext = "wav"
+                    type = "audio"
+                elif content_type == 'audio/mpeg' or str(input).endswith(".mp3"):
+                    ext = "mp3"
+                    type = "audio"
+                elif content_type == 'audio/ogg' or str(input).endswith(".ogg"):
+                    ext = "ogg"
+                    type = "audio"
+                elif content_type == 'video/mp4' or str(input).endswith(".mp4"):
+                    ext = "mp4"
+                    type = "video"
+                elif content_type == 'video/avi' or str(input).endswith(".avi"):
+                    ext = "avi"
+                    type = "video"
+                elif content_type == 'video/mov' or str(input).endswith(".mov"):
+                    ext = "mov"
+                    type = "video"
+
+                else:
+                    sendJobStatusReaction(event, "error")
+                    return
+
+                filename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
+                    "roles"] + '.original' + type + '.' + ext
+
+                if not os.path.exists(filename):
+                    file = open(filename, 'wb')
+                    for chunk in req.iter_content(100000):
+                        file.write(chunk)
+                    file.close()
+
+            duration = 0
+            try:
+                file_reader = AudioReader(filename, ctx=cpu(0), mono=False)
+                duration = file_reader.duration()
+            except:
+                sendJobStatusReaction(event, "error")
+                return
+
+            print("Duration of the Media file: " + str(duration))
+            if float(request_form['endTime']) == 0.0:
+                end_time = float(duration)
+            elif float(request_form['endTime']) > duration:
+                end_time = float(duration)
+            else:
+                end_time = float(request_form['endTime'])
+            if (float(request_form['startTime']) < 0.0 or float(request_form['startTime']) > end_time):
+                start_time = 0.0
+            else:
+                start_time = float(request_form['startTime'])
+
+            print("Converting from " + str(start_time) + " until " + str(end_time))
+            # for now we cut and convert all files to mp3
+            finalfilename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
+                "roles"] + '.' + request_form["streamName"] + '.mp3'
+            fs, x = ffmpegio.audio.read(filename, ss=start_time, to=end_time, sample_fmt='dbl', ac=1)
+            ffmpegio.audio.write(finalfilename, fs, x)
+
+            if not db_entry_exists(request_form, session, "name", "Sessions"):
+                duration = end_time - start_time
+                add_new_session_to_db(request_form, duration)
     def doWork(Jobevent, isFromBot=False):
         if (Jobevent.kind() >= 65002 and Jobevent.kind() <= 66000) or Jobevent.kind() == 68001 or Jobevent.kind() == 4:
             request_form = createRequestFormfromNostrEvent(Jobevent, isFromBot)
@@ -641,29 +778,34 @@ def nostr_server():
             else:
                 print("[Nostr] Adding " + task + " Job event: " + Jobevent.as_json())
 
-            url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(request_form["mode"]).lower()
+            url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(
+                request_form["mode"]).lower()
             headers = {'Content-type': 'application/x-www-form-urlencoded'}
             requests.post(url, headers=headers, data=request_form)
-
 
     client.handle_notifications(NotificationHandler())
     while True:
         time.sleep(5.0)
 
-def getEvent(eventidstr):
-    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    cl = Client(keys)
-    for relay in relay_list:
-        cl.add_relay(relay)
-    cl.connect()
+#SEND AND RECEIVE EVENTS
+def getEvent(eventidstr, client=None):
+    newclient = False
+    if client == None:
+        keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+        client = Client(keys)
+        for relay in DVMConfig.RELAY_LIST:
+            client.add_relay(relay)
+        client.connect()
+        newclient = True
+
     filter = Filter().id(eventidstr).limit(1)
-    events = cl.get_events_of([filter], timedelta(seconds=relaytimeout))
-    cl.disconnect()
+    events = client.get_events_of([filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
+    if newclient:
+        client.disconnect()
     if len(events) > 0:
         return events[0]
     else:
         return None
-
 def sendEvent(event, client=None):
     relays = []
     newclient = False
@@ -675,13 +817,13 @@ def sendEvent(event, client=None):
     if client == None:
         keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
         client = Client(keys)
-        for relay in relay_list:
+        for relay in DVMConfig.RELAY_LIST:
             client.add_relay(relay)
         client.connect()
         newclient = True
 
     for relay in relays:
-        if relay not in relay_list:
+        if relay not in DVMConfig.RELAY_LIST:
             client.add_relay(relay)
     client.connect()
 
@@ -689,13 +831,15 @@ def sendEvent(event, client=None):
     id = client.send_event(event)
 
     for relay in relays:
-        if relay not in relay_list:
+        if relay not in DVMConfig.RELAY_LIST:
             client.remove_relay(relay)
 
     if newclient:
         client.disconnect()
 
     return id
+
+#GET INFO ON TASK
 def getTask(event):
     if event.kind() == 66000:  # use this for events that have no id yet
         for tag in event.tags():
@@ -730,7 +874,6 @@ def getTask(event):
         return "event-list-generation"
     else:
         return "unknown type"
-
 def getAmountPerTask(task):
     if task == "translation":
         duration = 1  # todo get task duration
@@ -756,126 +899,8 @@ def getAmountPerTask(task):
         print("[Nostr] Task " + task + " is currently not supported by this instance, skipping")
         return None
     return amount
-def organizeInputData(event, request_form):
-    data_dir = os.environ["NOVA_DATA_DIR"]
 
-    session = event.id().to_hex()
-    inputtype = "url"
-    for tag in event.tags():
-        if tag.as_vec()[0] == 'i':
-            input = tag.as_vec()[1]
-            inputtype = tag.as_vec()[2]
-            break
-
-    if inputtype == "url":
-        if not os.path.exists(data_dir + '\\' + request_form["database"] + '\\' + session):
-            os.mkdir(data_dir + '\\' + request_form["database"] + '\\' + session)
-        # We can support some services that don't use default media links, like overcastfm for podcasts
-        if str(input).startswith("https://overcast.fm/"):
-            filename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
-                "roles"] + ".originalaudio.mp3"
-            print("Found overcast.fm Link.. downloading")
-            download_podcast(input, filename)
-            finaltag = str(input).replace("https://overcast.fm/", "").split('/')
-            if float(request_form["startTime"]) == 0.0:
-                if (len(finaltag) > 1):
-                    t = time.strptime(finaltag[1], "%H:%M:%S")
-                    seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
-                    request_form["startTime"] = str(seconds)  # overwrite from link.. why not..
-                    print("Setting start time automatically to " + request_form["startTime"])
-                    if float(request_form["endTime"]) > 0.0:
-                        request_form["endTime"] = seconds + float(request_form["endTime"])
-                        print("Moving end time automatically to " + request_form["endTime"])
-
-        # is youtube link?
-        elif str(input).replace("http://", "").replace("https://", "").replace("www.", "").replace("youtu.be/",
-                                                                                                   "youtube.com?v=")[
-             0:11] == "youtube.com":
-
-            filepath = data_dir + '\\' + request_form["database"] + '\\' + session + '\\'
-            try:
-                filename = downloadYouTube(input, filepath)
-                o = urlparse(input)
-                q = urllib.parse.parse_qs(o.query)
-
-                if float(request_form["startTime"]) == 0.0:
-                    if (o.query.find('t=') != -1):
-                        request_form["startTime"] = q['t'][0]  # overwrite from link.. why not..
-                        print("Setting start time automatically to " + request_form["startTime"])
-                        if float(request_form["endTime"]) > 0.0:
-                            request_form["endTime"] = str(float(q['t'][0]) + float(request_form["endTime"]))
-                            print("Moving end time automatically to " + request_form["endTime"])
-            except Exception:
-                print("video not available")
-                sendJobStatusReaction(event, "error")
-                return
-        # Regular links have a media file ending and/or mime types
-        else:
-            req = requests.get(input)
-            content_type = req.headers['content-type']
-            if content_type == 'audio/x-wav' or str(input).endswith(".wav"):
-                ext = "wav"
-                type = "audio"
-            elif content_type == 'audio/mpeg' or str(input).endswith(".mp3"):
-                ext = "mp3"
-                type = "audio"
-            elif content_type == 'audio/ogg' or str(input).endswith(".ogg"):
-                ext = "ogg"
-                type = "audio"
-            elif content_type == 'video/mp4' or str(input).endswith(".mp4"):
-                ext = "mp4"
-                type = "video"
-            elif content_type == 'video/avi' or str(input).endswith(".avi"):
-                ext = "avi"
-                type = "video"
-            elif content_type == 'video/mov' or str(input).endswith(".mov"):
-                ext = "mov"
-                type = "video"
-
-            else:
-                sendJobStatusReaction(event, "error")
-                return
-
-            filename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
-                "roles"] + '.original' + type + '.' + ext
-
-            if not os.path.exists(filename):
-                file = open(filename, 'wb')
-                for chunk in req.iter_content(100000):
-                    file.write(chunk)
-                file.close()
-
-        duration = 0
-        try:
-            file_reader = AudioReader(filename, ctx=cpu(0), mono=False)
-            duration = file_reader.duration()
-        except:
-            sendJobStatusReaction(event, "error")
-            return
-
-        print("Duration of the Media file: " + str(duration))
-        if float(request_form['endTime']) == 0.0:
-            end_time = float(duration)
-        elif float(request_form['endTime']) > duration:
-            end_time =  float(duration)
-        else:
-            end_time = float(request_form['endTime'])
-        if (float(request_form['startTime']) < 0.0 or float(request_form['startTime']) > end_time):
-            start_time = 0.0
-        else:
-            start_time = float(request_form['startTime'])
-
-        print("Converting from " + str(start_time) + " until " + str(end_time))
-        # for now we cut and convert all files to mp3
-        finalfilename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
-            "roles"] + '.' + request_form["streamName"] + '.mp3'
-        fs, x = ffmpegio.audio.read(filename, ss=start_time, to=end_time, sample_fmt='dbl', ac=1)
-        ffmpegio.audio.write(finalfilename, fs, x)
-
-        if not db_entry_exists(request_form, session, "name", "Sessions"):
-            duration = end_time - start_time
-            add_new_session_to_db(request_form, duration)
-
+#DECIDE TO RETURN RESULT
 def CheckEventStatus(content, originaleventstr: str, useBot=False):
     originalevent = Event.from_json(originaleventstr)
     for x in JobstoWatch:
@@ -913,6 +938,7 @@ def CheckEventStatus(content, originaleventstr: str, useBot=False):
             sendNostrReplyEvent(resultcontent, originaleventstr)
             sendJobStatusReaction(originalevent, "success")
 
+#NIP90 REPLIES
 def sendNostrReplyEvent(content, originaleventstr):
     originalevent = Event.from_json(originaleventstr)
     requesttag = Tag.parse(["request", originaleventstr.replace("\\", "")])
@@ -995,6 +1021,8 @@ def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0, client=N
         event_id = sendEvent(event, client)
         print("[Nostr] Sent Kind 65000 Reaction: " + status + " " + event.as_json())
         return event.as_json()
+
+#POSTPROCESSING
 def postprocessResult(content, originalevent):
     for tag in originalevent.tags():
         if tag.as_vec()[0] == "output":
@@ -1010,6 +1038,23 @@ def postprocessResult(content, originalevent):
             # TODO add more
 
     return content
+
+#BOT FUNCTIONS
+def getbothelptext():
+    return  ("Hi there. I'm a bot interface to the first NIP90 Data Vending Machine and I can perform several AI tasks for you. Currently I can do the following jobs:\n\n"
+             "Generate an Image with Stable Diffusion XL (" + str(DVMConfig.COSTPERUNIT_IMAGEGENERATION) +" Sats)\n"
+            "-text-to-image someprompt\nAdditional parameters:\n-negative some negative prompt\n-ratio width:height (e.g. 3:4), default 1:1\n-model anothermodel\nOther Models are: realistic, wild, sd15, lora_ghibli, lora_chad, lora_monster, lora_inks, lora_t4, lora_pokemon\n\n"
+            "Transform an existing Image with Stable Diffusion XL ("+ str(DVMConfig.COSTPERUNIT_IMAGETRANSFORMING) +" Sats)\n"
+            "-image-to-image urltoimage -prompt someprompt\n\n"
+            "Upscale the resolution of an Image 4x and improve quality ("+ str(DVMConfig.COSTPERUNIT_IMAGEUPSCALING) +" Sats)\n"
+            "-image-upscale urltofile \n\n"
+            "Transcribe Audio/Video/Youtube/Overcast from an URL with WhisperX large-v2 ("+ str(DVMConfig.COSTPERUNIT_SPEECHTOTEXT) +" Sats)\n"
+            "-speech-to-text urltofile \nAdditional parameters:\n-from timeinseconds -to timeinseconds\n\n"
+            "Get a List of 25 inactive users you follow ("+ str(DVMConfig.COSTPERUNIT_INACTIVE_FOLLOWING) +" Sats)\n"
+            "-inactive-following\nAdditional parameters:\n-sincedays days (e.g. 60), default 30\n\n"
+            "To show your current balance\n"
+            "-balance \n\n"
+            "You can either zap my responses directly if your client supports it (e.g. Amethyst) or you can zap any post or my profile (e.g. in Damus) to top up your balance.")
 def parsebotcommandtoevent(dec_text):
 
     dec_text = dec_text.replace("\n", "")
@@ -1020,6 +1065,8 @@ def parsebotcommandtoevent(dec_text):
         prompt = split[0]
         width = "1024"
         height = "1024"
+        ratiow = "1"
+        ratioh = "1"
         jTag = Tag.parse(["j", "text-to-image"])
         iTag = Tag.parse(["i", prompt, "text"])
         tags = [jTag, iTag]
@@ -1045,8 +1092,15 @@ def parsebotcommandtoevent(dec_text):
                     width = i.replace("width ", "")
                 elif i.startswith("height"):
                     height = i.replace("height ", "")
+                elif i.startswith("ratio"):
+                    ratio = str(i.replace("ratio ", ""))
+                    split = ratio.split(":")
+                    ratiow = split[0]
+                    ratioh = split[1]
 
+        paramRatioTag = Tag.parse(["param", "ratio", ratiow, ratioh])
         paramSizeTag = Tag.parse(["param", "size", width, height])
+        tags.append(paramRatioTag)
         tags.append(paramSizeTag)
 
         return tags
@@ -1130,19 +1184,17 @@ def parsebotcommandtoevent(dec_text):
         sincedays = "30"
         numberusers = "25"
         prompttemp = dec_text.replace("-inactive-following ", "")
+        print(prompttemp)
         split = prompttemp.split("-")
         for i in split:
-            if i.startswith("from"):
+            if i.startswith("sincedays"):
                 sincedays = i.replace("sincedays ", "")
-            elif i.startswith("amount"):
+            elif i.startswith("num"):
                 numberusers = i.replace("num ", "")
-        url = split[0]
-        text = dec_text
         paramTag1 = Tag.parse(["param", "since", sincedays])
         paramTag2 = Tag.parse(["param", "numusers", numberusers])
         jTag = Tag.parse(["j", "inactive-following"])
-        iTag = Tag.parse(["i", text, "text"])
-        return [jTag, iTag, paramTag1, paramTag2]
+        return [jTag, paramTag1, paramTag2]
     else:
         text = dec_text
         jTag = Tag.parse(["j", "chat"])
@@ -1156,7 +1208,7 @@ def checkTaskisSupported(event):
     hasitag = False
     for tag in event.tags():
         if tag.as_vec()[0] == 'i':
-            if len(tag) < 2:
+            if len(tag.as_vec()) < 2:
                 hasitag = False
             else:
                 input = tag.as_vec()[1]
@@ -1271,11 +1323,39 @@ def getIndexOfFirstLetter(ip):
 
     return len(input);
 
+#DECRYPTZAPS
+def decrypt_private_zap_message(msg, privkey, pubkey):
+
+    ##TODO this is not yet working
+    shared_secret = nostr_sdk.generate_shared_key(privkey, pubkey)
+    if len(shared_secret) != 16 and len(shared_secret) != 32:
+        raise ValueError("Invalid shared secret size")
+    parts = msg.split("_")
+    if len(parts) != 2:
+        raise ValueError("Invalid message format")
+
+    encrypted_msg = bech32_decode(parts[0])[1]
+    iv = bech32_decode(parts[1])[1]
+
+    msg5to8 =  bytes(convertbits(encrypted_msg, 5, 8, False))
+    iv5to8 = bytes(convertbits(iv, 5, 8, False))
+    cipher = AES.new(bytes(shared_secret), AES.MODE_CBC, iv5to8)
+    decrypted = cipher.decrypt(msg5to8)
+
+    #TODO padding fails
+    try:
+        unpadded = unpad(cipher.decrypt(msg5to8))
+        print(unpadded)
+        result = unpadded.decode()
+        print(result)
+        return unpadded
+    except ValueError as ex:
+        raise ValueError(f"Bad padding: {str(ex)}")
+
 #DATABASE LOGIC
-db = "nostrzaps.db"
 def createSQLTable():
     try:
-        con = sqlite3.connect(db)
+        con = sqlite3.connect(DVMConfig.USERDB)
     except Error as e:
         print(e)
     cur = con.cursor()
@@ -1289,7 +1369,7 @@ def createSQLTable():
     con.close()
 def addtoSQLtable(npub, sats, iswhitelisted, isblacklisted):
     try:
-        con = sqlite3.connect(db)
+        con = sqlite3.connect(DVMConfig.USERDB)
     except Error as e:
         print(e)
     cur = con.cursor()
@@ -1299,7 +1379,7 @@ def addtoSQLtable(npub, sats, iswhitelisted, isblacklisted):
     con.close()
 def updateSQLtable(npub, sats, iswhitelisted, isblacklisted):
     try:
-        con = sqlite3.connect(db)
+        con = sqlite3.connect(DVMConfig.USERDB)
     except Error as e:
         print(e)
     cur = con.cursor()
@@ -1314,7 +1394,7 @@ def updateSQLtable(npub, sats, iswhitelisted, isblacklisted):
     con.close()
 def getFromSQLTable(npub):
     try:
-        con = sqlite3.connect(db)
+        con = sqlite3.connect(DVMConfig.USERDB)
     except Error as e:
         print(e)
     cur = con.cursor()
@@ -1324,7 +1404,7 @@ def getFromSQLTable(npub):
     return row
 def deleteFromSQLTable(npub):
     try:
-        con = sqlite3.connect(db)
+        con = sqlite3.connect(DVMConfig.USERDB)
     except Error as e:
         print(e)
     cur = con.cursor()
@@ -1364,6 +1444,8 @@ def makeDatabaseUpdates():
 
     if deleteuser:
         deleteFromSQLTable(publickey)
+
+
 
 
 if __name__ == '__main__':

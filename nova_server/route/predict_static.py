@@ -578,7 +578,7 @@ def InactiveNostrFollowers(user, notactivesinceSeconds, numberinactivefollowers)
                     filter = Filter().pubkey(follower).kind(1).since(notactivesince)
                     notes = cl.get_events_of([filter], timedelta(seconds=1))
                     if len(notes) == 0:
-                        print("Following " + str(i) + " " + follower.to_bech32())
+                        print("Following " + str(i) + " Entry found: " + str(j)  + " of " + numberinactivefollowers +" "+ follower.to_bech32())
                         inactivefollowerslist = inactivefollowerslist + "@" + follower.to_bech32() + "\n"
                         j = j+1
                         if j == numberinactivefollowers:
