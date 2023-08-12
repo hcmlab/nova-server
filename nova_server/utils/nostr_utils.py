@@ -59,6 +59,7 @@ class DVMConfig:
     COSTPERUNIT_IMAGETRANSFORMING: int = 30  # Generate / Transform one image
     COSTPERUNIT_IMAGEUPSCALING: int = 25  # This takes quite long..
     COSTPERUNIT_INACTIVE_FOLLOWING: int = 250  # This takes quite long..
+    COSTPERUNIT_OCR: int = 20
 
 
 @dataclass
@@ -151,7 +152,7 @@ def nostr_server():
                     dec_text = nip04_decrypt(sk, event.pubkey(), event.content())
                     print(f"Received new msg: {dec_text}")
 
-                    if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-image-to-image") or str(dec_text).startswith("-speech-to-text") or str(dec_text).startswith("-image-upscale") or str(dec_text).startswith("-inactive-following"):
+                    if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-image-to-image") or str(dec_text).startswith("-speech-to-text") or str(dec_text).startswith("-image-upscale") or str(dec_text).startswith("-image-to-text")  or str(dec_text).startswith("-inactive-following"):
                         task = str(dec_text).split(' ')[0].removeprefix('-')
                         reqamount = getAmountPerTask(task)  # TODO adjust this to task
 
@@ -165,8 +166,7 @@ def nostr_server():
                         time.sleep(3.0)
                         if isblacklisted:
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "Your are currently blocked from all services.",None).to_event(keys)
-                            client.send_event(event)
-                            #sendEvent(evt, client)
+                            sendEvent(evt, client)
                         elif iswhitelisted or balance >= reqamount:
                             if not iswhitelisted:
                                 balance = max(balance - reqamount, 0)
@@ -1046,6 +1046,8 @@ def getbothelptext():
             "-text-to-image someprompt\nAdditional parameters:\n-negative some negative prompt\n-ratio width:height (e.g. 3:4), default 1:1\n-model anothermodel\nOther Models are: realistic, wild, sd15, lora_ghibli, lora_chad, lora_monster, lora_inks, lora_t4, lora_pokemon\n\n"
             "Transform an existing Image with Stable Diffusion XL ("+ str(DVMConfig.COSTPERUNIT_IMAGETRANSFORMING) +" Sats)\n"
             "-image-to-image urltoimage -prompt someprompt\n\n"
+            "Parse text from an Image (make sure text is well readable) ("+ str(DVMConfig.COSTPERUNIT_OCR) +" Sats)\n"
+            "-image-to-text urltofile \n\n"
             "Upscale the resolution of an Image 4x and improve quality ("+ str(DVMConfig.COSTPERUNIT_IMAGEUPSCALING) +" Sats)\n"
             "-image-upscale urltofile \n\n"
             "Transcribe Audio/Video/Youtube/Overcast from an URL with WhisperX large-v2 ("+ str(DVMConfig.COSTPERUNIT_SPEECHTOTEXT) +" Sats)\n"
@@ -1156,6 +1158,15 @@ def parsebotcommandtoevent(dec_text):
                     upscale_factor = i.replace("upscale ", "")
                     paramTag = Tag.parse(["param", "upscale", upscale_factor])
                     tags.append(paramTag)
+        return tags
+
+    elif str(dec_text).startswith("-image-to-text"):
+        prompttemp = dec_text.replace("-image-to-text ", "")
+        split = prompttemp.split("-")
+        url = split[0]
+        jTag = Tag.parse(["j", "image-to-text"])
+        iTag = Tag.parse(["i", url, "url"])
+        tags = [jTag, iTag]
         return tags
 
     elif str(dec_text).startswith("-speech-to-text"):

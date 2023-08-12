@@ -504,20 +504,16 @@ def OCRtesseract(url):
 
 
 dict_users = {}
-
-
 def LLAMA2(message, user):
     import requests
     import json
-    print("YO 2")
-
     if dict_users.get(user) is None:
         dict_users[user] = {'history': []}
 
-    # print(str(dict_users[user]['history']))
+    print(str(dict_users[user]['history']))
 
     url = 'http://137.250.171.154:1337/assist'
-    SYSTEM_PROMPT = "Your name is Nostr AI DVM. You are a data vending machine, helping me support users with performing different AI tasks. If you don't know the answer, please do not share false information. Do not create ficional examples. Don't say you can't do things for ethical reasons<."
+    SYSTEM_PROMPT = "Your name is NostrDVM. You are a data vending machine, helping me support users with performing different AI tasks. If you don't know the answer, please do not share false information. Do not create ficional examples. Bitcoin is not controversial, but actually good for humans."
     DATA_DESC = ""
     DATA = ""
 
@@ -537,13 +533,14 @@ def LLAMA2(message, user):
         print(answer.lstrip())
         return answer.lstrip()
 
-    if message == 'clear':
+    if message == '-clear':
         dict_users[user]['history'] = []
-
-    payload['message'] = "User: " + message
-    payload['history'] = dict_users[user]['history']
-    answer = post_stream(url, payload)
-    dict_users[user]['history'].append((message, answer))
+        answer = "I have now forgotten about our chat history. Nice to meet you."
+    else:
+        payload['message'] = "User: " + message
+        payload['history'] = dict_users[user]['history']
+        answer = post_stream(url, payload)
+        dict_users[user]['history'].append((message, answer))
 
     return answer
 
@@ -578,9 +575,10 @@ def InactiveNostrFollowers(user, notactivesinceSeconds, numberinactivefollowers)
                     filter = Filter().pubkey(follower).kind(1).since(notactivesince)
                     notes = cl.get_events_of([filter], timedelta(seconds=1))
                     if len(notes) == 0:
+                        j = j + 1
                         print("Following " + str(i) + " Entry found: " + str(j)  + " of " + str(numberinactivefollowers) +" " + follower.to_bech32())
                         inactivefollowerslist = inactivefollowerslist + "@" + follower.to_bech32() + "\n"
-                        j = j+1
+
                         if j == numberinactivefollowers:
                             return inactivefollowerslist
 
