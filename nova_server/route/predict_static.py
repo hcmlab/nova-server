@@ -535,7 +535,7 @@ def LLAMA2(message, user):
 
     if message == '-clear':
         dict_users[user]['history'] = []
-        answer = "I have now forgotten about our chat history. Nice to meet you."
+        answer = "I have now forgotten about our chat history. Nice to meet you (again)."
     else:
         payload['message'] = "User: " + message
         payload['history'] = dict_users[user]['history']

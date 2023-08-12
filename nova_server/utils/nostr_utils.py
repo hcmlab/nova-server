@@ -163,7 +163,6 @@ def nostr_server():
                         balance = user[1]
                         iswhitelisted = user[2]
                         isblacklisted = user[3]
-                        time.sleep(3.0)
                         if isblacklisted:
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "Your are currently blocked from all services.",None).to_event(keys)
                             sendEvent(evt, client)
@@ -171,12 +170,12 @@ def nostr_server():
                             if not iswhitelisted:
                                 balance = max(balance - reqamount, 0)
                                 updateSQLtable(sender, balance, iswhitelisted, isblacklisted)
-                                evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),"Your Job is now scheduled. New balance is " + str(balance) +" Sats.\nI will DM you once I'm done processing.",None).to_event(keys)
+                                evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),"Your Job is now scheduled. New balance is " + str(balance) +" Sats.\nI will DM you once I'm done processing.",event.id()).to_event(keys)
                             else:
                                 evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
                                                                             "Your Job is now scheduled. As you are whitelisted, your balance remains at " + str(
                                                                                 balance) + " Sats.\nI will DM you once I'm done processing.",
-                                                                            None).to_event(keys)
+                                                                            event.id()).to_event(keys)
                             sendEvent(evt, client)
                             tags = parsebotcommandtoevent(dec_text)
                             tags.append(Tag.parse(["p", event.pubkey().to_hex()]))
@@ -201,15 +200,15 @@ def nostr_server():
                                                                     None).to_event(keys)
                         sendEvent(evt, client)
                     elif str(dec_text).startswith("-help"):
-                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), getbothelptext(), None).to_event(keys)
-                        time.sleep(2.0)
+                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), getbothelptext(), event.id()).to_event(keys)
+                        time.sleep(3.0)
                         sendEvent(evt, client)
 
 
                     else:
                         #Contect LLAMA Server in parallel to cue.
                         answer = LLAMA2(dec_text, event.pubkey().to_hex())
-                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), answer,None).to_event(keys)
+                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), answer,event.id()).to_event(keys)
                         sendEvent(evt, client)
 
                 except Exception as e:
@@ -646,7 +645,7 @@ def nostr_server():
 
 
         return request_form
-    def organizeInputData(event, request_form):
+    def organizeInputData(event, request_form, isfromBot=False):
         data_dir = os.environ["NOVA_DATA_DIR"]
 
         session = event.id().to_hex()
@@ -679,8 +678,7 @@ def nostr_server():
 
             # is youtube link?
             elif str(input).replace("http://", "").replace("https://", "").replace("www.", "").replace("youtu.be/",
-                                                                                                       "youtube.com?v=")[
-                 0:11] == "youtube.com":
+                                                                                                       "youtube.com?v=")[0:11] == "youtube.com":
 
                 filepath = data_dir + '\\' + request_form["database"] + '\\' + session + '\\'
                 try:
@@ -697,51 +695,57 @@ def nostr_server():
                                 print("Moving end time automatically to " + request_form["endTime"])
                 except Exception:
                     print("video not available")
-                    sendJobStatusReaction(event, "error")
-                    return
+                    return None
             # Regular links have a media file ending and/or mime types
             else:
                 req = requests.get(input)
                 content_type = req.headers['content-type']
-                if content_type == 'audio/x-wav' or str(input).endswith(".wav"):
+                print(content_type)
+                if content_type == 'audio/x-wav' or str(input).lower().endswith(".wav"):
                     ext = "wav"
                     type = "audio"
-                elif content_type == 'audio/mpeg' or str(input).endswith(".mp3"):
+                elif content_type == 'audio/mpeg' or str(input).lower().endswith(".mp3"):
                     ext = "mp3"
                     type = "audio"
-                elif content_type == 'audio/ogg' or str(input).endswith(".ogg"):
+                elif content_type == 'audio/ogg' or str(input).lower().endswith(".ogg"):
                     ext = "ogg"
                     type = "audio"
-                elif content_type == 'video/mp4' or str(input).endswith(".mp4"):
+                elif content_type == 'video/mp4' or str(input).lower().endswith(".mp4"):
                     ext = "mp4"
                     type = "video"
-                elif content_type == 'video/avi' or str(input).endswith(".avi"):
+                elif content_type == 'video/avi' or str(input).lower().endswith(".avi"):
                     ext = "avi"
                     type = "video"
-                elif content_type == 'video/mov' or str(input).endswith(".mov"):
+                elif content_type == 'video/quicktime' or str(input).lower().endswith(".mov"):
                     ext = "mov"
                     type = "video"
 
                 else:
-                    sendJobStatusReaction(event, "error")
-                    return
+                    print(str(input).lower())
+                    return None
+
+
 
                 filename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
                     "roles"] + '.original' + type + '.' + ext
+                print(filename)
 
-                if not os.path.exists(filename):
-                    file = open(filename, 'wb')
-                    for chunk in req.iter_content(100000):
-                        file.write(chunk)
-                    file.close()
+                try:
+                    if not os.path.exists(filename):
+                        file = open(filename, 'wb')
+                        for chunk in req.iter_content(100000):
+                            file.write(chunk)
+                        file.close()
+                except:
+                    print("Nope")
 
             duration = 0
             try:
                 file_reader = AudioReader(filename, ctx=cpu(0), mono=False)
                 duration = file_reader.duration()
             except:
-                sendJobStatusReaction(event, "error")
-                return
+                return None
+
 
             print("Duration of the Media file: " + str(duration))
             if float(request_form['endTime']) == 0.0:
@@ -765,13 +769,29 @@ def nostr_server():
             if not db_entry_exists(request_form, session, "name", "Sessions"):
                 duration = end_time - start_time
                 add_new_session_to_db(request_form, duration)
+        return True
     def doWork(Jobevent, isFromBot=False):
         if (Jobevent.kind() >= 65002 and Jobevent.kind() <= 66000) or Jobevent.kind() == 68001 or Jobevent.kind() == 4:
             request_form = createRequestFormfromNostrEvent(Jobevent, isFromBot)
             task = getTask(Jobevent)
             if task == "speech-to-text":
                 print("[Nostr] Adding Nostr speech-to-text Job event: " + Jobevent.as_json())
-                organizeInputData(Jobevent, request_form)
+                if organizeInputData(Jobevent, request_form, isFromBot) == None:
+                    if not isFromBot:
+                        sendJobStatusReaction(Jobevent, "error")
+                    else:
+                        for tag in Jobevent.tags():
+                            if tag.as_vec()[0] == "p":
+                                sender= tag.as_vec()[1]
+
+                        user = getFromSQLTable(sender)
+                        updateSQLtable(sender, user[1] + DVMConfig.COSTPERUNIT_SPEECHTOTEXT, user[2], user[3])
+                        evt = EventBuilder.new_encrypted_direct_msg(keys, PublicKey.from_hex(sender),
+                                                                    "Error processing video, credits have been reimbursed",
+                                                                    None).to_event(keys)
+
+                        sendEvent(evt, client)
+                    return
             elif task == "event-list-generation" or task.startswith("unknown"):
                 print("Task not (yet) supported")
                 return
@@ -1148,7 +1168,7 @@ def parsebotcommandtoevent(dec_text):
     elif str(dec_text).startswith("-image-upscale"):
         prompttemp = dec_text.replace("-image-upscale ", "")
         split = prompttemp.split("-")
-        url = split[0]
+        url = str(split[0]).replace(' ', '')
         jTag = Tag.parse(["j", "image-upscale"])
         iTag = Tag.parse(["i", url, "url"])
         tags = [jTag, iTag]
@@ -1163,7 +1183,7 @@ def parsebotcommandtoevent(dec_text):
     elif str(dec_text).startswith("-image-to-text"):
         prompttemp = dec_text.replace("-image-to-text ", "")
         split = prompttemp.split("-")
-        url = split[0]
+        url = str(split[0]).replace(' ', '')
         jTag = Tag.parse(["j", "image-to-text"])
         iTag = Tag.parse(["i", url, "url"])
         tags = [jTag, iTag]
@@ -1172,7 +1192,7 @@ def parsebotcommandtoevent(dec_text):
     elif str(dec_text).startswith("-speech-to-text"):
         prompttemp = dec_text.replace("-speech-to-text ", "")
         split = prompttemp.split("-")
-        url = split[0]
+        url = str(split[0]).replace(' ', '')
         start = "0"
         end = "0"
         model = "large-v2"
