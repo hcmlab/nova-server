@@ -974,7 +974,7 @@ def respondToError(content, originaleventstr, isFromBot=False):
         # TODO Send Zap back
     else:
         for tag in originalevent.tags():
-            if tag.as_vec()[0] == f"p":
+            if tag.as_vec()[0] == "p":
                 sender = tag.as_vec()[1]
 
         user = getFromSQLTable(sender)
