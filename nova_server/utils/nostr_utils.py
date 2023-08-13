@@ -779,25 +779,7 @@ def nostr_server():
             if task == "speech-to-text":
                 print("[Nostr] Adding Nostr speech-to-text Job event: " + Jobevent.as_json())
                 if organizeInputData(Jobevent, request_form, isFromBot) == None:
-                    if not isFromBot:
-                        sendJobStatusReaction(Jobevent, "error")
-                        #TODO Send Zap back
-                    else:
-                        for tag in Jobevent.tags():
-                            if tag.as_vec()[0] == f"p":
-                                sender= tag.as_vec()[1]
-
-                        user = getFromSQLTable(sender)
-                        iswhitelisted = user[2]
-                        if not iswhitelisted:
-                            updateSQLtable(sender, user[1] + DVMConfig.COSTPERUNIT_SPEECHTOTEXT, user[2], user[3])
-                            message = "Error processing video, credits have been reimbursed"
-                        else:
-                            #User didn't pay, so no reimbursement
-                            message = "Error processing video"
-
-                        evt = EventBuilder.new_encrypted_direct_msg(keys, PublicKey.from_hex(sender), message, None).to_event(keys)
-                        sendEvent(evt, client)
+                    respondToError("Error processing video", Jobevent.as_json(), isFromBot)
                     return
             elif task == "event-list-generation" or task.startswith("unknown"):
                 print("Task not (yet) supported")
@@ -976,15 +958,17 @@ def respondToError(content, originaleventstr, isFromBot=False):
         for tag in originalevent.tags():
             if tag.as_vec()[0] == "p":
                 sender = tag.as_vec()[1]
+            elif tag.as_vec()[0] == "i":
+                task = tag.as_vec()[1]
 
         user = getFromSQLTable(sender)
         iswhitelisted = user[2]
         if not iswhitelisted:
-            updateSQLtable(sender, user[1] + DVMConfig.COSTPERUNIT_SPEECHTOTEXT, user[2], user[3])
-            message = "There was the following error : "+  content + ". Credits have been reimbursed"
+            updateSQLtable(sender, user[1] + getAmountPerTask(task), user[2], user[3])
+            message = "There was the following error : " + content + ". Credits have been reimbursed"
         else:
             # User didn't pay, so no reimbursement
-            message = "There was the following error : " +  content
+            message = "There was the following error : " + content
 
         evt = EventBuilder.new_encrypted_direct_msg(keys, PublicKey.from_hex(sender), message, None).to_event(keys)
         sendEvent(evt)
