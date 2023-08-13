@@ -1,3 +1,4 @@
+import base64
 import json
 
 import os
@@ -152,7 +153,7 @@ def nostr_server():
                     dec_text = nip04_decrypt(sk, event.pubkey(), event.content())
                     print(f"Received new msg: {dec_text}")
 
-                    if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-image-to-image") or str(dec_text).startswith("-speech-to-text") or str(dec_text).startswith("-image-upscale") or str(dec_text).startswith("-image-to-text")  or str(dec_text).startswith("-inactive-following"):
+                    if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-image-to-image") or str(dec_text).startswith("-speech-to-text") or str(dec_text).startswith("-image-upscale") or str(dec_text).startswith("-image-to-text") or str(dec_text).startswith("-inactive-following"):
                         task = str(dec_text).split(' ')[0].removeprefix('-')
                         reqamount = getAmountPerTask(task)  # TODO adjust this to task
 
@@ -167,6 +168,7 @@ def nostr_server():
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "Your are currently blocked from all services.",None).to_event(keys)
                             sendEvent(evt, client)
                         elif iswhitelisted or balance >= reqamount:
+                            time.sleep(3.0)
                             if not iswhitelisted:
                                 balance = max(balance - reqamount, 0)
                                 updateSQLtable(sender, balance, iswhitelisted, isblacklisted)
@@ -174,8 +176,8 @@ def nostr_server():
                             else:
                                 evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
                                                                             "Your Job is now scheduled. As you are whitelisted, your balance remains at " + str(
-                                                                                balance) + " Sats.\nI will DM you once I'm done processing.",
-                                                                            event.id()).to_event(keys)
+                                                                                balance) + " Sats.\nI will DM you once I'm done processing.",event.id()).to_event(keys)
+
                             sendEvent(evt, client)
                             tags = parsebotcommandtoevent(dec_text)
                             tags.append(Tag.parse(["p", event.pubkey().to_hex()]))
@@ -779,9 +781,10 @@ def nostr_server():
                 if organizeInputData(Jobevent, request_form, isFromBot) == None:
                     if not isFromBot:
                         sendJobStatusReaction(Jobevent, "error")
+                        #TODO Send Zap back
                     else:
                         for tag in Jobevent.tags():
-                            if tag.as_vec()[0] == "p":
+                            if tag.as_vec()[0] == f"p":
                                 sender= tag.as_vec()[1]
 
                         user = getFromSQLTable(sender)
@@ -1360,6 +1363,8 @@ def getIndexOfFirstLetter(ip):
 
 #DECRYPTZAPS
 def decrypt_private_zap_message(msg, privkey, pubkey):
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    from cryptography.hazmat.primitives import padding
     ##TODO this is not yet working
     shared_secret = nostr_sdk.generate_shared_key(privkey, pubkey)
     if len(shared_secret) != 16 and len(shared_secret) != 32:
@@ -1368,19 +1373,35 @@ def decrypt_private_zap_message(msg, privkey, pubkey):
     if len(parts) != 2:
         raise ValueError("Invalid message format")
 
-    encrypted_msg = bech32_decode(parts[0])[1]
-    iv = bech32_decode(parts[1])[1]
+    hrpm, encrypted_msg = bech32_decode(parts[0])
+    hrpi, iv = bech32_decode(parts[1])
 
     msg5to8 =  bytes(convertbits(encrypted_msg, 5, 8, False))
     iv5to8 = bytes(convertbits(iv, 5, 8, False))
-    cipher = AES.new(bytes(shared_secret), AES.MODE_CBC, iv5to8)
-    decrypted = cipher.decrypt(msg5to8)
+    #cipher = AES.new(bytes(shared_secret), AES.MODE_CBC, iv5to8)
+    cipher = Cipher(
+        algorithms.AES(bytes(shared_secret)), modes.CBC(iv5to8)
+    )
+
+
+    decryptor = cipher.decryptor()
+    decrypted_message = decryptor.update(msg5to8) + decryptor.finalize()
+
+
+    #unpadder = padding.PKCS7(128).unpadder()
+    #unpadded_data = unpadder.update(decrypted_message) + unpadder.finalize()
+    print(str(decrypted_message))
+    #print(unpadded_data.decode("bech32"))
+    encrypted_content = base64.b64decode(msg5to8)
+
+    #decrypted = cipher.decrypt(msg5to8)
 
     #TODO padding fails
     try:
-        #unpadded = unpad(cipher.decrypt(msg5to8),128)
+
         print(str(decrypted))
-        result = decrypted.decode()
+        unpadded = unpad(cipher.decrypt(msg5to8),128)
+        result = unpadded.decode()
         print(result)
         return result
     except ValueError as ex:
