@@ -966,6 +966,28 @@ def CheckEventStatus(content, originaleventstr: str, useBot=False):
             sendJobStatusReaction(originalevent, "success")
 
 #NIP90 REPLIES
+def respondToError(content, originaleventstr, isFromBot=False):
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    originalevent = Event.from_json(originaleventstr)
+    if not isFromBot:
+        sendJobStatusReaction(originalevent, "error", content=content)
+        # TODO Send Zap back
+    else:
+        for tag in originalevent.tags():
+            if tag.as_vec()[0] == f"p":
+                sender = tag.as_vec()[1]
+
+        user = getFromSQLTable(sender)
+        iswhitelisted = user[2]
+        if not iswhitelisted:
+            updateSQLtable(sender, user[1] + DVMConfig.COSTPERUNIT_SPEECHTOTEXT, user[2], user[3])
+            message = "There was the following error : "+  content + ". Credits have been reimbursed"
+        else:
+            # User didn't pay, so no reimbursement
+            message = "There was the following error : " +  content
+
+        evt = EventBuilder.new_encrypted_direct_msg(keys, PublicKey.from_hex(sender), message, None).to_event(keys)
+        sendEvent(evt)
 def sendNostrReplyEvent(content, originaleventstr):
     originalevent = Event.from_json(originaleventstr)
     requesttag = Tag.parse(["request", originaleventstr.replace("\\", "")])
@@ -979,7 +1001,7 @@ def sendNostrReplyEvent(content, originaleventstr):
     sendEvent(event)
     print("[Nostr] 65001 Job Response event sent: " + event.as_json())
     return event.as_json()
-def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0, client=None):
+def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0, client=None, content=None):
 
         altdesc = "This is a reaction to a NIP90 DVM AI task."
         task = getTask(originalevent)
@@ -990,7 +1012,10 @@ def sendJobStatusReaction(originalevent, status, isPaid=True, amount=0, client=N
             reaction = emoji.emojize(":call_me_hand:")
             altdesc = "NIP90 DVM AI task " + task + " finished successfully."
         elif status == "error":
-            reaction = emoji.emojize(":thumbs_down:")
+            if content == None:
+                reaction = emoji.emojize(":thumbs_down:")
+            else:
+                reaction = emoji.emojize(":thumbs_down:" ) + content
             altdesc = "NIP90 DVM AI task " + task + " had an error. So sorry. In the future zaps will be sent back but I can't do that just yet."
         elif status == "payment-required":
             reaction = emoji.emojize(":orange_heart:")
@@ -1399,7 +1424,7 @@ def decrypt_private_zap_message(msg, privkey, pubkey):
     #TODO padding fails
     try:
 
-        print(str(decrypted))
+        #print(str(decrypted))
         unpadded = unpad(cipher.decrypt(msg5to8),128)
         result = unpadded.decode()
         print(result)

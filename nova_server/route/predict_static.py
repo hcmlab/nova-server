@@ -69,32 +69,37 @@ def predict_static_data(request_form):
     logger.info("...done.")
     options = dict(opts)
     # TODO move these to separate files
-    if task == "text-to-image":
-        anno = textToImage(options["prompt"], options["extra_prompt"], options["negative_prompt"], options["width"],
-                           options["height"], options["upscale"], options["model"])
-    elif task == "image-to-image":
-        anno = imageToImage(options["url"], options["prompt"], options["negative_prompt"], options["strength"],
-                            options["guidance_scale"], options["model"])
-    elif task == "image-upscale":
-        anno = imageUpscaleRealESRGANUrl(options["url"], options["upscale"])
-    elif task == "translation":
-        anno = GoogleTranslate(options["text"], options["translation_lang"])
-    elif task == "image-to-text":
-        anno = OCRtesseract(options["url"])
-    elif task == "chat":
-        anno = LLAMA2(options["message"], options["user"])
-    elif task == "summarization":
-        anno = LLAMA2(
-            "Give me a summarization of the most important points of the following text: " + options["message"],  options["user"])
-    elif task == "inactive-following":
-        anno = InactiveNostrFollowers(options["user"], int(options["since"]), int(options["num"]) )
+    try:
+        if task == "text-to-image":
+            anno = textToImage(options["prompt"], options["extra_prompt"], options["negative_prompt"], options["width"],
+                               options["height"], options["upscale"], options["model"])
+        elif task == "image-to-image":
+            anno = imageToImage(options["url"], options["prompt"], options["negative_prompt"], options["strength"],
+                                options["guidance_scale"], options["model"])
+        elif task == "image-upscale":
+            anno = imageUpscaleRealESRGANUrl(options["url"], options["upscale"])
+        elif task == "translation":
+            anno = GoogleTranslate(options["text"], options["translation_lang"])
+        elif task == "image-to-text":
+            anno = OCRtesseract(options["url"])
+        elif task == "chat":
+            anno = LLAMA2(options["message"], options["user"])
+        elif task == "summarization":
+            anno = LLAMA2(
+                "Give me a summarization of the most important points of the following text: " + options["message"],  options["user"])
+        elif task == "inactive-following":
+            anno = InactiveNostrFollowers(options["user"], int(options["since"]), int(options["num"]) )
+        if request_form["nostrEvent"] is not None:
 
-    if request_form["nostrEvent"] is not None:
-        nostr_utils.CheckEventStatus(anno, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
-    logger.info("...done")
+            nostr_utils.CheckEventStatus(anno, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
+        logger.info("...done")
 
-    logger.info("Prediction completed!")
-    status_utils.update_status(key, status_utils.JobStatus.FINISHED)
+        logger.info("Prediction completed!")
+        status_utils.update_status(key, status_utils.JobStatus.FINISHED)
+    except Exception  as e:
+        nostr_utils.respondToError(str(e), str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
+
+
 
 
 # HELPER
