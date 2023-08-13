@@ -96,6 +96,8 @@ def predict_data(request_form):
         log_utils.remove_log_from_dict(key)
         logger.error("Not able to load the data from the database!")
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
+        if request_form["nostrEvent"] is not None:
+            nostr_utils.respondToError(str(e), str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
         return None
 
     # Load Trainer
