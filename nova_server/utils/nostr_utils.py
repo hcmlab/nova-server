@@ -186,6 +186,7 @@ def nostr_server():
                             doWork(evt, isFromBot=True)
 
                         else:
+                             time.sleep(3.0)
                              evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "Balance required, please zap this note with at least " + str(reqamount) + " Sats to start directly, or zap me that amount elsewhere then try again. For now, for adding balance, only public Zaps are supported (Non anon/private).", event.id()).to_event(keys)
                              JobstoWatch.append(JobToWatch(id=evt.id().to_hex(), timestamp=event.created_at().as_secs(), amount=reqamount, isPaid=False, status="payment-required", result="", isProcessed=False))
                              sendEvent(evt, client)
@@ -197,15 +198,22 @@ def nostr_server():
                             addtoSQLtable(sender, DVMConfig.NEW_USER_BALANCE, False, False)
                             user = getFromSQLTable(sender)
                         balance = user[1]
+                        time.sleep(3.0)
                         evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
                                                                     "You're current balance is " + str(balance) + " Sats. Zap me to add to your balance. I support both public and private Zaps.",
                                                                     None).to_event(keys)
                         sendEvent(evt, client)
-                    elif str(dec_text).startswith("-help"):
-                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), getbothelptext(), event.id()).to_event(keys)
+                    elif str(dec_text).startswith("-help") or str(dec_text).startswith("- help") or str(dec_text).startswith("help") :
                         time.sleep(3.0)
+                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), getbothelptext(), event.id()).to_event(keys)
                         sendEvent(evt, client)
 
+                    elif str(dec_text).__contains__("Bitcoin"):
+                        time.sleep(3.0)
+                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "#Bitcoin? There is no second best.\n\nhttps://cdn.nostr.build/p/mYLv.mp4",
+                                                                    event.id()).to_event(keys)
+
+                        sendEvent(evt, client)
 
                     else:
                         #Contect LLAMA Server in parallel to cue.
