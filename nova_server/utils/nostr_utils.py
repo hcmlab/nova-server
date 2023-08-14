@@ -198,7 +198,7 @@ def nostr_server():
                             user = getFromSQLTable(sender)
                         balance = user[1]
                         evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
-                                                                    "You're current balance is " + str(balance) + " Sats. Zap me to add to your balance. For now only public Zaps are supported (Non anon/private).",
+                                                                    "You're current balance is " + str(balance) + " Sats. Zap me to add to your balance. I support both public and private Zaps.",
                                                                     None).to_event(keys)
                         sendEvent(evt, client)
                     elif str(dec_text).startswith("-help"):
@@ -231,16 +231,19 @@ def nostr_server():
                         elif tag.as_vec()[0] == 'description':
                             desc = str(tag.as_vec()[1])
                             senderevt = Event.from_json(desc)
-                            print(senderevt.pubkey().to_hex())
                             sender = senderevt.pubkey().to_hex()
                             for tag in senderevt.tags():
                                 if tag.as_vec()[0] == 'anon':
                                     if len(tag.as_vec()) > 1:
-                                        print("Private Zap received. Unlucky, I don't know from whom, but I will learn soon.")
+                                        print("Private Zap received.")
                                         encodedstr = tag.as_vec()[1]
-                                        #realcontent = decrypt_private_zap_message(encodedstr, keys.secret_key(), event.pubkey())
-                                        anon = True #remove when it works
-                                        #sender = Event.from_json(realcontent).pubkey()
+                                        realcontent = decrypt_private_zap_message(encodedstr, keys.secret_key(), senderevt.pubkey())
+                                        encryptedevent = Event.from_json(realcontent)
+                                        if encryptedevent.kind() == 9733:
+                                            sender = encryptedevent.pubkey().to_hex()
+                                            message = encryptedevent.content()
+                                            if message != "":
+                                                print("Zap Message: " + message)
                                     else:
                                         anon = True
                                         print("Anonymous Zap received. Unlucky, I don't know from whom, and never will")
@@ -1160,8 +1163,8 @@ def parsebotcommandtoevent(dec_text):
                     paramTag = Tag.parse(["param", "negative_prompt", negative_prompt])
                     tags.append(paramTag)
                 elif i.startswith("prompt"):
-                    extra_prompt = i.replace("prompt ", "")
-                    paramTag = Tag.parse(["param", "prompt", extra_prompt])
+                    prompt = i.replace("prompt ", "")
+                    paramTag = Tag.parse(["param", "prompt", prompt])
                     tags.append(paramTag)
                 elif i.startswith("strength"):
                     strength = i.replace("strength ", "")
@@ -1372,49 +1375,27 @@ def getIndexOfFirstLetter(ip):
 
 #DECRYPTZAPS
 def decrypt_private_zap_message(msg, privkey, pubkey):
-    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-    from cryptography.hazmat.primitives import padding
-    ##TODO this is not yet working
-    shared_secret = nostr_sdk.generate_shared_key(privkey, pubkey)
-    if len(shared_secret) != 16 and len(shared_secret) != 32:
-        raise ValueError("Invalid shared secret size")
+    sharedSecret = nostr_sdk.generate_shared_key(privkey, pubkey)
+    if len(sharedSecret) != 16 and len(sharedSecret) != 32:
+        return "invalid shared secret size"
     parts = msg.split("_")
     if len(parts) != 2:
-        raise ValueError("Invalid message format")
-
-    hrpm, encrypted_msg = bech32_decode(parts[0])
-    hrpi, iv = bech32_decode(parts[1])
-
-    msg5to8 =  bytes(convertbits(encrypted_msg, 5, 8, False))
-    iv5to8 = bytes(convertbits(iv, 5, 8, False))
-    #cipher = AES.new(bytes(shared_secret), AES.MODE_CBC, iv5to8)
-    cipher = Cipher(
-        algorithms.AES(bytes(shared_secret)), modes.CBC(iv5to8)
-    )
-
-
-    decryptor = cipher.decryptor()
-    decrypted_message = decryptor.update(msg5to8) + decryptor.finalize()
-
-
-    #unpadder = padding.PKCS7(128).unpadder()
-    #unpadded_data = unpadder.update(decrypted_message) + unpadder.finalize()
-    print(str(decrypted_message))
-    #print(unpadded_data.decode("bech32"))
-    encrypted_content = base64.b64decode(msg5to8)
-
-    #decrypted = cipher.decrypt(msg5to8)
-
-    #TODO padding fails
+        return "invalid message format"
     try:
-
-        #print(str(decrypted))
-        unpadded = unpad(cipher.decrypt(msg5to8),128)
-        result = unpadded.decode()
-        print(result)
-        return result
-    except ValueError as ex:
-        raise ValueError(f"Bad padding: {str(ex)}")
+        _, encryptedMsg = bech32_decode(parts[0])
+        encryptedBytes = convertbits(encryptedMsg, 5, 8, False)
+        _, iv = bech32_decode(parts[1])
+        ivBytes = convertbits(iv, 5, 8, False)
+    except Exception as e:
+        return e
+    try:
+        cipher = AES.new(bytearray(sharedSecret), AES.MODE_CBC, bytearray(ivBytes))
+        decryptedbytes = cipher.decrypt(bytearray(encryptedBytes))
+        plaintext = decryptedbytes.decode("utf-8")
+        decoded = plaintext.rsplit("}", 1)[0] + "}" #we might have some python decoder lib related weird symbols in the end, we just remove them..
+        return decoded
+    except Exception as ex:
+        return str(ex)
 
 #DATABASE LOGIC
 def createSQLTable():
@@ -1515,7 +1496,7 @@ def makeDatabaseUpdates():
 if __name__ == '__main__':
     os.environ["NOVA_DATA_DIR"] = "W:\\nova\\data"
     os.environ["NOVA_NOSTR_KEY"] = "privkey"
-    os.environ["NOVA_HOST"] = "127.0.ß.1"
+    os.environ["NOVA_HOST"] = "127.0.0.1"
     os.environ["NOVA_PORT"] = "27017"
     nostr_server()
 
