@@ -585,10 +585,10 @@ def InactiveNostrFollowers(user, notactivesinceSeconds, numberinactivefollowers)
                         inactivefollowerslist = inactivefollowerslist + "@" + follower.to_bech32() + "\n"
 
                         if j == numberinactivefollowers:
-                            return inactivefollowerslist
+                            return inactivefollowerslist + "\n\nPlease wait for a while after unfollowing users before performing this task again, so relays can update your following list."
 
     else:
         print("Not found")
     print("done")
-    return "Scanned complete following list!\n" + inactivefollowerslist
+    return "All followings have been scanned! No (more) followings have been inactive in the given timespan\n\n" + inactivefollowerslist
     cl.disconnect()

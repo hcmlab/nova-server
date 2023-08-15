@@ -187,7 +187,7 @@ def nostr_server():
 
                         else:
                              time.sleep(3.0)
-                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "Balance required, please zap this note with at least " + str(reqamount) + " Sats to start directly, or zap me that amount elsewhere then try again. For now, for adding balance, only public Zaps are supported (Non anon/private).", event.id()).to_event(keys)
+                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "Balance required, please zap this note with at least " + str(reqamount) + " Sats to start directly, or zap me that amount elsewhere, then try again.", event.id()).to_event(keys)
                              JobstoWatch.append(JobToWatch(id=evt.id().to_hex(), timestamp=event.created_at().as_secs(), amount=reqamount, isPaid=False, status="payment-required", result="", isProcessed=False))
                              sendEvent(evt, client)
                             # client.send_event(evt)
@@ -208,7 +208,7 @@ def nostr_server():
                         evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), getbothelptext(), event.id()).to_event(keys)
                         sendEvent(evt, client)
 
-                    elif str(dec_text).__contains__("Bitcoin"):
+                    elif str(dec_text).lower().__contains__("bitcoin"):
                         time.sleep(3.0)
                         evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "#Bitcoin? There is no second best.\n\nhttps://cdn.nostr.build/p/mYLv.mp4",
                                                                     event.id()).to_event(keys)
@@ -591,6 +591,7 @@ def nostr_server():
                     inputtype = tag.as_vec()[2]
                     if inputtype == "url":
                         url = tag.as_vec()[1]
+                        print(url)
                     elif inputtype == "event":
                         evt = getEvent(tag.as_vec()[1])
                         url = re.search("(?P<url>https?://[^\s]+)",  evt.content()).group("url")
@@ -1110,7 +1111,7 @@ def parsebotcommandtoevent(dec_text):
     if str(dec_text).startswith("-text-to-image"):
         negative_prompt = ""
         prompttemp = dec_text.replace("-text-to-image ", "")
-        split = prompttemp.split("-")
+        split = prompttemp.split(" -")
         prompt = split[0]
         width = "1024"
         height = "1024"
@@ -1157,7 +1158,7 @@ def parsebotcommandtoevent(dec_text):
     elif str(dec_text).startswith("-image-to-image"):
         negative_prompt = ""
         prompttemp = dec_text.replace("-image-to-image ", "")
-        split = prompttemp.split("-")
+        split = prompttemp.split(" -")
         url = str(split[0]).replace(' ', '')
         width = "768"
         height = "768"
@@ -1194,8 +1195,8 @@ def parsebotcommandtoevent(dec_text):
 
     elif str(dec_text).startswith("-image-upscale"):
         prompttemp = dec_text.replace("-image-upscale ", "")
-        split = prompttemp.split("-")
-        url = str(split[0]).replace(' ', '')
+        split = prompttemp.split(" -")
+        url =  str(split[0]).replace(' ', '')
         jTag = Tag.parse(["j", "image-upscale"])
         iTag = Tag.parse(["i", url, "url"])
         tags = [jTag, iTag]
@@ -1209,7 +1210,7 @@ def parsebotcommandtoevent(dec_text):
 
     elif str(dec_text).startswith("-image-to-text"):
         prompttemp = dec_text.replace("-image-to-text ", "")
-        split = prompttemp.split("-")
+        split = prompttemp.split(" -")
         url = str(split[0]).replace(' ', '')
         jTag = Tag.parse(["j", "image-to-text"])
         iTag = Tag.parse(["i", url, "url"])
@@ -1218,7 +1219,7 @@ def parsebotcommandtoevent(dec_text):
 
     elif str(dec_text).startswith("-speech-to-text"):
         prompttemp = dec_text.replace("-speech-to-text ", "")
-        split = prompttemp.split("-")
+        split = prompttemp.split(" -")
         url = str(split[0]).replace(' ', '')
         start = "0"
         end = "0"
@@ -1243,7 +1244,7 @@ def parsebotcommandtoevent(dec_text):
         numberusers = "25"
         prompttemp = dec_text.replace("-inactive-following ", "")
         print(prompttemp)
-        split = prompttemp.split("-")
+        split = prompttemp.split(" -")
         for i in split:
             if i.startswith("sincedays"):
                 sincedays = i.replace("sincedays ", "")
