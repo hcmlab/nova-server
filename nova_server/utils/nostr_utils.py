@@ -20,7 +20,7 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
 from decord import AudioReader, cpu
-from nostr_sdk import Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, nip04_decrypt, EventId, AccountMetadata, init_logger, LogLevel
+from nostr_sdk import Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, nip04_decrypt, EventId, Metadata, init_logger, LogLevel
 import time
 from nostr_sdk.nostr_sdk import PublicKey
 
@@ -48,7 +48,7 @@ class DVMConfig:
     LNBITS_INVOICE_KEY = 'bfdfb5ecfc0743daa08749ce58abea74'
     LNBITS_INVOICE_URL = 'https://ln.novaannotation.com/createLightningInvoice'
     USERDB = "nostrzaps.db"
-    RELAY_LIST = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net"]
+    RELAY_LIST = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.mom"]
     RELAY_TIMEOUT = 1
     AUTOPROCESS_MIN_AMOUNT: int = 1000000000000  # auto start processing if min Sat amount is given
     AUTOPROCESS_MAX_AMOUNT: int = 0  # if this is 0 and min is very big, autoprocess will not trigger
@@ -98,7 +98,7 @@ def nostr_server():
 
     class NotificationHandler(HandleNotification):
         def handle(self, relay_url, event):
-            #print(f"[Nostr] Received new event from {relay_url}: {event.as_json()}")
+            print(f"[Nostr] Received new event from {relay_url}: {event.as_json()}")
             if (65002 <= event.kind() <= 66000):
                 user = getFromSQLTable(event.pubkey().to_hex())
                 if user == None:
@@ -150,24 +150,27 @@ def nostr_server():
                 pk = event.pubkey()
                 sender = pk.to_hex()
                 try:
-                    print(f"\nNew event from Sender {pk.to_bech32()} on Relay {relay_url}: {event.as_json()}")
-                    #filter = Filter().kind(0).author(pk.to_hex()).limit(1)
-                    #events = client.get_events_of([filter], timedelta(seconds=5))
-                    #if len(events) > 0:
-                        #event = events[0]
-                        #content = event.content()
-                        #metadata = AccountMetadata.from_json(event.content())
-                        #print(content)
-                        #metadata.nip05
-                    #    print(f"Name: {metadata.get_name()}")
-                    #    print(f"NIP05: {metadata.get_nip05()}")
-                    #    print(f"LUD16: {metadata.get_lud16()}")
-                except:
-                    print("Error getting profile")
-
-                try:
                     dec_text = nip04_decrypt(sk, event.pubkey(), event.content())
                     print(f"Received new msg: {dec_text}")
+                    try:
+                        filter = Filter().kind(0).author(pk.to_hex()).limit(1)
+                        events = client.get_events_of([filter], timedelta(seconds=5))
+                        if len(events) > 0:
+                            ev = events[0]
+                            metadata = Metadata.from_json(ev.content())
+                            print(f"Name: {metadata.get_name()}")
+                            print(f"NIP05: {metadata.get_nip05()}")
+                            print(f"LUD16: {metadata.get_lud16()}")
+                            if metadata.get_nip05() == None:
+                                time.sleep(3.0)
+                                evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
+                                                                            "In order to reduce misuse by bots, a NIP05 address is required to use this service. Set one up anyways.",
+                                                                            event.id()).to_event(keys)
+                                sendEvent(evt, client)
+                                return
+
+                    except:
+                        print("Error getting profile")
 
                     if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-image-to-image") or str(dec_text).startswith("-speech-to-text") or str(dec_text).startswith("-image-upscale") or str(dec_text).startswith("-image-to-text") or str(dec_text).startswith("-inactive-following"):
                         task = str(dec_text).split(' ')[0].removeprefix('-')
@@ -256,6 +259,17 @@ def nostr_server():
                             desc = str(tag.as_vec()[1])
                             senderevt = Event.from_json(desc)
                             sender = senderevt.pubkey().to_hex()
+
+                            #Special case Zapplepay
+                            if sender == PublicKey.from_bech32("npub1wxl6njlcgygduct7jkgzrvyvd9fylj4pqvll6p32h59wyetm5fxqjchcan").to_hex():
+                                print(sender)
+                                content = event.content()
+                                print(content)
+                                contentclean = content.replace("from: @", "")
+                                print(contentclean)
+                                sender = PublicKey.from_bech32(contentclean).to_hex()
+                                print(sender)
+
                             for tag in senderevt.tags():
                                 if tag.as_vec()[0] == 'anon':
                                     if len(tag.as_vec()) > 1:
@@ -1088,7 +1102,7 @@ def postprocessResult(content, originalevent):
 def getbothelptext():
     return  ("Hi there. I'm a bot interface to the first NIP90 Data Vending Machine and I can perform several AI tasks for you. Currently I can do the following jobs:\n\n"
              "Generate an Image with Stable Diffusion XL (" + str(DVMConfig.COSTPERUNIT_IMAGEGENERATION) +" Sats)\n"
-            "-text-to-image someprompt\nAdditional parameters:\n-negative some negative prompt\n-ratio width:height (e.g. 3:4), default 1:1\n-model anothermodel\nOther Models are: realistic, wild, sd15, lora_ghibli, lora_chad, lora_monster, lora_inks, lora_t4, lora_pokemon\n\n"
+            "-text-to-image someprompt\nAdditional parameters:\n-negative some negative prompt\n-ratio width:height (e.g. 3:4), default 1:1\n-model anothermodel\nOther Models are: realistic, wild, sd15, lora_ghibli, lora_monster, lora_inks, lora_t4, lora_pokemon\n\n"
             "Transform an existing Image with Stable Diffusion XL ("+ str(DVMConfig.COSTPERUNIT_IMAGETRANSFORMING) +" Sats)\n"
             "-image-to-image urltoimage -prompt someprompt\n\n"
             "Parse text from an Image (make sure text is well readable) ("+ str(DVMConfig.COSTPERUNIT_OCR) +" Sats)\n"
