@@ -72,7 +72,7 @@ def predict_static_data(request_form):
     try:
         if task == "text-to-image":
             anno = textToImage(options["prompt"], options["extra_prompt"], options["negative_prompt"], options["width"],
-                               options["height"], options["upscale"], options["model"])
+                               options["height"], options["upscale"], options["model"],  options["ratiow"], options["ratioh"])
         elif task == "image-to-image":
             anno = imageToImage(options["url"], options["prompt"], options["negative_prompt"], options["strength"],
                                 options["guidance_scale"], options["model"])
@@ -136,8 +136,8 @@ def uploadToHoster(filepath):
 
 
 # SCRIPTS (TO BE MOVED TO FILES)
-def textToImage(prompt, extra_prompt="", negative_prompt="", width="512", height="512", upscale="1",
-                model="stabilityai/stable-diffusion-xl-base-1.0"):
+def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heightst="512", upscale="1",
+                model="stabilityai/stable-diffusion-xl-base-1.0", ratiow="1", ratioh="1"):
     import torch
     from diffusers import DiffusionPipeline
     from diffusers import StableDiffusionPipeline
@@ -160,12 +160,26 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", width="512", height
     if extra_prompt != "":
         prompt = prompt + "," + extra_prompt
 
-    mwidth = 512
-    mheight = 512
+    mwidth = 768
+    mheight = 768
 
     if model == "stablydiffusedsWild_351" or model == "realisticVisionV51_v51VAE-inpainting" or model == "realisticVisionV51_v51VAE" or model == "stabilityai/stable-diffusion-xl-base-1.0":
         mwidth = 1024
         mheight = 1024
+
+    height = min(int(heightst), mheight)
+    width = min(int(widthst), mwidth)
+
+    ratiown = int(ratiow)
+    ratiohn= int(ratioh)
+
+    if ratiown > ratiohn:
+        height = int((ratiohn/ratiown) * float(width))
+    elif ratiown < ratiohn:
+        width =  int((ratiown/ratiohn) * float(height))
+    elif ratiown == ratiohn:
+        width = height
+
 
     if model == "stabilityai/stable-diffusion-xl-base-1.0":
 
@@ -182,8 +196,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", width="512", height
             use_safetensors=True,
             variant="fp16",
         )
-        # refiner.to("cuda")
-        refiner.enable_model_cpu_offload()
+
         # refiner.load_lora_weights(loramodelsfolder + "cyborg_style_xl-alpha.safetensors")
         # refiner.load_lora_weights(loramodelsfolder + "ghibli_last.safetensors")
         # refiner.unet = torch.compile(refiner.unet, mode="reduce-overhead", fullgraph=True)
@@ -192,13 +205,22 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", width="512", height
         high_noise_frac = 0.8
         image = base(
             prompt=prompt,
-            width=min(int(width), mwidth),
-            height=min(int(height), mheight),
+            width=width,
+            height=height,
             num_inference_steps=n_steps,
             denoising_end=high_noise_frac,
             negative_prompt=negative_prompt,
             output_type="latent",
         ).images
+
+        if torch.cuda.is_available():
+            del base
+            gc.collect()
+            torch.cuda.empty_cache()
+            torch.cuda.ipc_collect()
+
+        refiner.to("cuda")
+        # refiner.enable_model_cpu_offload()
         image = refiner(
             prompt=prompt,
             num_inference_steps=n_steps,
@@ -207,7 +229,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", width="512", height
             image=image,
         ).images[0]
         if torch.cuda.is_available():
-            del base, refiner
+            del  refiner
             gc.collect()
             torch.cuda.empty_cache()
             torch.cuda.ipc_collect()
@@ -254,7 +276,8 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", width="512", height
             pipe.to("cuda")
             pipe.unet.load_attn_procs(model_path)
 
-        image = pipe(prompt, num_inference_steps=30, guidance_scale=7.5, cross_attention_kwargs={"scale": 1.0}).images[
+        image = pipe(prompt, num_inference_steps=30,  width=width,
+            height=height, guidance_scale=7.5, cross_attention_kwargs={"scale": 1.0}).images[
             0]
 
         if torch.cuda.is_available():
@@ -273,8 +296,8 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", width="512", height
 
         # pipe.unet.load_attn_procs(model_id_or_path)
         pipe = pipe.to("cuda")
-        image = pipe(prompt=prompt, negative_prompt=negative_prompt, width=min(int(width), mwidth),
-                     height=min(int(height), mheight)).images[0]
+        image = pipe(prompt=prompt, negative_prompt=negative_prompt, width=width,
+                     height=height).images[0]
         if torch.cuda.is_available():
             del pipe
             gc.collect()
@@ -515,7 +538,7 @@ def LLAMA2(message, user):
     if dict_users.get(user) is None:
         dict_users[user] = {'history': []}
 
-    print(str(dict_users[user]['history']))
+    #print(str(dict_users[user]['history']))
 
     url = 'http://137.250.171.154:1337/assist'
     SYSTEM_PROMPT = "Your name is NostrDVM. You are a data vending machine, helping me support users with performing different AI tasks. If you don't know the answer, please do not share false information. Do not create ficional examples. People should use -help command for more info."

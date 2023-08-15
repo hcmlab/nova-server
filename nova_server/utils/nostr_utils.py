@@ -20,7 +20,7 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
 from decord import AudioReader, cpu
-from nostr_sdk import Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, nip04_decrypt, EventId, init_logger, LogLevel
+from nostr_sdk import Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, nip04_decrypt, EventId, AccountMetadata, init_logger, LogLevel
 import time
 from nostr_sdk.nostr_sdk import PublicKey
 
@@ -98,7 +98,7 @@ def nostr_server():
 
     class NotificationHandler(HandleNotification):
         def handle(self, relay_url, event):
-            print(f"[Nostr] Received new event from {relay_url}: {event.as_json()}")
+            #print(f"[Nostr] Received new event from {relay_url}: {event.as_json()}")
             if (65002 <= event.kind() <= 66000):
                 user = getFromSQLTable(event.pubkey().to_hex())
                 if user == None:
@@ -147,7 +147,23 @@ def nostr_server():
                 else:
                     print("[Nostr] Got new Task but can't process it, skipping..")
             elif event.kind() == 4:
-                sender = event.pubkey().to_hex()
+                pk = event.pubkey()
+                sender = pk.to_hex()
+                try:
+                    print(f"\nNew event from Sender {pk.to_bech32()} on Relay {relay_url}: {event.as_json()}")
+                    #filter = Filter().kind(0).author(pk.to_hex()).limit(1)
+                    #events = client.get_events_of([filter], timedelta(seconds=5))
+                    #if len(events) > 0:
+                        #event = events[0]
+                        #content = event.content()
+                        #metadata = AccountMetadata.from_json(event.content())
+                        #print(content)
+                        #metadata.nip05
+                    #    print(f"Name: {metadata.get_name()}")
+                    #    print(f"NIP05: {metadata.get_nip05()}")
+                    #    print(f"LUD16: {metadata.get_lud16()}")
+                except:
+                    print("Error getting profile")
 
                 try:
                     dec_text = nip04_decrypt(sk, event.pubkey(), event.content())
@@ -188,7 +204,7 @@ def nostr_server():
                         else:
                              time.sleep(3.0)
                              evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "Balance required, please zap this note with at least " + str(reqamount) + " Sats to start directly, or zap me that amount elsewhere, then try again.", event.id()).to_event(keys)
-                             JobstoWatch.append(JobToWatch(id=evt.id().to_hex(), timestamp=event.created_at().as_secs(), amount=reqamount, isPaid=False, status="payment-required", result="", isProcessed=False))
+                             JobstoWatch.append(JobToWatch(id=evt.id().to_hex(), timestamp=str(event.created_at().as_secs()), amount=reqamount, isPaid=False, status="payment-required", result="", isProcessed=False))
                              sendEvent(evt, client)
                             # client.send_event(evt)
 
@@ -317,31 +333,18 @@ def nostr_server():
 
                                             print(event.as_json())
                                             doWork(event, isFromBot=True)
+                                        elif not anon:
+                                            updateUserBalance(sender, invoicesats)
+                                    elif not anon:
+                                        updateUserBalance(sender, invoicesats)
                                 elif not anon:
-                                    user = getFromSQLTable(sender)
-                                    if user == None:
-                                        addtoSQLtable(sender, (invoicesats + DVMConfig.NEW_USER_BALANCE), False, False)
-                                        print("NEW USER")
-                                    else:
-                                        user = getFromSQLTable(sender)
-                                        print(invoicesats)
-                                        updateSQLtable(sender, (user[1] + invoicesats), user[2], user[3])
-                                        print("UPDATE USER BALANCE")
+                                    updateUserBalance(sender, invoicesats)
                             elif zapableevent.kind() == 65001:
                                 print("Someone zapped the result of an Exisiting Task. Nice")
                             else:
                                 print("[Nostr] Zap was not for a kind 65000, 65001 or 4 reaction. Seems someone being nice.")
                     elif not anon:
-                        #profile zap
-                        user = getFromSQLTable(sender)
-                        if user == None:
-                            addtoSQLtable(sender, (invoicesats + DVMConfig.NEW_USER_BALANCE), False, False)
-                            print("ADDED NEW USER :" + sender)
-                        else:
-                            user = getFromSQLTable(sender)
-                            updateSQLtable(sender, (user[1] + invoicesats), user[2], user[3])
-                            print("UPDATE USER BALANCE for User: "+ user[0] + " with " + str(invoicesats) + " Sats. New Balance: " + str(user[1] + invoicesats)+ " Sats.")
-
+                        updateUserBalance(sender, invoicesats)
 
                 except Exception as e:
                     print(f"Error during content decryption: {e}")
@@ -566,21 +569,15 @@ def nostr_server():
                         width = tag.as_vec()[2]
                         height = tag.as_vec()[3]
                     elif tag.as_vec()[1] == "ratio":  # check for paramtype
-                        ratiow = int(tag.as_vec()[2])
-                        ratioh = int(tag.as_vec()[3])
+                        ratiow = (tag.as_vec()[2])
+                        ratioh = (tag.as_vec()[3])
                     elif tag.as_vec()[1] == "upscale":  # check for paramtype
                         upscale = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "model":  # check for paramtype
                         model = tag.as_vec()[2]
 
-            if ratiow > ratioh:
-                height = int((ratioh/ratiow) * float(width))
-            elif ratiow < ratioh:
-                width =  int((ratiow/ratioh) * float(height))
-            elif ratiow == ratioh:
-                width = height
 
-            request_form["optStr"] = 'prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt=' + negative_prompt + ';width=' + str(width) + ';height=' + str(height) + ';upscale=' + str(upscale) + ';model=' + model
+            request_form["optStr"] = 'prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt=' + negative_prompt + ';width=' + str(width) + ';height=' + str(height) + ';upscale=' + str(upscale) + ';model=' + model + ';ratiow=' + str(ratiow)  + ';ratioh=' + str(ratioh)
 
         elif task == "image-upscale":
             request_form["mode"] = "PREDICT_STATIC"
@@ -905,7 +902,7 @@ def getAmountPerTask(task):
     elif task == "text-to-image":
         amount = DVMConfig.COSTPERUNIT_IMAGEGENERATION
     elif task == "image-to-image":
-        amount = DVMConfig.COSTPERUNIT_IMAGEGENERATION
+        amount = DVMConfig.COSTPERUNIT_IMAGETRANSFORMING
     elif task == "image-upscale":
         amount = DVMConfig.COSTPERUNIT_IMAGEUPSCALING
     elif task == "chat":
@@ -1122,27 +1119,27 @@ def parsebotcommandtoevent(dec_text):
         tags = [jTag, iTag]
         if len(split) > 1:
             for i in split:
-                if i.startswith("negative"):
+                if i.startswith("negative "):
                     negative_prompt = i.replace("negative ", "")
                     paramTag = Tag.parse(["param", "negative_prompt", negative_prompt])
                     tags.append(paramTag)
-                elif i.startswith("extra"):
+                elif i.startswith("extra "):
                     extra_prompt = i.replace("extra ", "")
                     paramTag = Tag.parse(["param", "prompt", extra_prompt])
                     tags.append(paramTag)
-                elif i.startswith("upscale"):
+                elif i.startswith("upscale "):
                     upscale_factor = i.replace("upscale ", "")
                     paramTag = Tag.parse(["param", "upscale", upscale_factor])
                     tags.append(paramTag)
-                elif i.startswith("model"):
+                elif i.startswith("model "):
                     model = i.replace("model ", "")
                     paramTag = Tag.parse(["param", "model", model])
                     tags.append(paramTag)
-                elif i.startswith("width"):
+                elif i.startswith("width "):
                     width = i.replace("width ", "")
-                elif i.startswith("height"):
+                elif i.startswith("height "):
                     height = i.replace("height ", "")
-                elif i.startswith("ratio"):
+                elif i.startswith("ratio "):
                     ratio = str(i.replace("ratio ", ""))
                     split = ratio.split(":")
                     ratiow = split[0]
@@ -1167,23 +1164,23 @@ def parsebotcommandtoevent(dec_text):
         tags = [jTag, iTag]
         if len(split) > 1:
             for i in split:
-                if i.startswith("negative"):
+                if i.startswith("negative "):
                     negative_prompt = i.replace("negative ", "")
                     paramTag = Tag.parse(["param", "negative_prompt", negative_prompt])
                     tags.append(paramTag)
-                elif i.startswith("prompt"):
+                elif i.startswith("prompt "):
                     prompt = i.replace("prompt ", "")
                     paramTag = Tag.parse(["param", "prompt", prompt])
                     tags.append(paramTag)
-                elif i.startswith("strength"):
+                elif i.startswith("strength "):
                     strength = i.replace("strength ", "")
                     paramTag = Tag.parse(["param", "strength", strength])
                     tags.append(paramTag)
-                elif i.startswith("guidance_scale"):
+                elif i.startswith("guidance_scale "):
                     strength = i.replace("guidance_scale ", "")
                     paramTag = Tag.parse(["param", "guidance_scale", strength])
                     tags.append(paramTag)
-                elif i.startswith("model"):
+                elif i.startswith("model "):
                     model = i.replace("model ", "")
                     paramTag = Tag.parse(["param", "model", model])
                     tags.append(paramTag)
@@ -1202,7 +1199,7 @@ def parsebotcommandtoevent(dec_text):
         tags = [jTag, iTag]
         if len(split) > 1:
             for i in split:
-                if i.startswith("upscale"):
+                if i.startswith("upscale "):
                     upscale_factor = i.replace("upscale ", "")
                     paramTag = Tag.parse(["param", "upscale", upscale_factor])
                     tags.append(paramTag)
@@ -1226,11 +1223,11 @@ def parsebotcommandtoevent(dec_text):
         model = "large-v2"
         if len(split) > 1:
             for i in split:
-                if i.startswith("from"):
+                if i.startswith("from "):
                     start = i.replace("from ", "")
-                elif i.startswith("to"):
+                elif i.startswith("to "):
                     end = i.replace("to ", "")
-                elif i.startswith("model"):
+                elif i.startswith("model "):
                     model = i.replace("model ", "")
         jTag = Tag.parse(["j", "speech-to-text"])
         iTag = Tag.parse(["i", url, "url"])
@@ -1246,7 +1243,7 @@ def parsebotcommandtoevent(dec_text):
         print(prompttemp)
         split = prompttemp.split(" -")
         for i in split:
-            if i.startswith("sincedays"):
+            if i.startswith("sincedays "):
                 sincedays = i.replace("sincedays ", "")
             elif i.startswith("num"):
                 numberusers = i.replace("num ", "")
@@ -1466,18 +1463,29 @@ def deleteFromSQLTable(npub):
     con.commit()
     con.close()
 
+def updateUserBalance(sender, sats):
+    user = getFromSQLTable(sender)
+    if user == None:
+        addtoSQLtable(sender, (sats + DVMConfig.NEW_USER_BALANCE), False, False)
+        print("NEW USER")
+    else:
+        user = getFromSQLTable(sender)
+        print(sats)
+        updateSQLtable(sender, (user[1] + sats), user[2], user[3])
+        print("UPDATE USER BALANCE")
+
 #ADMINISTRARIVE DB MANAGEMENT
 def makeDatabaseUpdates():
     #This is called on start of Server, Admin function to manually whitelist/blacklist/add balance/delete users
     deleteuser = False
-    whitelistuser = True
+    whitelistuser = False
     unwhitelistuser = False
     blacklistuser = False
     addbalance = False
 
-    #publickey = PublicKey.from_bech32("....").to_hex()  #use this if you have the npub
+    #publickey = PublicKey.from_bech32("npub1..").to_hex()  #use this if you have the npub
     publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
-    publickey = "558497db304332004e59387bc3ba1df5738eac395b0e56b45bfb2eb5400a1e39"
+    #publickey = "558497db304332004e59387bc3ba1df5738eac395b0e56b45bfb2eb5400a1e39"
 
     if whitelistuser:
         user = getFromSQLTable(publickey)
@@ -1492,7 +1500,7 @@ def makeDatabaseUpdates():
         updateSQLtable(user[0], user[1], False, True)
 
     if addbalance:
-        additionalbalance = 100
+        additionalbalance = 500
         user = getFromSQLTable(publickey)
         updateSQLtable(user[0], user[1] + additionalbalance, user[2], user[3])
 
