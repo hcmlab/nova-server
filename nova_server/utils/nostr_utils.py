@@ -48,7 +48,7 @@ class DVMConfig:
     LNBITS_INVOICE_KEY = 'bfdfb5ecfc0743daa08749ce58abea74'
     LNBITS_INVOICE_URL = 'https://ln.novaannotation.com/createLightningInvoice'
     USERDB = "nostrzaps.db"
-    RELAY_LIST = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.mom"]
+    RELAY_LIST = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
     RELAY_TIMEOUT = 1
     AUTOPROCESS_MIN_AMOUNT: int = 1000000000000  # auto start processing if min Sat amount is given
     AUTOPROCESS_MAX_AMOUNT: int = 0  # if this is 0 and min is very big, autoprocess will not trigger
@@ -61,6 +61,7 @@ class DVMConfig:
     COSTPERUNIT_IMAGEUPSCALING: int = 25  # This takes quite long..
     COSTPERUNIT_INACTIVE_FOLLOWING: int = 250  # This takes quite long..
     COSTPERUNIT_OCR: int = 20
+    REQUIRES_NIP05: bool = True
 
 
 @dataclass
@@ -152,25 +153,27 @@ def nostr_server():
                 try:
                     dec_text = nip04_decrypt(sk, event.pubkey(), event.content())
                     print(f"Received new msg: {dec_text}")
-                    try:
-                        filter = Filter().kind(0).author(pk.to_hex()).limit(1)
-                        events = client.get_events_of([filter], timedelta(seconds=5))
-                        if len(events) > 0:
-                            ev = events[0]
-                            metadata = Metadata.from_json(ev.content())
-                            print(f"Name: {metadata.get_name()}")
-                            print(f"NIP05: {metadata.get_nip05()}")
-                            print(f"LUD16: {metadata.get_lud16()}")
-                            if metadata.get_nip05() == None:
-                                time.sleep(3.0)
-                                evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
-                                                                            "In order to reduce misuse by bots, a NIP05 address is required to use this service. Set one up anyways.",
-                                                                            event.id()).to_event(keys)
-                                sendEvent(evt, client)
-                                return
 
-                    except:
-                        print("Error getting profile")
+                    if DVMConfig.REQUIRES_NIP05:
+                        try:
+                            filter = Filter().kind(0).author(pk.to_hex()).limit(1)
+                            events = client.get_events_of([filter], timedelta(seconds=3))
+                            if len(events) > 0:
+                                ev = events[0]
+                                metadata = Metadata.from_json(ev.content())
+                                print(f"Name: {metadata.get_name()}")
+                                print(f"NIP05: {metadata.get_nip05()}")
+                                print(f"LUD16: {metadata.get_lud16()}")
+                                if metadata.get_nip05() == "":
+                                    time.sleep(3.0)
+                                    evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
+                                                                                "In order to reduce misuse by bots, a NIP05 address is required to use this service. Set one up anyways.",
+                                                                                event.id()).to_event(keys)
+                                    sendEvent(evt, client)
+                                    return
+
+                        except:
+                            print("Error getting profile")
 
                     if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-image-to-image") or str(dec_text).startswith("-speech-to-text") or str(dec_text).startswith("-image-upscale") or str(dec_text).startswith("-image-to-text") or str(dec_text).startswith("-inactive-following"):
                         task = str(dec_text).split(' ')[0].removeprefix('-')
