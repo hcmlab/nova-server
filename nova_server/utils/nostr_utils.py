@@ -1,4 +1,3 @@
-import base64
 import json
 
 import os
@@ -17,16 +16,15 @@ import emoji
 import ffmpegio
 
 from Crypto.Cipher import AES
-from Crypto.Util.Padding import unpad
 
 from decord import AudioReader, cpu
 from nostr_sdk import Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, nip04_decrypt, EventId, Metadata, init_logger, LogLevel
 import time
 from nostr_sdk.nostr_sdk import PublicKey
 
-from nova_server.route.predict_static import LLAMA2, InactiveNostrFollowers
+from nova_server.route.predict_static import LLAMA2
 from nova_server.utils.db_utils import db_entry_exists, add_new_session_to_db
-from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube, checkYoutubeLinkValid
+from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube
 from configparser import ConfigParser
 import sqlite3
 
@@ -95,6 +93,8 @@ def nostr_server():
     client.subscribe([dmzapfilter, dvmfilter])
 
     createSQLTable()
+    #fixdb()
+    #createSQLTableEntry()
     makeDatabaseUpdates()
 
     class NotificationHandler(HandleNotification):
@@ -103,7 +103,7 @@ def nostr_server():
             if (65002 <= event.kind() <= 66000):
                 user = getFromSQLTable(event.pubkey().to_hex())
                 if user == None:
-                    addtoSQLtable(event.pubkey().to_hex(), DVMConfig.NEW_USER_BALANCE, False, False)
+                    addtoSQLtable(event.pubkey().to_hex(), DVMConfig.NEW_USER_BALANCE, False, False, None, None,None, Timestamp.now().as_secs())
                     user = getFromSQLTable(event.pubkey().to_hex())
                 iswhitelisted = user[2]
                 isblacklisted = user[3]
@@ -153,8 +153,15 @@ def nostr_server():
                 try:
                     dec_text = nip04_decrypt(sk, event.pubkey(), event.content())
                     print(f"Received new msg: {dec_text}")
-
-                    if DVMConfig.REQUIRES_NIP05:
+                    user = getFromSQLTable(sender)
+                    if user == None:
+                        addtoSQLtable(sender, DVMConfig.NEW_USER_BALANCE, False, False, None, None, None, Timestamp.now().as_secs())
+                        user = getFromSQLTable(sender)
+                    nip05 = user[4]
+                    lud16 = user[5]
+                    name = user[6]
+                    #Get nip05,lud16 and name from profile and store them in db.
+                    if nip05 == None:
                         try:
                             filter = Filter().kind(0).author(pk.to_hex()).limit(1)
                             events = client.get_events_of([filter], timedelta(seconds=3))
@@ -164,25 +171,33 @@ def nostr_server():
                                 print(f"Name: {metadata.get_name()}")
                                 print(f"NIP05: {metadata.get_nip05()}")
                                 print(f"LUD16: {metadata.get_lud16()}")
-                                if metadata.get_nip05() == "":
-                                    time.sleep(3.0)
-                                    evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
-                                                                                "In order to reduce misuse by bots, a NIP05 address is required to use this service. Set one up anyways.",
-                                                                                event.id()).to_event(keys)
-                                    sendEvent(evt, client)
-                                    return
-
+                                name = metadata.get_name()
+                                nip05 = metadata.get_nip05()
+                                lud16 = metadata.get_lud16()
+                                if nip05 == "" or nip05 == None:
+                                    if DVMConfig.REQUIRES_NIP05:
+                                        time.sleep(3.0)
+                                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
+                                                                                    "In order to reduce misuse by bots, a NIP05 address is required to use this service. Set one up anyways.",
+                                                                                    event.id()).to_event(keys)
+                                        sendEvent(evt, client)
+                                        return
+                                else:
+                                    updateSQLtable(user[0],user[1],user[2],user[3],nip05, lud16, name, Timestamp.now().as_secs())
+                                    user = getFromSQLTable(user[0])
                         except:
                             print("Error getting profile")
 
+                    else:
+                        print("Request from " + name + " (" + nip05 + ")")
+
+                    #upate last active status
+                    updateSQLtable(user[0], user[1], user[2], user[3], user[4], user[5], user[6], Timestamp.now().as_secs())
                     if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-image-to-image") or str(dec_text).startswith("-speech-to-text") or str(dec_text).startswith("-image-upscale") or str(dec_text).startswith("-image-to-text") or str(dec_text).startswith("-inactive-following"):
                         task = str(dec_text).split(' ')[0].removeprefix('-')
                         reqamount = getAmountPerTask(task)  # TODO adjust this to task
 
-                        user = getFromSQLTable(sender)
-                        if user == None:
-                            addtoSQLtable(sender, DVMConfig.NEW_USER_BALANCE, False, False)
-                            user = getFromSQLTable(sender)
+
                         balance = user[1]
                         iswhitelisted = user[2]
                         isblacklisted = user[3]
@@ -193,7 +208,7 @@ def nostr_server():
                             time.sleep(3.0)
                             if not iswhitelisted:
                                 balance = max(balance - reqamount, 0)
-                                updateSQLtable(sender, balance, iswhitelisted, isblacklisted)
+                                updateSQLtable(sender, balance, iswhitelisted, isblacklisted, user[4], user[5], user[6], Timestamp.now().as_secs())
                                 evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),"Your Job is now scheduled. New balance is " + str(balance) +" Sats.\nI will DM you once I'm done processing.",event.id()).to_event(keys)
                             else:
                                 evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
@@ -217,7 +232,7 @@ def nostr_server():
                     elif str(dec_text).startswith("-balance"):
                         user = getFromSQLTable(sender)
                         if user == None:
-                            addtoSQLtable(sender, DVMConfig.NEW_USER_BALANCE, False, False)
+                            addtoSQLtable(sender, DVMConfig.NEW_USER_BALANCE, False, False, None, None, None, Timestamp.now().as_secs())
                             user = getFromSQLTable(sender)
                         balance = user[1]
                         time.sleep(3.0)
@@ -229,18 +244,16 @@ def nostr_server():
                         time.sleep(3.0)
                         evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), getbothelptext(), event.id()).to_event(keys)
                         sendEvent(evt, client)
-
                     elif str(dec_text).lower().__contains__("bitcoin"):
                         time.sleep(3.0)
                         evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "#Bitcoin? There is no second best.\n\nhttps://cdn.nostr.build/p/mYLv.mp4",
                                                                     event.id()).to_event(keys)
 
                         sendEvent(evt, client)
-
                     else:
                         #Contect LLAMA Server in parallel to cue.
                         answer = LLAMA2(dec_text, event.pubkey().to_hex())
-                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), answer,event.id()).to_event(keys)
+                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), answer, event.id()).to_event(keys)
                         sendEvent(evt, client)
 
                 except Exception as e:
@@ -261,17 +274,8 @@ def nostr_server():
                         elif tag.as_vec()[0] == 'description':
                             desc = str(tag.as_vec()[1])
                             senderevt = Event.from_json(desc)
-                            sender = senderevt.pubkey().to_hex()
+                            sender = checkforZapplePay(senderevt.pubkey().to_hex(),senderevt.content())
 
-                            #Special case Zapplepay
-                            if sender == PublicKey.from_bech32("npub1wxl6njlcgygduct7jkgzrvyvd9fylj4pqvll6p32h59wyetm5fxqjchcan").to_hex():
-                                print(sender)
-                                content = event.content()
-                                print(content)
-                                contentclean = content.replace("from: @", "")
-                                print(contentclean)
-                                sender = PublicKey.from_bech32(contentclean).to_hex()
-                                print(sender)
 
                             for tag in senderevt.tags():
                                 if tag.as_vec()[0] == 'anon':
@@ -288,8 +292,6 @@ def nostr_server():
                                     else:
                                         anon = True
                                         print("Anonymous Zap received. Unlucky, I don't know from whom, and never will")
-
-
                     if zapableevent is not None:
                             if (zapableevent.kind() == 65000):  # if a reaction by us got zapped
                                 for tag in zapableevent.tags():
@@ -310,7 +312,7 @@ def nostr_server():
                                             index = indices[0]
                                         if (index > -1):
                                             # todo also remove ids after x time of waiting, need to store pairs of id / timestamp for that
-                                            if (JobstoWatch[index]).isProcessed:  # If payment-required appears after processing
+                                            if JobstoWatch[index].isProcessed:  # If payment-required appears after processing
                                                 JobstoWatch[index].isPaid = True
                                                 CheckEventStatus(JobstoWatch[index].result, str(jobevent.as_json()))
                                             elif not (JobstoWatch[index]).isProcessed:  # If payment-required appears before processing
@@ -358,8 +360,9 @@ def nostr_server():
                                     updateUserBalance(sender, invoicesats)
                             elif zapableevent.kind() == 65001:
                                 print("Someone zapped the result of an Exisiting Task. Nice")
-                            else:
-                                print("[Nostr] Zap was not for a kind 65000, 65001 or 4 reaction. Seems someone being nice.")
+                            elif not anon:
+                                updateUserBalance(sender, invoicesats)
+                                # a regular note
                     elif not anon:
                         updateUserBalance(sender, invoicesats)
 
@@ -990,7 +993,7 @@ def respondToError(content, originaleventstr, isFromBot=False):
         user = getFromSQLTable(sender)
         iswhitelisted = user[2]
         if not iswhitelisted:
-            updateSQLtable(sender, user[1] + getAmountPerTask(task), user[2], user[3])
+            updateSQLtable(sender, user[1] + getAmountPerTask(task), user[2], user[3], user[4], user[5], user[6], Timestamp.now().as_secs())
             message = "There was the following error : " + content + ". Credits have been reimbursed"
         else:
             # User didn't pay, so no reimbursement
@@ -1397,6 +1400,20 @@ def getIndexOfFirstLetter(ip):
     return len(input);
 
 #DECRYPTZAPS
+def checkforZapplePay(sender, content):
+    try:
+        # Special case Zapplepay
+        if sender == PublicKey.from_bech32("npub1wxl6njlcgygduct7jkgzrvyvd9fylj4pqvll6p32h59wyetm5fxqjchcan").to_hex():
+            # '71bfa9cbf84110de617e959021b08c69524fcaa1033ffd062abd0ae2657ba24c' # Just for sanity, Zapplepay hexkey
+            contentclean = content.replace("From: nostr:", "")
+            sender = PublicKey.from_bech32(contentclean).to_hex()
+        return sender
+
+    except Exception as e:
+        print(e)
+        return sender
+
+
 def decrypt_private_zap_message(msg, privkey, pubkey):
     sharedSecret = nostr_sdk.generate_shared_key(privkey, pubkey)
     if len(sharedSecret) != 16 and len(sharedSecret) != 32:
@@ -1431,32 +1448,48 @@ def createSQLTable():
                                         npub text PRIMARY KEY,
                                         sats integer NOT NULL,
                                         iswhitelisted boolean,
-                                        isblacklisted boolean
+                                        isblacklisted boolean,
+                                        nip05 text,
+                                        lud16 text,
+                                        name text,
+                                        lastactive integer
                                     ); """)
     res = cur.execute("SELECT name FROM sqlite_master")
     con.close()
-def addtoSQLtable(npub, sats, iswhitelisted, isblacklisted):
+def createSQLTableEntry():
     try:
         con = sqlite3.connect(DVMConfig.USERDB)
     except Error as e:
         print(e)
     cur = con.cursor()
-    data = (npub, sats, iswhitelisted, isblacklisted)
-    cur.execute("INSERT INTO users VALUES(?, ?, ?, ?)", data)
+    cur.execute(""" ALTER TABLE users ADD COLUMN lastactive 'integer' """ )
+    con.close()
+def addtoSQLtable(npub, sats, iswhitelisted, isblacklisted, nip05, lud16, name, lastactive):
+    try:
+        con = sqlite3.connect(DVMConfig.USERDB)
+    except Error as e:
+        print(e)
+    cur = con.cursor()
+    data = (npub, sats, iswhitelisted, isblacklisted, nip05, lud16, name, lastactive)
+    cur.execute("INSERT INTO users VALUES(?, ?, ?, ?, ?, ?, ?, ?)", data)
     con.commit()
     con.close()
-def updateSQLtable(npub, sats, iswhitelisted, isblacklisted):
+def updateSQLtable(npub, sats, iswhitelisted, isblacklisted, nip05, lud16, name, lastactive):
     try:
         con = sqlite3.connect(DVMConfig.USERDB)
     except Error as e:
         print(e)
     cur = con.cursor()
-    data = (sats, iswhitelisted, isblacklisted, npub)
+    data = (sats, iswhitelisted, isblacklisted, nip05, lud16, name, lastactive, npub)
 
     res = cur.execute(""" UPDATE users
               SET sats = ? ,
                   iswhitelisted = ? ,
-                  isblacklisted = ?
+                  isblacklisted = ? ,
+                  nip05 = ? ,
+                  lud16 = ? ,
+                  name = ? ,
+                  lastactive = ?
               WHERE npub = ?""", data)
     con.commit()
     con.close()
@@ -1480,46 +1513,79 @@ def deleteFromSQLTable(npub):
     con.commit()
     con.close()
 
+def fixdb():
+    try:
+        con = sqlite3.connect(DVMConfig.USERDB)
+    except Error as e:
+        print(e)
+    cur = con.cursor()
+    cur.execute("SELECT * FROM users WHERE npub IS NULL OR npub = '' " )
+    rows = cur.fetchall()
+    for row in rows:
+        print(row)
+        deleteFromSQLTable(row[0])
+    con.close()
+    return rows
+
+def listdb():
+    try:
+        con = sqlite3.connect(DVMConfig.USERDB)
+    except Error as e:
+        print(e)
+    cur = con.cursor()
+    cur.execute("SELECT * FROM users ORDER BY sats DESC" )
+    rows = cur.fetchall()
+    for row in rows:
+        print(row)
+    con.close()
+
+
+
 def updateUserBalance(sender, sats):
     user = getFromSQLTable(sender)
     if user == None:
-        addtoSQLtable(sender, (sats + DVMConfig.NEW_USER_BALANCE), False, False)
+        addtoSQLtable(sender, (sats + DVMConfig.NEW_USER_BALANCE), False, False, None, None,None,Timestamp.now().as_secs())
         print("NEW USER")
     else:
         user = getFromSQLTable(sender)
         print(sats)
-        updateSQLtable(sender, (user[1] + sats), user[2], user[3])
+        updateSQLtable(sender, (user[1] + sats), user[2], user[3], user[4], user[5], user[6], Timestamp.now().as_secs())
         print("UPDATE USER BALANCE")
 
 #ADMINISTRARIVE DB MANAGEMENT
 def makeDatabaseUpdates():
     #This is called on start of Server, Admin function to manually whitelist/blacklist/add balance/delete users
+    #List all entries, why not.
+    listdatabase = False
     deleteuser = False
     whitelistuser = False
     unwhitelistuser = False
     blacklistuser = False
     addbalance = False
 
+    if listdatabase:
+         listdb()
+
     #publickey = PublicKey.from_bech32("npub1..").to_hex()  #use this if you have the npub
-    publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
-    #publickey = "558497db304332004e59387bc3ba1df5738eac395b0e56b45bfb2eb5400a1e39"
+    #publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
+    #publickey = "c63c5b4e21b9b1ec6b73ad0449a6a8589f6bd8542cabd9e5de6ae474b28fe806"
 
     if whitelistuser:
         user = getFromSQLTable(publickey)
-        updateSQLtable(user[0], user[1], True, False)
+        updateSQLtable(user[0], user[1], True, False, user[4], user[5], user[6],Timestamp.now().as_secs())
 
     if unwhitelistuser:
         user = getFromSQLTable(publickey)
-        updateSQLtable(user[0], user[1], False, False)
+        updateSQLtable(user[0], user[1], False, False, user[4], user[5], user[6],Timestamp.now().as_secs())
 
     if blacklistuser:
         user = getFromSQLTable(publickey)
-        updateSQLtable(user[0], user[1], False, True)
+        updateSQLtable(user[0], user[1], False, True, user[4], user[5], user[6],Timestamp.now().as_secs())
 
     if addbalance:
-        additionalbalance = 500
+        additionalbalance = 250
         user = getFromSQLTable(publickey)
-        updateSQLtable(user[0], user[1] + additionalbalance, user[2], user[3])
+        updateSQLtable(user[0], user[1] + additionalbalance, user[2], user[3], user[4], user[5], user[6],Timestamp.now().as_secs())
 
     if deleteuser:
         deleteFromSQLTable(publickey)

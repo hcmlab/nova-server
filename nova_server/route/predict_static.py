@@ -336,7 +336,16 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
         model = "timbrooks/instruct-pix2pix"
 
     init_image = load_image(url).convert("RGB")
-    init_image = init_image.resize((int(init_image.width / 4), int(init_image.height / 4)))
+
+    if init_image.width > init_image.height:
+        scale = float(init_image.height / init_image.width)
+        init_image = init_image.resize((1024,  int(1024 * scale)))
+    elif init_image.width < init_image.height:
+        scale = float(init_image.width / init_image.height)
+        init_image = init_image.resize((int(1024 * scale), 1024))
+    else:
+        init_image = init_image.resize((1024, 1024))
+
 
     if model == "stabilityai/stable-diffusion-xl-refiner-1.0":
 
@@ -576,9 +585,8 @@ def LLAMA2(message, user):
 def InactiveNostrFollowers(user, notactivesinceSeconds, numberinactivefollowers):
     from nostr_sdk import Keys, Client, Filter
     inactivefollowerslist = ""
-    relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://relayable.org",
-                  "wss://nostr-pub.wellorder.net"]
-    relaytimeout = 3
+    relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
+    relaytimeout = 5
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
     cl = Client(keys)
     for relay in relay_list:
@@ -612,6 +620,7 @@ def InactiveNostrFollowers(user, notactivesinceSeconds, numberinactivefollowers)
 
     else:
         print("Not found")
+        return "No followers found on relays."
     print("done")
     return "All followings have been scanned! No (more) followings have been inactive in the given timespan\n\n" + inactivefollowerslist
     cl.disconnect()
