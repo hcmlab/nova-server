@@ -97,7 +97,7 @@ def predict_data(request_form):
         logger.error("Not able to load the data from the database!")
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         if request_form["nostrEvent"] is not None:
-            nostr_utils.respondToError(str(e), str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
+            nostr_utils.respond_to_error(str(e), str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
         return None
 
     # Load Trainer
@@ -153,7 +153,7 @@ def predict_data(request_form):
         for anno in annos:
             db_utils.write_annotation_to_db(request_form_copy, anno, logger)
             if request_form["nostrEvent"] is not None:
-                nostr_utils.CheckEventStatus(anno.data, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
+                nostr_utils.check_event_status(anno.data, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
         logger.info("...done")
 
     logger.info("Prediction completed!")

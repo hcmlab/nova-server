@@ -88,16 +88,16 @@ def predict_static_data(request_form):
             anno = LLAMA2(
                 "Give me a summarization of the most important points of the following text: " + options["message"],  options["user"])
         elif task == "inactive-following":
-            anno = InactiveNostrFollowers(options["user"], int(options["since"]), int(options["num"]) )
+            anno = InactiveNostrFollowers(options["user"], int(options["since"]), int(options["num"]))
         if request_form["nostrEvent"] is not None:
 
-            nostr_utils.CheckEventStatus(anno, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
+            nostr_utils.check_event_status(anno, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
         logger.info("...done")
 
         logger.info("Prediction completed!")
         status_utils.update_status(key, status_utils.JobStatus.FINISHED)
     except Exception  as e:
-        nostr_utils.respondToError(str(e), str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
+        nostr_utils.respond_to_error(str(e), str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
 
 
 
@@ -582,8 +582,10 @@ def LLAMA2(message, user):
     return answer
 
 
-def InactiveNostrFollowers(user, notactivesinceSeconds, numberinactivefollowers):
+def InactiveNostrFollowers(user, notactivesincedays, numberinactivefollowers):
     from nostr_sdk import Keys, Client, Filter
+    notactivesinceseconds = int(notactivesincedays) * 24 * 60 * 60
+
     inactivefollowerslist = ""
     relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
     relaytimeout = 5
@@ -606,7 +608,7 @@ def InactiveNostrFollowers(user, notactivesinceSeconds, numberinactivefollowers)
                     #print("Follower " + str(i))
                     i = i+1
                     follower = PublicKey.from_hex(tag.as_vec()[1])
-                    dif =  Timestamp.now().as_secs() - notactivesinceSeconds
+                    dif =  Timestamp.now().as_secs() - notactivesinceseconds
                     notactivesince = Timestamp.from_secs(dif)
                     filter = Filter().pubkey(follower).kind(1).since(notactivesince)
                     notes = cl.get_events_of([filter], timedelta(seconds=1))

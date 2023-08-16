@@ -15,7 +15,7 @@ from nostr_sdk import Keys, Client, Tag, Event, EventBuilder, Filter, HandleNoti
 
 from flask import Blueprint, request, jsonify
 
-from nova_server.utils.nostr_utils import sendEvent
+from nova_server.utils.nostr_utils import send_event
 from nova_server.utils.thread_utils import THREADS
 
 from nova_server.utils.key_utils import get_key_from_request_form, get_random_name
@@ -68,7 +68,7 @@ def nostr_client_simple_test(url, expiresinminutes, alignment,rangefrom, rangeto
     relaysTag = Tag.parse(['relays', "wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://relayable.org", "wss://nostr-pub.wellorder.net"])
     alttag = Tag.parse(["alt", "This is a NIP90 DVM AI task to transcribe speech to text"])
     event = EventBuilder(65002, str("Transcribe the attached file."), [iTag, oTag, paramTag1, paramTag2, paramTag3, expTag, bidTag, relaysTag, alttag]).to_event(keys)
-    sendEvent(event)
+    send_event(event)
     return event.as_json()
 
 def nostr_client():
