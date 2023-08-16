@@ -37,3 +37,5 @@ translatepy
 diffusers
 accelerate
 pytesseract
+pycryptodome
+bech32
