@@ -144,7 +144,7 @@ os.environ["NOVA_NOSTR_KEY"] = args.nostr_key
 print("...done")
 
 # if Nostr key is set, check for new NIP?? events
-if(args.nostr_key != ""):
+if(os.environ["NOVA_NOSTR_KEY"] != "" and os.environ["NOVA_NOSTR_KEY"] != "none" ):
     nostrserverthread = Thread(target=nostr_server)
     nostrserverthread.start()
 

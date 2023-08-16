@@ -9,8 +9,6 @@ from sqlite3 import Error
 from urllib.parse import urlparse
 from bech32 import bech32_decode, convertbits
 
-
-import nostr_sdk.nostr_sdk
 import requests
 import emoji
 import ffmpegio
@@ -18,9 +16,9 @@ import ffmpegio
 from Crypto.Cipher import AES
 
 from decord import AudioReader, cpu
-from nostr_sdk import Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, nip04_decrypt, EventId, Metadata, init_logger, LogLevel
+from nostr_sdk import PublicKey, Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, \
+    nip04_decrypt, EventId, Metadata, init_logger, LogLevel, nostr_sdk
 import time
-from nostr_sdk.nostr_sdk import PublicKey
 
 from nova_server.route.predict_static import LLAMA2
 from nova_server.utils.db_utils import db_entry_exists, add_new_session_to_db
@@ -42,10 +40,11 @@ import sqlite3
 
 
 class DVMConfig:
+    #SUPPORTED_TASKS = ["speech-to-text", "summarization", "inactive-following"]
     SUPPORTED_TASKS = ["speech-to-text", "summarization", "translation", "text-to-image", "image-to-image", "image-upscale", "chat", "image-to-text, inactive-following"]
     LNBITS_INVOICE_KEY = 'bfdfb5ecfc0743daa08749ce58abea74'
     LNBITS_INVOICE_URL = 'https://ln.novaannotation.com/createLightningInvoice'
-    USERDB = "nostrzaps.db"
+    USERDB = "W:\\nova\\tools\\AnnoDBbackup\\nostrzaps.db"
     RELAY_LIST = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
     RELAY_TIMEOUT = 1
     AUTOPROCESS_MIN_AMOUNT: int = 1000000000000  # auto start processing if min Sat amount is given
@@ -60,6 +59,7 @@ class DVMConfig:
     COSTPERUNIT_INACTIVE_FOLLOWING: int = 250  # This takes quite long..
     COSTPERUNIT_OCR: int = 20
     REQUIRES_NIP05: bool = True
+    SLAVE_MODE: bool = False
 
 
 @dataclass
@@ -194,11 +194,9 @@ def nostr_server():
 
                     #upate last active status
                     updateSQLtable(user[0], user[1], user[2], user[3], user[4], user[5], user[6], Timestamp.now().as_secs())
-                    if str(dec_text).startswith("-text-to-image") or str(dec_text).startswith("-image-to-image") or str(dec_text).startswith("-speech-to-text") or str(dec_text).startswith("-image-upscale") or str(dec_text).startswith("-image-to-text") or str(dec_text).startswith("-inactive-following"):
+                    if any(dec_text.startswith("-" + s) for s in DVMConfig.SUPPORTED_TASKS):
                         task = str(dec_text).split(' ')[0].removeprefix('-')
                         reqamount = getAmountPerTask(task)  # TODO adjust this to task
-
-
                         balance = user[1]
                         iswhitelisted = user[2]
                         isblacklisted = user[3]
@@ -229,34 +227,33 @@ def nostr_server():
                              JobstoWatch.append(JobToWatch(id=evt.id().to_hex(), timestamp=str(event.created_at().as_secs()), amount=reqamount, isPaid=False, status="payment-required", result="", isProcessed=False))
                              sendEvent(evt, client)
                             # client.send_event(evt)
-
-                    elif str(dec_text).startswith("-balance"):
-                        user = getFromSQLTable(sender)
-                        if user == None:
-                            addtoSQLtable(sender, DVMConfig.NEW_USER_BALANCE, False, False, None, None, None, Timestamp.now().as_secs())
+                    elif not DVMConfig.SLAVE_MODE:
+                        if str(dec_text).startswith("-balance"):
                             user = getFromSQLTable(sender)
-                        balance = user[1]
-                        time.sleep(3.0)
-                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
-                                                                    "You're current balance is " + str(balance) + " Sats. Zap me to add to your balance. I support both public and private Zaps.",
-                                                                    None).to_event(keys)
-                        sendEvent(evt, client)
-                    elif str(dec_text).startswith("-help") or str(dec_text).startswith("- help") or str(dec_text).startswith("help") :
-                        time.sleep(3.0)
-                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), getbothelptext(), event.id()).to_event(keys)
-                        sendEvent(evt, client)
-                    elif str(dec_text).lower().__contains__("bitcoin"):
-                        time.sleep(3.0)
-                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "#Bitcoin? There is no second best.\n\nhttps://cdn.nostr.build/p/mYLv.mp4",
-                                                                    event.id()).to_event(keys)
+                            if user == None:
+                                addtoSQLtable(sender, DVMConfig.NEW_USER_BALANCE, False, False, None, None, None, Timestamp.now().as_secs())
+                                user = getFromSQLTable(sender)
+                            balance = user[1]
+                            time.sleep(3.0)
+                            evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
+                                                                        "You're current balance is " + str(balance) + " Sats. Zap me to add to your balance. I support both public and private Zaps.",
+                                                                        None).to_event(keys)
+                            sendEvent(evt, client)
+                        elif str(dec_text).startswith("-help") or str(dec_text).startswith("- help") or str(dec_text).startswith("help") :
+                            time.sleep(3.0)
+                            evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), getbothelptext(), event.id()).to_event(keys)
+                            sendEvent(evt, client)
+                        elif str(dec_text).lower().__contains__("bitcoin"):
+                            time.sleep(3.0)
+                            evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "#Bitcoin? There is no second best.\n\nhttps://cdn.nostr.build/p/mYLv.mp4",
+                                                                        event.id()).to_event(keys)
 
-                        sendEvent(evt, client)
-                    else:
-                        #Contect LLAMA Server in parallel to cue.
-                        answer = LLAMA2(dec_text, event.pubkey().to_hex())
-                        evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), answer, event.id()).to_event(keys)
-                        sendEvent(evt, client)
-
+                            sendEvent(evt, client)
+                        else:
+                            #Contect LLAMA Server in parallel to cue.
+                            answer = LLAMA2(dec_text, event.pubkey().to_hex())
+                            evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), answer, event.id()).to_event(keys)
+                            sendEvent(evt, client)
                 except Exception as e:
                     print(f"Error during content decryption: {e}")
             elif event.kind() == 9734:
