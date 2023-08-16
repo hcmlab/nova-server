@@ -59,7 +59,7 @@ class DVMConfig:
     COSTPERUNIT_INACTIVE_FOLLOWING: int = 250  # This takes quite long..
     COSTPERUNIT_OCR: int = 20
     REQUIRES_NIP05: bool = True
-    SLAVE_MODE: bool = False
+    PASSIVE_MODE: bool = False #Run this if this instance should only do tasks set in SUPPORTED_TASKS, no chatting, zap handling etc.
 
 
 @dataclass
@@ -229,7 +229,7 @@ def nostr_server():
                              JobstoWatch.append(JobToWatch(id=evt.id().to_hex(), timestamp=str(event.created_at().as_secs()), amount=reqamount, isPaid=False, status="payment-required", result="", isProcessed=False))
                              sendEvent(evt, client)
                             # client.send_event(evt)
-                    elif not DVMConfig.SLAVE_MODE:
+                    elif not DVMConfig.PASSIVE_MODE:
                         print(f"Received new msg: {dec_text}")
                         if str(dec_text).startswith("-balance"):
                             user = getFromSQLTable(sender)
@@ -264,7 +264,7 @@ def nostr_server():
                     print(f"Error during content decryption: {e}")
             elif event.kind() == 9734:
                 print(event.as_json())
-            elif event.kind() == 9735 and not DVMConfig.SLAVE_MODE:
+            elif event.kind() == 9735 and not DVMConfig.PASSIVE_MODE:
                 print(event.as_json())
                 print("Zap received")
                 zapableevent = None
