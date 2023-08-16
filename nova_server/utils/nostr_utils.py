@@ -161,7 +161,7 @@ def nostr_server():
                     lud16 = user[5]
                     name = user[6]
                     #Get nip05,lud16 and name from profile and store them in db.
-                    if nip05 == None:
+                    if nip05 == "" or nip05 == None:
                         try:
                             filter = Filter().kind(0).author(pk.to_hex()).limit(1)
                             events = client.get_events_of([filter], timedelta(seconds=3))
@@ -174,17 +174,18 @@ def nostr_server():
                                 name = metadata.get_name()
                                 nip05 = metadata.get_nip05()
                                 lud16 = metadata.get_lud16()
+                                updateSQLtable(user[0], user[1], user[2], user[3], nip05, lud16, name, Timestamp.now().as_secs())
+                                user = getFromSQLTable(user[0])
                                 if nip05 == "" or nip05 == None:
-                                    if DVMConfig.REQUIRES_NIP05:
-                                        time.sleep(3.0)
+                                    if DVMConfig.REQUIRES_NIP05 and user[1] <= DVMConfig.NEW_USER_BALANCE:
+                                        time.sleep(1.0)
                                         evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
-                                                                                    "In order to reduce misuse by bots, a NIP05 address is required to use this service. Set one up anyways.",
+                                                                                    "In order to reduce misuse by bots, a NIP05 address or a balance higher than the free credits is required to use this service.",
                                                                                     event.id()).to_event(keys)
                                         sendEvent(evt, client)
                                         return
-                                else:
-                                    updateSQLtable(user[0],user[1],user[2],user[3],nip05, lud16, name, Timestamp.now().as_secs())
-                                    user = getFromSQLTable(user[0])
+
+
                         except:
                             print("Error getting profile")
 
@@ -1530,16 +1531,14 @@ def fixdb():
 def listdb():
     try:
         con = sqlite3.connect(DVMConfig.USERDB)
+        cur = con.cursor()
+        cur.execute("SELECT * FROM users ORDER BY sats DESC" )
+        rows = cur.fetchall()
+        for row in rows:
+            print(row)
+        con.close()
     except Error as e:
         print(e)
-    cur = con.cursor()
-    cur.execute("SELECT * FROM users ORDER BY sats DESC" )
-    rows = cur.fetchall()
-    for row in rows:
-        print(row)
-    con.close()
-
-
 
 def updateUserBalance(sender, sats):
     user = getFromSQLTable(sender)
@@ -1566,7 +1565,7 @@ def makeDatabaseUpdates():
     if listdatabase:
          listdb()
 
-    #publickey = PublicKey.from_bech32("npub1..").to_hex()  #use this if you have the npub
+    publickey = PublicKey.from_bech32("npub1..").to_hex()  #use this if you have the npub
     #publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
     #publickey = "c63c5b4e21b9b1ec6b73ad0449a6a8589f6bd8542cabd9e5de6ae474b28fe806"
 
