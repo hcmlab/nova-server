@@ -152,14 +152,13 @@ def nostr_server():
                 sender = pk.to_hex()
                 try:
                     dec_text = nip04_decrypt(sk, event.pubkey(), event.content())
-                    print(f"Received new msg: {dec_text}")
                     user = getFromSQLTable(sender)
                     if user == None:
                         addtoSQLtable(sender, DVMConfig.NEW_USER_BALANCE, False, False, None, None, None, Timestamp.now().as_secs())
                         user = getFromSQLTable(sender)
                     nip05 = user[4]
-                    lud16 = user[5]
                     name = user[6]
+                    print(f"Received new msg: {dec_text}")
                     #Get nip05,lud16 and name from profile and store them in db.
                     if nip05 == "" or nip05 == None:
                         try:
@@ -168,19 +167,22 @@ def nostr_server():
                             if len(events) > 0:
                                 ev = events[0]
                                 metadata = Metadata.from_json(ev.content())
-                                print(f"Name: {metadata.get_name()}")
-                                print(f"NIP05: {metadata.get_nip05()}")
-                                print(f"LUD16: {metadata.get_lud16()}")
-                                name = metadata.get_name()
+                                name = metadata.get_display_name()
+                                if name == None or name == "":
+                                    name = metadata.get_name()
                                 nip05 = metadata.get_nip05()
                                 lud16 = metadata.get_lud16()
+                                print(f"Name: {name}")
+                                print(f"NIP05: {nip05}")
+                                print(f"LUD16: {lud16}")
+
                                 updateSQLtable(user[0], user[1], user[2], user[3], nip05, lud16, name, Timestamp.now().as_secs())
                                 user = getFromSQLTable(user[0])
                                 if nip05 == "" or nip05 == None:
                                     if DVMConfig.REQUIRES_NIP05 and user[1] <= DVMConfig.NEW_USER_BALANCE:
                                         time.sleep(1.0)
                                         evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
-                                                                                    "In order to reduce misuse by bots, a NIP05 address or a balance higher than the free credits is required to use this service.",
+                                                                                    "In order to reduce misuse by bots, a NIP05 address or a balance higher than the free credits (" +DVMConfig+" Sats) is required to use this service.",
                                                                                     event.id()).to_event(keys)
                                         sendEvent(evt, client)
                                         return
