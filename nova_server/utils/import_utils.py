@@ -26,11 +26,9 @@ def assert_or_install_dependencies(packages, trainer_name):
 
         params.append("--target={}".format(site_package_path))
         adjusted_name = str(name).replace('-', '_')
-        dirs = [1 if x.name.startswith(adjusted_name) else 0 for x in site_package_path.iterdir() if x.is_dir()]
 
-        if sum(dirs) > 0:
+        if Path(f'{site_package_path}/{adjusted_name}').exists():
             print(f'Skip installation of {site_package_path}/{name} - package already installed')
-            pass
         else:
             install_package(pk[0], params)
 
@@ -39,5 +37,5 @@ def assert_or_install_dependencies(packages, trainer_name):
 
 def install_package(pkg, params):
     call = [sys.executable, "-m", "pip", "install", pkg, *params]
-    print(call)
+    print(*call)
     return subprocess.check_call(call)
