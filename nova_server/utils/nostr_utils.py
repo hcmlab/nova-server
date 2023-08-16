@@ -40,8 +40,8 @@ import sqlite3
 
 
 class DVMConfig:
-    #SUPPORTED_TASKS = ["speech-to-text", "summarization", "inactive-following"]
-    SUPPORTED_TASKS = ["speech-to-text", "summarization", "translation", "text-to-image", "image-to-image", "image-upscale", "chat", "image-to-text, inactive-following"]
+    #SUPPORTED_TASKS = ["inactive-following"]
+    SUPPORTED_TASKS = ["speech-to-text", "summarization", "translation", "text-to-image", "image-to-image", "image-upscale", "chat", "image-to-text"]
     LNBITS_INVOICE_KEY = 'bfdfb5ecfc0743daa08749ce58abea74'
     LNBITS_INVOICE_URL = 'https://ln.novaannotation.com/createLightningInvoice'
     USERDB = "W:\\nova\\tools\\AnnoDBbackup\\nostrzaps.db"
@@ -158,7 +158,6 @@ def nostr_server():
                         user = getFromSQLTable(sender)
                     nip05 = user[4]
                     name = user[6]
-                    print(f"Received new msg: {dec_text}")
                     #Get nip05,lud16 and name from profile and store them in db.
                     if nip05 == "" or nip05 == None:
                         try:
@@ -197,6 +196,7 @@ def nostr_server():
                     #upate last active status
                     updateSQLtable(user[0], user[1], user[2], user[3], user[4], user[5], user[6], Timestamp.now().as_secs())
                     if any(dec_text.startswith("-" + s) for s in DVMConfig.SUPPORTED_TASKS):
+                        print(f"Received new msg: {dec_text}")
                         task = str(dec_text).split(' ')[0].removeprefix('-')
                         reqamount = getAmountPerTask(task)  # TODO adjust this to task
                         balance = user[1]
@@ -230,6 +230,7 @@ def nostr_server():
                              sendEvent(evt, client)
                             # client.send_event(evt)
                     elif not DVMConfig.SLAVE_MODE:
+                        print(f"Received new msg: {dec_text}")
                         if str(dec_text).startswith("-balance"):
                             user = getFromSQLTable(sender)
                             if user == None:
@@ -251,16 +252,19 @@ def nostr_server():
                                                                         event.id()).to_event(keys)
 
                             sendEvent(evt, client)
-                        else:
+                        elif not str(dec_text).startswith("-") :
                             #Contect LLAMA Server in parallel to cue.
                             answer = LLAMA2(dec_text, event.pubkey().to_hex())
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), answer, event.id()).to_event(keys)
                             sendEvent(evt, client)
+
+
+
                 except Exception as e:
                     print(f"Error during content decryption: {e}")
             elif event.kind() == 9734:
                 print(event.as_json())
-            elif event.kind() == 9735:
+            elif event.kind() == 9735 and not DVMConfig.SLAVE_MODE:
                 print(event.as_json())
                 print("Zap received")
                 zapableevent = None
@@ -1237,7 +1241,7 @@ def parsebotcommandtoevent(dec_text):
     elif str(dec_text).startswith("-speech-to-text"):
         prompttemp = dec_text.replace("-speech-to-text ", "")
         split = prompttemp.split(" -")
-        url = str(split[0]).replace(' ', '')
+        url = split[0]
         start = "0"
         end = "0"
         model = "large-v2"
