@@ -1565,8 +1565,8 @@ def makeDatabaseUpdates():
     if listdatabase:
          listdb()
 
-    publickey = PublicKey.from_bech32("npub1..").to_hex()  #use this if you have the npub
-    #publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
+    #publickey = PublicKey.from_bech32("npub1..").to_hex()  #use this if you have the npub
+    publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
     #publickey = "c63c5b4e21b9b1ec6b73ad0449a6a8589f6bd8542cabd9e5de6ae474b28fe806"
 
     if whitelistuser:
