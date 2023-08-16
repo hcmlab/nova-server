@@ -190,8 +190,6 @@ def nostr_server():
                         except:
                             print("Error getting profile")
 
-                    else:
-                        print("Request from " + name + " (" + nip05 + ")")
 
                     #upate last active status
                     updateSQLtable(user[0], user[1], user[2], user[3], user[4], user[5], user[6], Timestamp.now().as_secs())
@@ -218,6 +216,10 @@ def nostr_server():
 
                             sendEvent(evt, client)
                             tags = parsebotcommandtoevent(dec_text)
+                            for tag in tags:
+                                if tag.as_vec()[0] == "j":
+                                    task = tag.as_vec()[1]
+                            print("Request from " + name + " (" + nip05 + ") Task:" + task)
                             tags.append(Tag.parse(["p", event.pubkey().to_hex()]))
                             evt = EventBuilder(4, "", tags).to_event(keys)
                             print(evt.as_json())
@@ -230,7 +232,7 @@ def nostr_server():
                              sendEvent(evt, client)
                             # client.send_event(evt)
                     elif not DVMConfig.PASSIVE_MODE:
-                        print(f"Received new msg: {dec_text}")
+                        print("Request from " + name + " (" + nip05 + ") Message:" + dec_text)
                         if str(dec_text).startswith("-balance"):
                             user = getFromSQLTable(sender)
                             if user == None:
