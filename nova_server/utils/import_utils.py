@@ -24,6 +24,19 @@ def assert_or_install_dependencies(packages, trainer_name):
             # maybe support all specifiers https://peps.python.org/pep-0440/#version-specifiers
             name = pk[0].split('==')[0]
 
+        # support systems without nvidia/cuda installed
+        try:
+            subprocess.check_output('nvidia-smi')
+            cuda_available = True
+        except:
+            cuda_available = False
+
+        if not cuda_available and 'torch' in name:
+            pk[0] = pk[0][:pk[0].find('+cu')]
+            for p in pk:
+                if 'index-url' in p or 'download.pytorch.org/whl' in p:
+                    params.remove(p)
+
         params.append("--target={}".format(site_package_path))
         adjusted_name = str(name).replace('-', '_')
 
