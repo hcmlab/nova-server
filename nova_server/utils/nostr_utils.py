@@ -904,6 +904,8 @@ def get_task(event):
                         return "image-to-text"
                     else:
                         return "unknown job"
+                else:
+                    return "unknown type"
     elif event.kind() == 65003:
         return "summarization"
     elif event.kind() == 65004:
