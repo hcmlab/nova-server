@@ -39,4 +39,4 @@ accelerate
 pytesseract
 pycryptodome
 bech32
-opencvpython
+opencv-python

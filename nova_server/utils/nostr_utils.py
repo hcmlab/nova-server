@@ -31,7 +31,6 @@ import sqlite3
 # check expiry of tasks/available output format/model/ (task is checked already). if not available ignore the job,
 # send reaction on error (send sats back ideally, find out with lib, same for under payment),
 # send reaction processing-scheduled when task is waiting for previous task to finish, max limit to wait?
-# store whitelist (and maybe a blacklist) in a config/db
 # clear list of  tasks (job_list) to watch after some time (timeout if invoice not paid),
 # consider max-sat amount at all,
 # consider reactions from customers (Kind 65000 event)
@@ -44,16 +43,20 @@ class DVMConfig:
     # SUPPORTED_TASKS = ["inactive-following"]
     SUPPORTED_TASKS = ["speech-to-text", "summarization", "translation", "text-to-image", "image-to-image",
                        "image-upscale", "chat", "image-to-text"]
-    LNBITS_INVOICE_KEY = 'bfdfb5ecfc0743daa08749ce58abea74'
-    LNBITS_INVOICE_URL = 'https://ln.novaannotation.com/createLightningInvoice'
+    PASSIVE_MODE: bool = False  # Run this if this instance should only do tasks set in SUPPORTED_TASKS, no chatting,
     USERDB = "W:\\nova\\tools\\AnnoDBbackup\\nostrzaps.db"
     RELAY_LIST = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol",
                   "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
     RELAY_TIMEOUT = 1
+    LNBITS_INVOICE_KEY = 'bfdfb5ecfc0743daa08749ce58abea74'
+    LNBITS_INVOICE_URL = 'https://ln.novaannotation.com/createLightningInvoice'
+    REQUIRES_NIP05: bool = False
+
     AUTOPROCESS_MIN_AMOUNT: int = 1000000000000  # auto start processing if min Sat amount is given
     AUTOPROCESS_MAX_AMOUNT: int = 0  # if this is 0 and min is very big, autoprocess will not trigger
     SHOWRESULTBEFOREPAYMENT: bool = True  # if this is true show results even when not paid right after autoprocess
     NEW_USER_BALANCE: int = 250  # Free credits for new users
+
     COSTPERUNIT_TRANSLATION: int = 20  # Still need to multiply this by duration
     COSTPERUNIT_SPEECHTOTEXT: int = 100  # Still need to multiply this by duration
     COSTPERUNIT_IMAGEGENERATION: int = 50  # Generate / Transform one image
@@ -61,10 +64,6 @@ class DVMConfig:
     COSTPERUNIT_IMAGEUPSCALING: int = 25  # This takes quite long..
     COSTPERUNIT_INACTIVE_FOLLOWING: int = 250  # This takes quite long..
     COSTPERUNIT_OCR: int = 20
-    REQUIRES_NIP05: bool = False
-    PASSIVE_MODE: bool = False  # Run this if this instance should only do tasks set in SUPPORTED_TASKS, no chatting,
-    # zap handling etc.
-
 
 @dataclass
 class JobToWatch:
@@ -254,8 +253,9 @@ def nostr_server():
                             balance = user[1]
                             time.sleep(3.0)
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
-                            "Your current balance is " + str(balance) + " Sats. Zap me to add to your balance. "
-                            "I support both public and private Zaps, as well as Zapplepay.", None).to_event(keys)
+                                "Your current balance is " + str(balance) + " Sats. Zap me to add to your balance. "
+                                "I support both public and private Zaps, as well as Zapplepay.",
+                                 None).to_event(keys)
                             send_event(evt, client)
                         elif str(dec_text).startswith("-help") or str(dec_text).startswith("- help") or str(
                                 dec_text).startswith("help"):
@@ -296,6 +296,7 @@ def nostr_server():
                     for tag in event.tags():
                         if tag.as_vec()[0] == 'bolt11':
                             invoice_amount = parse_bolt11_invoice(tag.as_vec()[1])
+                            print(invoice_amount)
                         elif tag.as_vec()[0] == 'e':
                             zapped_event = get_event_by_id(tag.as_vec()[1])
                         elif tag.as_vec()[0] == 'description':
@@ -342,7 +343,7 @@ def nostr_server():
                                             job_list[index].is_paid = True
                                             check_event_status(job_list[index].result, str(job_event.as_json()))
                                         elif not (job_list[index]).is_processed:
-                                             # If payment-required appears before processing
+                                            # If payment-required appears before processing
                                             job_list.pop(index)
                                             do_work(job_event, is_from_bot=False)
                                 else:
@@ -372,7 +373,7 @@ def nostr_server():
                                     if invoice_amount >= required_amount:
                                         dm_event = EventBuilder.new_encrypted_direct_msg(keys, job_event.pubkey(),
                                                     "Zap ⚡️ received! Your Job is now scheduled. I will DM you "
-                                                            "once I'm done processing.", None).to_event(keys)
+                                                    "once I'm done processing.", None).to_event(keys)
                                         send_event(dm_event, client)
                                         job_list.pop(indices[0])
                                         print(work_event.as_json())
@@ -471,7 +472,6 @@ def nostr_server():
         elif task == "translation":
             request_form["mode"] = "PREDICT_STATIC"
             request_form["trainerFilePath"] = 'translation'
-            # outsource this to its own script, ideally. This is not using the database for now, but probably should.
             input_type = "event"
             text = ""
             translation_lang = "en"
@@ -546,15 +546,15 @@ def nostr_server():
                         evt = events[0]
                         url = evt.content()
                 elif tag.as_vec()[0] == 'param':
-                    if tag.as_vec()[1] == "prompt":  # check for paramtype
+                    if tag.as_vec()[1] == "prompt":
                         prompt = tag.as_vec()[2]
-                    elif tag.as_vec()[1] == "negative_prompt":  # check for paramtype
+                    elif tag.as_vec()[1] == "negative_prompt":
                         negative_prompt = tag.as_vec()[2]
-                    elif tag.as_vec()[1] == "strength":  # check for paramtype
+                    elif tag.as_vec()[1] == "strength":
                         strength = float(tag.as_vec()[2])
-                    elif tag.as_vec()[1] == "guidance_scale":  # check for paramtype
+                    elif tag.as_vec()[1] == "guidance_scale":
                         guidance_scale = float(tag.as_vec()[2])
-                    elif tag.as_vec()[1] == "model":  # check for paramtype
+                    elif tag.as_vec()[1] == "model":
                         model = tag.as_vec()[2]
 
             request_form["optStr"] = ('url=' + url + ';prompt=' + prompt + ';negative_prompt=' + negative_prompt
@@ -589,19 +589,19 @@ def nostr_server():
                         evt = events[0]
                         prompt = evt.content()
                 elif tag.as_vec()[0] == 'param':
-                    if tag.as_vec()[1] == "prompt":  # check for paramtype
+                    if tag.as_vec()[1] == "prompt":
                         extra_prompt = tag.as_vec()[2]
-                    elif tag.as_vec()[1] == "negative_prompt":  # check for paramtype
+                    elif tag.as_vec()[1] == "negative_prompt":
                         negative_prompt = tag.as_vec()[2]
-                    elif tag.as_vec()[1] == "size":  # check for paramtype
+                    elif tag.as_vec()[1] == "size":
                         width = tag.as_vec()[2]
                         height = tag.as_vec()[3]
-                    elif tag.as_vec()[1] == "ratio":  # check for paramtype
+                    elif tag.as_vec()[1] == "ratio":
                         ratio_width = (tag.as_vec()[2])
                         ratio_height = (tag.as_vec()[3])
-                    elif tag.as_vec()[1] == "upscale":  # check for paramtype
+                    elif tag.as_vec()[1] == "upscale":
                         upscale = tag.as_vec()[2]
-                    elif tag.as_vec()[1] == "model":  # check for paramtype
+                    elif tag.as_vec()[1] == "model":
                         model = tag.as_vec()[2]
 
             request_form["optStr"] = ('prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt='
@@ -629,7 +629,7 @@ def nostr_server():
                         evt = events[0]
                         url = evt.content()
                 elif tag.as_vec()[0] == 'param':
-                    if tag.as_vec()[1] == "upscale":  # check for paramtype
+                    if tag.as_vec()[1] == "upscale":
                         upscale = tag.as_vec()[2]
 
             request_form["optStr"] = 'url=' + url + ";upscale=" + upscale
@@ -646,7 +646,7 @@ def nostr_server():
                     user = tag.as_vec()[1]
             request_form["optStr"] = 'message=' + text + ';user=' + user
 
-            # add length variableF
+
         elif task == "summarization":
             request_form["mode"] = "PREDICT_STATIC"
             request_form["trainerFilePath"] = 'summarization'
@@ -719,7 +719,7 @@ def nostr_server():
                             request_form["endTime"] = seconds + float(request_form["endTime"])
                             print("Moving end time automatically to " + request_form["endTime"])
 
-            # is youtube link?
+            # or youtube links..
             elif str(input_value).replace("http://", "").replace("https://", "").replace(
                     "www.", "").replace("youtu.be/", "youtube.com?v=")[0:11] == "youtube.com":
                 filepath = data_dir + '\\' + request_form["database"] + '\\' + session + '\\'
@@ -1160,8 +1160,8 @@ def get_bot_help_text():
 def parse_bot_command_to_event(dec_text):
     dec_text = dec_text.replace("\n", "")
     if str(dec_text).startswith("-text-to-image"):
-        prompttemp = dec_text.replace("-text-to-image ", "")
-        split = prompttemp.split(" -")
+        command = dec_text.replace("-text-to-image ", "")
+        split = command.split(" -")
         prompt = split[0]
         width = "1024"
         height = "1024"
@@ -1206,8 +1206,8 @@ def parse_bot_command_to_event(dec_text):
         return tags
 
     elif str(dec_text).startswith("-image-to-image"):
-        prompttemp = dec_text.replace("-image-to-image ", "")
-        split = prompttemp.split(" -")
+        command = dec_text.replace("-image-to-image ", "")
+        split = command.split(" -")
         url = str(split[0]).replace(' ', '')
         width = "768"
         height = "768"
@@ -1243,8 +1243,8 @@ def parse_bot_command_to_event(dec_text):
             return tags
 
     elif str(dec_text).startswith("-image-upscale"):
-        prompttemp = dec_text.replace("-image-upscale ", "")
-        split = prompttemp.split(" -")
+        command = dec_text.replace("-image-upscale ", "")
+        split = command.split(" -")
         url = str(split[0]).replace(' ', '')
         j_tag = Tag.parse(["j", "image-upscale"])
         i_tag = Tag.parse(["i", url, "url"])
@@ -1258,8 +1258,8 @@ def parse_bot_command_to_event(dec_text):
         return tags
 
     elif str(dec_text).startswith("-image-to-text"):
-        prompttemp = dec_text.replace("-image-to-text ", "")
-        split = prompttemp.split(" -")
+        command = dec_text.replace("-image-to-text ", "")
+        split = command.split(" -")
         url = str(split[0]).replace(' ', '')
         j_tag = Tag.parse(["j", "image-to-text"])
         i_tag = Tag.parse(["i", url, "url"])
@@ -1267,8 +1267,8 @@ def parse_bot_command_to_event(dec_text):
         return tags
 
     elif str(dec_text).startswith("-speech-to-text"):
-        prompttemp = dec_text.replace("-speech-to-text ", "")
-        split = prompttemp.split(" -")
+        command = dec_text.replace("-speech-to-text ", "")
+        split = command.split(" -")
         url = split[0]
         start = "0"
         end = "0"
@@ -1289,18 +1289,17 @@ def parse_bot_command_to_event(dec_text):
         return [j_tag, i_tag, o_tag, param_tag_since, param_tag]
 
     elif str(dec_text).startswith("-inactive-following"):
-        sincedays = "30"
-        numberusers = "25"
-        prompttemp = dec_text.replace("-inactive-following ", "")
-        print(prompttemp)
-        split = prompttemp.split(" -")
+        since_days = "30"
+        number_users = "25"
+        command = dec_text.replace("-inactive-following ", "")
+        split = command.split(" -")
         for i in split:
             if i.startswith("sincedays "):
-                sincedays = i.replace("sincedays ", "")
+                since_days = i.replace("sincedays ", "")
             elif i.startswith("num"):
-                numberusers = i.replace("num ", "")
-        param_tag_since = Tag.parse(["param", "since", sincedays])
-        param_tag_num_users = Tag.parse(["param", "numusers", numberusers])
+                number_users = i.replace("num ", "")
+        param_tag_since = Tag.parse(["param", "since", since_days])
+        param_tag_num_users = Tag.parse(["param", "numusers", number_users])
         j_tag = Tag.parse(["j", "inactive-following"])
         return [j_tag, param_tag_since, param_tag_num_users]
     else:
@@ -1407,11 +1406,11 @@ def save_config(db_user, db_password, db_server, database, role, annotator):
 
 # LIGHTNING FUNCTIONS
 def parse_bolt11_invoice(invoice):
-    remaininginvoice = invoice[4:]
-    index = get_index_of_first_letter(remaininginvoice)
-    identifier = remaininginvoice[index]
-    numberstring = remaininginvoice[:index]
-    number = float(numberstring)
+    remaining_invoice = invoice[4:]
+    index = get_index_of_first_letter(remaining_invoice)
+    identifier = remaining_invoice[index]
+    number_string = remaining_invoice[:index]
+    number = float(number_string)
     if identifier == 'm':
         number = number * 100000000 * 0.001
     elif identifier == 'u':
@@ -1443,12 +1442,11 @@ def get_index_of_first_letter(ip):
     return len(ip)
 
 
-# DECRYPTZAPS
+# DECRYPT ZAPS
 def check_for_zapplepay(sender, content):
     try:
         # Special case Zapplepay
         if sender == PublicKey.from_bech32("npub1wxl6njlcgygduct7jkgzrvyvd9fylj4pqvll6p32h59wyetm5fxqjchcan").to_hex():
-            # '71bfa9cbf84110de617e959021b08c69524fcaa1033ffd062abd0ae2657ba24c' # Just for sanity, Zapplepay hexkey
             real_sender_bech32 = content.replace("From: nostr:", "")
             sender = PublicKey.from_bech32(real_sender_bech32).to_hex()
         return sender
@@ -1604,13 +1602,13 @@ def update_user_balance(sender, sats):
     if user is None:
         add_to_sql_table(sender, (sats + DVMConfig.NEW_USER_BALANCE), False, False,
                          None, None, None, Timestamp.now().as_secs())
-        print("NEW USER")
+        print("NEW USER: " + sender + " Zap amount: " + str(sats) + " Sats.")
     else:
         user = get_from_sql_table(sender)
         print(sats)
         update_sql_table(sender, (user[1] + sats), user[2], user[3], user[4], user[5], user[6],
                          Timestamp.now().as_secs())
-        print("UPDATE USER BALANCE")
+        print("UPDATE USER BALANCE: " + user[6] + " Zap amount: " + str(sats) + " Sats.")
 
 
 def get_or_add_user(sender):
