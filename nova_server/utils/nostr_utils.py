@@ -23,6 +23,7 @@ import time
 from nova_server.route.predict_static import LLAMA2
 from nova_server.utils.db_utils import db_entry_exists, add_new_session_to_db
 from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube
+from nova_server.utils.dvm_config import DVMConfig
 from configparser import ConfigParser
 import sqlite3
 
@@ -37,30 +38,7 @@ import sqlite3
 # Show preview of longer transcriptions, then ask for zap
 
 
-class DVMConfig:
-    #UPPORTED_TASKS = ["inactive-following", "speech-to-text", "summarization", "translation"]
-    SUPPORTED_TASKS = ["text-to-image", "image-to-image", "image-upscale","image-to-text"]
-    PASSIVE_MODE: bool = False  # instance should only do tasks set in SUPPORTED_TASKS, no bot chatting, manage zaps etc
-    USERDB = "W:\\nova\\tools\\AnnoDBbackup\\nostrzaps.db"
-    RELAY_LIST = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol",
-                  "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
-    RELAY_TIMEOUT = 1
-    LNBITS_INVOICE_KEY = 'bfdfb5ecfc0743daa08749ce58abea74'
-    LNBITS_URL = 'https://lnbits.novaannotation.com'
-    REQUIRES_NIP05: bool = False
 
-    AUTOPROCESS_MIN_AMOUNT: int = 1000000000000  # auto start processing if min Sat amount is given
-    AUTOPROCESS_MAX_AMOUNT: int = 0  # if this is 0 and min is very big, autoprocess will not trigger
-    SHOWRESULTBEFOREPAYMENT: bool = True  # if this is true show results even when not paid right after autoprocess
-    NEW_USER_BALANCE: int = 250  # Free credits for new users
-
-    COSTPERUNIT_TRANSLATION: int = 20  # Still need to multiply this by duration
-    COSTPERUNIT_SPEECHTOTEXT: int = 100  # Still need to multiply this by duration
-    COSTPERUNIT_IMAGEGENERATION: int = 50  # Generate / Transform one image
-    COSTPERUNIT_IMAGETRANSFORMING: int = 30  # Generate / Transform one image
-    COSTPERUNIT_IMAGEUPSCALING: int = 25  # This takes quite long..
-    COSTPERUNIT_INACTIVE_FOLLOWING: int = 250  # This takes quite long..
-    COSTPERUNIT_OCR: int = 20
 
 @dataclass
 class JobToWatch:
@@ -987,7 +965,7 @@ def check_event_status(content, originaleventstr: str, use_bot=False):
             break
 
 
-    resultcontent = post_process_result(content, originalevent)
+    postprocessed_content = post_process_result(content, originalevent)
     print(str(job_list))
     if use_bot:
         keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
@@ -995,11 +973,11 @@ def check_event_status(content, originaleventstr: str, use_bot=False):
         for tag in originalevent.tags():
             if tag.as_vec()[0] == "p":
                 receiver_key = PublicKey.from_hex(tag.as_vec()[1])
-        event = EventBuilder.new_encrypted_direct_msg(keys, receiver_key, resultcontent, None).to_event(keys)
+        event = EventBuilder.new_encrypted_direct_msg(keys, receiver_key, postprocessed_content, None).to_event(keys)
         send_event(event)
 
     else:
-        send_nostr_reply_event(resultcontent, originaleventstr)
+        send_nostr_reply_event(postprocessed_content, originaleventstr)
         send_job_status_reaction(originalevent, "success")
 
 
