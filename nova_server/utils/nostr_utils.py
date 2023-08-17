@@ -433,23 +433,23 @@ def nostr_server():
                             t = time.strptime(tag.as_vec()[2], "%H:%M:%S")
                             seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
                             request_form["startTime"] = str(seconds)
-                        except Exception:
+                        except:
                             try:
                                 t = time.strptime(tag.as_vec()[2], "%M:%S")
                                 seconds = t.tm_min * 60 + t.tm_sec
                                 request_form["startTime"] = str(seconds)
-                            except Exception:
+                            except:
                                 request_form["startTime"] = tag.as_vec()[2]
                         try:
                             t = time.strptime(tag.as_vec()[3], "%H:%M:%S")
                             seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
                             request_form["endTime"] = str(seconds)
-                        except Exception:
+                        except:
                             try:
                                 t = time.strptime(tag.as_vec()[3], "%M:%S")
                                 seconds = t.tm_min * 60 + t.tm_sec
                                 request_form["endTime"] = str(seconds)
-                            except Exception:
+                            except:
                                 request_form["endTime"] = tag.as_vec()[3]
 
                     elif param == "alignment":
@@ -984,7 +984,6 @@ def check_event_status(content, originaleventstr: str, use_bot=False):
             elif not DVMConfig.SHOWRESULTBEFOREPAYMENT and is_paid:
                 job_list.remove(x)
                 send_nostr_reply_event(content, originaleventstr)
-            print(str(job_list))
             break
 
 
@@ -1695,6 +1694,18 @@ def admin_make_database_updates():
 
     if deleteuser:
         delete_from_sql_table(publickey)
+
+def nip89_announce_tasks():
+
+    k65002_tag = Tag.parse(["k", 65002])
+    k65003_tag = Tag.parse(["k", 65003])
+    k65004_tag = Tag.parse(["k", 65004])
+    k65005_tag = Tag.parse(["k", 65005])
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    event = EventBuilder(31990, "", [k65002_tag, k65003_tag ,k65004_tag, k65005_tag]).to_event(keys)
+    send_event(event)
+
+
 
 
 if __name__ == '__main__':
