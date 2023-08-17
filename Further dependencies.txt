@@ -1,0 +1,29 @@
+CHOCO (Admin Powershell):
+
+	Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+
+Nostr-SDK: (There's a pypi package, this is for more recent versions) 0.0.3 is not new enough.
+	Install Python 3.10.11 (optional) https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe
+	git clone https://github.com/rust-nostr/nostr
+
+	MAKE:
+	choco install make
+
+	RUST:
+	https://static.rust-lang.org/rustup/dist/x86_64-pc-windows-msvc/rustup-init.exe
+
+	BUILD:
+	cd {nostr-sdk}\bindings\nostr-sdk-ffi
+	make python-win
+
+	INSTALL:
+	Pycharm -> Packages-> Add from disk -> Pick {nostr-sdk}\bindings\nostr-sdk-ffi\bindings-python 
+
+FFMPEG:
+	choco install ffmpeg
+	OR: Install ffmpeg binaries and add them to PATH variable.
+	
+
+
+
