@@ -40,8 +40,8 @@ import sqlite3
 
 
 class DVMConfig:
-    # SUPPORTED_TASKS = ["inactive-following"]
-    SUPPORTED_TASKS = ["speech-to-text", "summarization", "translation", "text-to-image", "image-to-image",
+    # SUPPORTED_TASKS = ["inactive-following", "speech-to-text"]
+    SUPPORTED_TASKS = ["summarization", "translation", "text-to-image", "image-to-image",
                        "image-upscale", "chat", "image-to-text"]
     PASSIVE_MODE: bool = False  # Run this if this instance should only do tasks set in SUPPORTED_TASKS, no chatting,
     USERDB = "W:\\nova\\tools\\AnnoDBbackup\\nostrzaps.db"
@@ -274,11 +274,6 @@ def nostr_server():
                             answer = LLAMA2(dec_text, event.pubkey().to_hex())
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), answer,
                                                                         event.id()).to_event(keys)
-                            send_event(evt, client)
-                        else:
-                            evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), "I dont understand"
-                                  " the command. Please type -help to see what I can do for you.",
-                                   event.id()).to_event(keys)
                             send_event(evt, client)
 
                 except Exception as e:
@@ -816,7 +811,7 @@ def nostr_server():
             task = get_task(job_event)
             if task == "speech-to-text":
                 print("[Nostr] Adding Nostr speech-to-text Job event: " + job_event.as_json())
-                if organize_input_data(job_event, request_form) is not None:
+                if organize_input_data(job_event, request_form) is None:
                     respond_to_error("Error processing video", job_event.as_json(), is_from_bot)
                     return
             elif task == "event-list-generation" or task.startswith("unknown"):
@@ -1330,9 +1325,11 @@ def check_task_is_supported(event):
                 return False
 
     if not has_i_tag:
+        print("Job Event missing i tag, skipping..")
         return False
 
     if task not in DVMConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
+        print("Task not supported, skipping..")
         return False
     if task == "translation" and (
             input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
