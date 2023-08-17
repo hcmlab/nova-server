@@ -31,8 +31,6 @@ import sqlite3
 # check expiry of tasks/available output format/model/ (task is checked already). if not available ignore the job,
 # send reaction on error (send sats back ideally, find out with lib, same for under payment),
 # send reaction processing-scheduled when task is waiting for previous task to finish, max limit to wait?
-# clear list of  tasks (job_list) to watch after some time (timeout if invoice not paid),
-# consider max-sat amount at all,
 # consider reactions from customers (Kind 65000 event)
 # add more output formats (webvtt, srt)
 # purge database and files from time to time?
@@ -40,7 +38,7 @@ import sqlite3
 
 
 class DVMConfig:
-    #SUPPORTED_TASKS = ["inactive-following", "speech-to-text", "summarization", "translation"]
+    #UPPORTED_TASKS = ["inactive-following", "speech-to-text", "summarization", "translation"]
     SUPPORTED_TASKS = ["text-to-image", "image-to-image", "image-upscale","image-to-text"]
     PASSIVE_MODE: bool = False  # instance should only do tasks set in SUPPORTED_TASKS, no bot chatting, manage zaps etc
     USERDB = "W:\\nova\\tools\\AnnoDBbackup\\nostrzaps.db"
@@ -74,6 +72,7 @@ class JobToWatch:
     result: str
     is_processed: bool
     bolt11: str
+    payment_hash: str
     expires: int
     from_bot: bool
 
@@ -228,12 +227,12 @@ def nostr_server():
 
                             tags.append(Tag.parse(["p", event.pubkey().to_hex()]))
                             evt = EventBuilder(4, "", tags).to_event(keys)
-                            bolt11 = ""
+
                             expires = event.created_at().as_secs() + (60 * 60)
                             job_list.append(
                                 JobToWatch(event_id=evt.id().to_hex(), timestamp=event.created_at().as_secs(),
                                            amount=required_amount, is_paid=True, status="processing", result="",
-                                           is_processed=False, bolt11=bolt11, expires=expires, from_bot=True))
+                                           is_processed=False, bolt11="", payment_hash="", expires=expires, from_bot=True))
                             do_work(evt, is_from_bot=True)
 
                         else:
@@ -243,12 +242,11 @@ def nostr_server():
                                 "Balance required, please zap this note with at least " + str(required_amount)
                                 + " Sats to start directly, or zap me that amount elsewhere, then try again.",
                                 event.id()).to_event(keys)
-                            bolt11 = ""
                             expires = event.created_at().as_secs() + (60 * 60)
                             job_list.append(
                                 JobToWatch(event_id=evt.id().to_hex(), timestamp=event.created_at().as_secs(),
                                            amount=required_amount, is_paid=False, status="payment-required", result="",
-                                           is_processed=False, bolt11=bolt11, expires=expires, from_bot=True))
+                                           is_processed=False, bolt11="", payment_hash="", expires=expires, from_bot=True))
                             send_event(evt, client)
 
                     elif not DVMConfig.PASSIVE_MODE:
@@ -832,17 +830,18 @@ def nostr_server():
 
     while True:
         for job in job_list:
-            if job.bolt11 != "" and not job.from_bot:
-                if check_bolt11_ln_bits_is_paid(job.bolt11).lower() == "true":
-                    send_job_status_reaction(job.job_key, "processing", True, 0, client=client)
+            if job.bolt11 != "" and job.payment_hash != "" and not job.is_paid:
+                if str(check_bolt11_ln_bits_is_paid(job.payment_hash)).lower() == "true":
+                    job.is_paid = True
                     event = get_event_by_id(job.event_id)
+                    send_job_status_reaction(event, "processing", True, 0, client=client)
                     do_work(event, is_from_bot=False)
 
             if Timestamp.now().as_secs() > job.expires:
                 job_list.remove(job)
 
-        if len(job_list) > 0:
-            print(str(job_list))
+        #if len(job_list) > 0:
+        #    print(str(job_list))
 
         time.sleep(5.0)
 
@@ -1106,13 +1105,13 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
     if status == "payment-required" or (status == "processing" and not is_paid):
         if DVMConfig.LNBITS_INVOICE_KEY != "":
             try:
-                bolt11 = create_bolt11_ln_bits(amount)
+                bolt11, payment_hash = create_bolt11_ln_bits(amount)
             except Exception as e:
                 print(e)
         job_list.append(
             JobToWatch(event_id=original_event.id().to_hex(), timestamp=original_event.created_at().as_secs(), amount=amount,
                        is_paid=is_paid,
-                       status=status, result="", is_processed=False, bolt11=bolt11, expires=expires, from_bot=False))
+                       status=status, result="", is_processed=False, bolt11=bolt11, payment_hash=payment_hash, expires=expires, from_bot=False))
         print(str(job_list))
     if status == "payment-required" or status == "payment-rejected" or (status == "processing" and not is_paid) or (
             status == "success" and not is_paid):
@@ -1447,22 +1446,23 @@ def parse_bolt11_invoice(invoice):
 
 def create_bolt11_ln_bits(sats):
     url = DVMConfig.LNBITS_URL + "/api/v1/payments"
-    data = {'amount': sats, 'memo': "Nostr-DVM", 'out' : False}
+    data = {'out': False, 'amount': sats, 'memo': "Nostr-DVM"}
     headers = {'X-API-Key': DVMConfig.LNBITS_INVOICE_KEY, 'Content-Type': 'application/json', 'charset': 'UTF-8'}
     try:
-        res = requests.post(url, data=data, headers=headers)
+        res = requests.post(url, json=data, headers=headers)
         obj = json.loads(res.text)
-        return obj["payment_request"]
+        return obj["payment_request"], obj["payment_hash"]
     except Exception as e:
         print(e)
         return None
 
-def check_bolt11_ln_bits_is_paid(bolt11):
-    url = DVMConfig.LNBITS_URL + "/api/v1/payments/" + bolt11
+def check_bolt11_ln_bits_is_paid(payment_hash):
+    url = DVMConfig.LNBITS_URL + "/api/v1/payments/" + payment_hash
     headers = {'X-API-Key': DVMConfig.LNBITS_INVOICE_KEY, 'Content-Type': 'application/json', 'charset': 'UTF-8'}
     try:
-        res = requests.post(url, headers=headers)
+        res = requests.get(url, headers=headers)
         obj = json.loads(res.text)
+        print(obj["paid"])
         return obj["paid"]
     except Exception as e:
         print(e)
@@ -1671,9 +1671,9 @@ def admin_make_database_updates():
     if listdatabase:
         list_db()
 
-    publickey = PublicKey.from_bech32("npub19jkj3lf4gh53qnp70uupvv3k3pyl39fzu52ygkhhszd5083yd36qpyu0dy").to_hex()
+    #publickey = PublicKey.from_bech32("npub19jkj3lf4gh53qnp70uupvv3k3pyl39fzu52ygkhhszd5083yd36qpyu0dy").to_hex()
     # use this if you have the npub
-    # publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
+    publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
     # publickey = "c63c5b4e21b9b1ec6b73ad0449a6a8589f6bd8542cabd9e5de6ae474b28fe806"
 
     if whitelistuser:
