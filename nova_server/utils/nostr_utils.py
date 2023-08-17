@@ -127,6 +127,7 @@ def nostr_server():
                             print("[Nostr] Requesting payment for Event: " + event.id().to_hex())
                             send_job_status_reaction(event, "payment-required",
                                                      False, amount, client=client)
+
             elif event.kind() == 4:
                 sender = event.pubkey().to_hex()
                 try:
@@ -1112,6 +1113,7 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
 
 # POSTPROCESSING
 def post_process_result(content, original_event):
+    print(str(content))
     for tag in original_event.tags():
         if tag.as_vec()[0] == "output":
             if tag.as_vec()[1] == "text/plain":
@@ -1123,6 +1125,8 @@ def post_process_result(content, original_event):
                     content = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
                 except Exception as e:
                     print("Can't transform text, or text already in text/plain format. " + str(e))
+            elif tag.as_vec()[1] == "text/json":
+                return str(content)
             # TODO add more
 
     return content
@@ -1311,23 +1315,20 @@ def check_task_is_supported(event):
     input_value = ""
     input_type = ""
 
-    has_i_tag = False
+
     for tag in event.tags():
         if tag.as_vec()[0] == 'i':
-            if len(tag.as_vec()) < 2:
-                has_i_tag = False
+            if len(tag.as_vec()) < 3:
+                print("Job Event missing/malformed i tag, skipping..")
+                return False
             else:
                 input_value = tag.as_vec()[1]
                 input_type = tag.as_vec()[2]
-                has_i_tag = True
         elif tag.as_vec()[0] == 'output':
             output = tag.as_vec()[1]
-            if output != "text/plain":
+            if not (output == "text/plain" or output == "text/json"):
+                print("Output format not supported, skipping..")
                 return False
-
-    if not has_i_tag:
-        print("Job Event missing i tag, skipping..")
-        return False
 
     task = get_task(event)
     print("Received new Task: " + task)
