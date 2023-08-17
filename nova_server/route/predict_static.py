@@ -89,9 +89,10 @@ def predict_static_data(request_form):
                 "Give me a summarization of the most important points of the following text: " + options["message"],  options["user"])
         elif task == "inactive-following":
             anno = InactiveNostrFollowers(options["user"], int(options["since"]), int(options["num"]))
-        if request_form["nostrEvent"] is not None:
 
-            nostr_utils.check_event_status(anno, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
+        if "nostrEvent" in request_form:
+            if request_form["nostrEvent"] is not None :
+                nostr_utils.check_event_status(anno, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
         logger.info("...done")
 
         logger.info("Prediction completed!")

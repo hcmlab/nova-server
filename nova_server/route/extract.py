@@ -266,9 +266,6 @@ def extract_data(request_form):
                             sr=sr,
                             dim_labels=[],
                         )
-                        if request_form["nostrEvent"] is not None:
-                            responseevent = nostr_utils.send_nostr_reply_event(data, request_form["nostrEvent"])
-                            logger.info(responseevent)
 
                     logger.info("...done")
 
