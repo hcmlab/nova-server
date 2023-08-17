@@ -810,7 +810,7 @@ def nostr_server():
     while True:
         for job in job_list:
             if job.bolt11 != "" and job.payment_hash != "" and not job.is_paid:
-                if str(check_bolt11_ln_bits_is_paid(job.payment_hash)).lower() == "true":
+                if str(check_bolt11_ln_bits_is_paid(job.payment_hash)) == "True":
                     job.is_paid = True
                     event = get_event_by_id(job.event_id)
                     send_job_status_reaction(event, "processing", True, 0, client=client)
@@ -1445,7 +1445,6 @@ def check_bolt11_ln_bits_is_paid(payment_hash):
     try:
         res = requests.get(url, headers=headers)
         obj = json.loads(res.text)
-        print(obj["paid"])
         return obj["paid"]
     except Exception as e:
         print(e)
