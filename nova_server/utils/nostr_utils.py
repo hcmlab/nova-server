@@ -20,6 +20,8 @@ from nostr_sdk import PublicKey, Keys, Client, Tag, Event, EventBuilder, Filter,
     nip04_decrypt, EventId, Metadata, nostr_sdk
 import time
 
+from nova_utils.ssi_utils.ssi_anno_utils import Anno
+
 from nova_server.route.predict_static import LLAMA2
 from nova_server.utils.db_utils import db_entry_exists, add_new_session_to_db
 from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube
@@ -495,6 +497,11 @@ def nostr_server():
                     elif input_type == "event":
                         evt = get_event_by_id(tag.as_vec()[1])
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
+                    elif input_type == "job":
+                        job_id_filter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
+                        events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
+                        evt = events[0]
+                        url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
             request_form["optStr"] = 'url=' + url
 
         elif task == "image-to-image":
@@ -946,55 +953,54 @@ def get_amount_per_task(task):
 
 
 # DECIDE TO RETURN RESULT
-def check_event_status(content, originaleventstr: str, use_bot=False):
-    originalevent = Event.from_json(originaleventstr)
+def check_event_status(data, original_event_str: str, use_bot=False):
+    original_event = Event.from_json(original_event_str)
     for x in job_list:
-        if x.event_id == originalevent.id().to_hex():
+        if x.event_id == original_event.id().to_hex():
             is_paid = x.is_paid
             amount = x.amount
-            x.result = content
+            x.result = data
             x.is_processed = True
             if DVMConfig.SHOWRESULTBEFOREPAYMENT and not is_paid:
-                send_nostr_reply_event(content, originaleventstr)
-                send_job_status_reaction(originalevent, "success", amount)  # or payment-required, or both?
+                send_nostr_reply_event(data, original_event_str)
+                send_job_status_reaction(original_event, "success", amount)  # or payment-required, or both?
             elif not DVMConfig.SHOWRESULTBEFOREPAYMENT and not is_paid:
-                send_job_status_reaction(originalevent, "success", amount)  # or payment-required, or both?
+                send_job_status_reaction(original_event, "success", amount)  # or payment-required, or both?
 
             if DVMConfig.SHOWRESULTBEFOREPAYMENT and is_paid:
                 job_list.remove(x)
             elif not DVMConfig.SHOWRESULTBEFOREPAYMENT and is_paid:
                 job_list.remove(x)
-                send_nostr_reply_event(content, originaleventstr)
+                send_nostr_reply_event(data, original_event_str)
             break
 
-
-    postprocessed_content = post_process_result(content, originalevent)
+    post_processed_content = post_process_result(data, original_event)
     print(str(job_list))
     if use_bot:
         keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
         receiver_key = PublicKey()
-        for tag in originalevent.tags():
+        for tag in original_event.tags():
             if tag.as_vec()[0] == "p":
                 receiver_key = PublicKey.from_hex(tag.as_vec()[1])
-        event = EventBuilder.new_encrypted_direct_msg(keys, receiver_key, postprocessed_content, None).to_event(keys)
+        event = EventBuilder.new_encrypted_direct_msg(keys, receiver_key, post_processed_content, None).to_event(keys)
         send_event(event)
 
     else:
-        send_nostr_reply_event(postprocessed_content, originaleventstr)
-        send_job_status_reaction(originalevent, "success")
+        send_nostr_reply_event(post_processed_content, original_event_str)
+        send_job_status_reaction(original_event, "success")
 
 
 # NIP90 REPLIES
 def respond_to_error(content, originaleventstr, is_from_bot=False):
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    originalevent = Event.from_json(originaleventstr)
+    original_event = Event.from_json(originaleventstr)
     sender = ""
     task = ""
     if not is_from_bot:
-        send_job_status_reaction(originalevent, "error", content=content)
+        send_job_status_reaction(original_event, "error", content=content)
         # TODO Send Zap back
     else:
-        for tag in originalevent.tags():
+        for tag in original_event.tags():
             if tag.as_vec()[0] == "p":
                 sender = tag.as_vec()[1]
             elif tag.as_vec()[0] == "i":
@@ -1031,39 +1037,41 @@ def send_nostr_reply_event(content, original_event_as_str):
 
 
 def send_job_status_reaction(original_event, status, is_paid=True, amount=0, client=None, content=None):
-    altdesc = "This is a reaction to a NIP90 DVM AI task."
+    altdesc = "This is a reaction to a NIP90 DVM AI task. "
     task = get_task(original_event)
     if status == "processing":
-        reaction = emoji.emojize(":thumbs_up:")
-        altdesc = "NIP90 DVM AI task " + task + " started processing."
+        altdesc = "NIP90 DVM AI task " + task + " started processing. "
+        reaction = altdesc + emoji.emojize(":thumbs_up:")
     elif status == "success":
-        reaction = emoji.emojize(":call_me_hand:")
-        altdesc = "NIP90 DVM AI task " + task + " finished successfully."
+        altdesc = "NIP90 DVM AI task " + task + " finished successfully. "
+        reaction = altdesc + emoji.emojize(":call_me_hand:")
     elif status == "error":
+        altdesc = "NIP90 DVM AI task " + task + " had an error. "
         if content is None:
-            reaction = emoji.emojize(":thumbs_down:")
+            reaction = altdesc + emoji.emojize(":thumbs_down:")
         else:
-            reaction = emoji.emojize(":thumbs_down:") + content
-        altdesc = "NIP90 DVM AI task " + task + (" had an error. So sorry. In the future zaps will be sent back"
-                                                 " but I can't do that just yet.")
+            reaction = altdesc + emoji.emojize(":thumbs_down:") + content
+
     elif status == "payment-required":
-        reaction = emoji.emojize(":orange_heart:")
-        altdesc = "NIP90 DVM AI task " + task + " requires payment of min " + str(amount) + " Sats."
+
+        altdesc = "NIP90 DVM AI task " + task + " requires payment of min " + str(amount) + " Sats. "
         if task == "speech-to-text":
             altdesc = altdesc + (" Providing results with WhisperX large-v2. "
                                  "Accepted input formats: wav,mp3,mp4,ogg,avi,mov,youtube,overcast. "
                                  "Possible outputs: text/plain, timestamped labels depending on "
-                                 "alignment parameter (word,segment,raw)")
+                                 "alignment parameter (word,segment,raw) ")
         elif task == "image-to-text":
             altdesc = altdesc + (" Accepted input formats: jpg. Possible outputs: text/plain. "
-                                 "This is very experimental, make sure your text is well readable.")
+                                 "This is very experimental, make sure your text is well readable. ")
+        reaction = altdesc + emoji.emojize(":orange_heart:")
 
     elif status == "payment-rejected":
-        reaction = emoji.emojize(":see_no_evil_monkey:")
-        altdesc = "NIP90 DVM AI task " + task + " payment is below required amount of " + str(amount) + " Sats."
+        altdesc = "NIP90 DVM AI task " + task + " payment is below required amount of " + str(amount) + " Sats. "
+        reaction = altdesc + emoji.emojize(":see_no_evil_monkey:")
     elif status == "user-blocked-from-service":
-        reaction = emoji.emojize(":see_no_evil_monkey:")
-        altdesc = "NIP90 DVM AI task " + task + " can't be performed. User has been blocked from Service"
+
+        altdesc = "NIP90 DVM AI task " + task + " can't be performed. User has been blocked from Service. "
+        reaction = altdesc + emoji.emojize(":see_no_evil_monkey:")
     else:
         reaction = emoji.emojize(":see_no_evil_monkey:")
 
@@ -1114,24 +1122,25 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
 
 
 # POSTPROCESSING
-def post_process_result(content, original_event):
-    print(str(content))
+def post_process_result(anno, original_event):
+    print("post-processing...")
+    result = ""
     for tag in original_event.tags():
         if tag.as_vec()[0] == "output":
-            if tag.as_vec()[1] == "text/plain":
-                result = ""
-                try:
-                    for name in content['name']:
+            try:
+                if tag.as_vec()[1] == "text/plain":
+                    result = ""
+                    for element in anno.data:
+                        name = element["name"] #name
                         cleared_name = str(name).lstrip("\'").rstrip("\'")
                         result = result + cleared_name + "\n"
-                    content = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
-                except Exception as e:
-                    print("Can't transform text, or text already in text/plain format. " + str(e))
-            elif tag.as_vec()[1] == "text/json":
-                return str(content)
-            # TODO add more
-
-    return content
+                    result = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
+                # TODO add more
+                else:
+                    result = str(anno.data)
+            except:
+                result = str(anno.data)
+    return result
 
 
 # BOT FUNCTIONS
@@ -1316,8 +1325,6 @@ def check_task_is_supported(event):
 
     input_value = ""
     input_type = ""
-
-
     for tag in event.tags():
         if tag.as_vec()[0] == 'i':
             if len(tag.as_vec()) < 3:
@@ -1328,7 +1335,7 @@ def check_task_is_supported(event):
                 input_type = tag.as_vec()[2]
         elif tag.as_vec()[0] == 'output':
             output = tag.as_vec()[1]
-            if not (output == "text/plain" or output == "text/json"):
+            if not (output == "text/plain"):
                 print("Output format not supported, skipping..")
                 return False
 

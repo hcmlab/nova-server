@@ -151,6 +151,7 @@ def predict_data(request_form):
         request_form_copy['sessions'] = ss_ds_iter.sessions[0]
 
         for anno in annos:
+            logger.info("Writing to database...")
             db_utils.write_annotation_to_db(request_form_copy, anno, logger)
             if "nostrEvent" in request_form:
                 if request_form["nostrEvent"] is not None:
