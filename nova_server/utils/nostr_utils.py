@@ -40,10 +40,9 @@ import sqlite3
 
 
 class DVMConfig:
-    # SUPPORTED_TASKS = ["inactive-following", "speech-to-text"]
-    SUPPORTED_TASKS = ["summarization", "translation", "text-to-image", "image-to-image",
-                       "image-upscale", "chat", "image-to-text"]
-    PASSIVE_MODE: bool = False  # Run this if this instance should only do tasks set in SUPPORTED_TASKS, no chatting,
+    SUPPORTED_TASKS = ["inactive-following", "speech-to-text", "summarization", "translation"]
+    #SUPPORTED_TASKS = ["text-to-image", "image-to-image", "image-upscale","image-to-text"]
+    PASSIVE_MODE: bool = True  # instance should only do tasks set in SUPPORTED_TASKS, no bot chatting, manage zaps etc
     USERDB = "W:\\nova\\tools\\AnnoDBbackup\\nostrzaps.db"
     RELAY_LIST = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol",
                   "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
@@ -280,7 +279,7 @@ def nostr_server():
                     print(f"Error during content decryption: {e}")
             elif event.kind() == 9734:
                 print(event.as_json())
-            elif event.kind() == 9735 and not DVMConfig.PASSIVE_MODE:
+            elif event.kind() == 9735:
                 print(event.as_json())
                 print("Zap received")
                 zapped_event = None
@@ -345,7 +344,7 @@ def nostr_server():
                                     send_job_status_reaction(job_event, "payment-rejected",
                                                              False, invoice_amount, client=client)
                                     print("[Nostr] Invoice was not paid sufficiently")
-                        elif zapped_event.kind() == 4:
+                        elif zapped_event.kind() == 4 and not DVMConfig.PASSIVE_MODE:
                             required_amount = 50
                             job_event = None
                             for tag in zapped_event.tags():
@@ -381,10 +380,10 @@ def nostr_server():
                                 update_user_balance(sender, invoice_amount)
                         elif zapped_event.kind() == 65001:
                             print("Someone zapped the result of an exisiting Task. Nice")
-                        elif not anon:
+                        elif not anon and not DVMConfig.PASSIVE_MODE:
                             update_user_balance(sender, invoice_amount)
                             # a regular note
-                    elif not anon:
+                    elif not anon and not DVMConfig.PASSIVE_MODE:
                         update_user_balance(sender, invoice_amount)
 
                 except Exception as e:
