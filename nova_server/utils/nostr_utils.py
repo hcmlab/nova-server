@@ -40,15 +40,15 @@ import sqlite3
 
 
 class DVMConfig:
-    SUPPORTED_TASKS = ["inactive-following", "speech-to-text", "summarization", "translation"]
-    #SUPPORTED_TASKS = ["text-to-image", "image-to-image", "image-upscale","image-to-text"]
-    PASSIVE_MODE: bool = True  # instance should only do tasks set in SUPPORTED_TASKS, no bot chatting, manage zaps etc
+    #SUPPORTED_TASKS = ["inactive-following", "speech-to-text", "summarization", "translation"]
+    SUPPORTED_TASKS = ["text-to-image", "image-to-image", "image-upscale","image-to-text"]
+    PASSIVE_MODE: bool = False  # instance should only do tasks set in SUPPORTED_TASKS, no bot chatting, manage zaps etc
     USERDB = "W:\\nova\\tools\\AnnoDBbackup\\nostrzaps.db"
     RELAY_LIST = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol",
                   "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
     RELAY_TIMEOUT = 1
     LNBITS_INVOICE_KEY = 'bfdfb5ecfc0743daa08749ce58abea74'
-    LNBITS_INVOICE_URL = 'https://ln.novaannotation.com/createLightningInvoice'
+    LNBITS_URL = 'https://lnbits.novaannotation.com'
     REQUIRES_NIP05: bool = False
 
     AUTOPROCESS_MIN_AMOUNT: int = 1000000000000  # auto start processing if min Sat amount is given
@@ -66,13 +66,16 @@ class DVMConfig:
 
 @dataclass
 class JobToWatch:
-    id: str
-    timestamp: str
+    event_id: str
+    timestamp: int
     is_paid: bool
     amount: int
     status: str
     result: str
     is_processed: bool
+    bolt11: str
+    expires: int
+    from_bot: bool
 
 
 job_list = []
@@ -81,6 +84,7 @@ job_list = []
 # init_logger(LogLevel.DEBUG)
 
 def nostr_server():
+    global job_list
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
     sk = keys.secret_key()
     pk = keys.public_key()
@@ -99,8 +103,8 @@ def nostr_server():
 
     class NotificationHandler(HandleNotification):
         def handle(self, relay_url, event):
-            print(f"[Nostr] Received new event from {relay_url}: {event.as_json()}")
             if 65002 <= event.kind() <= 66000:
+                print(f"[Nostr] Received new NIP90 Job Request from {relay_url}: {event.as_json()}")
                 user = get_or_add_user(event.pubkey().to_hex())
                 is_whitelisted = user[2]
                 is_blacklisted = user[3]
@@ -146,8 +150,6 @@ def nostr_server():
                             print("[Nostr] Requesting payment for Event: " + event.id().to_hex())
                             send_job_status_reaction(event, "payment-required",
                                                      False, amount, client=client)
-                else:
-                    print("[Nostr] Got new Task but can't process it, skipping..")
             elif event.kind() == 4:
                 sender = event.pubkey().to_hex()
                 try:
@@ -168,10 +170,6 @@ def nostr_server():
                                     name = metadata.get_name()
                                 nip05 = metadata.get_nip05()
                                 lud16 = metadata.get_lud16()
-                                print(f"Name: {name}")
-                                print(f"NIP05: {nip05}")
-                                print(f"LUD16: {lud16}")
-
                                 update_sql_table(user[0], user[1], user[2], user[3], nip05, lud16, name,
                                                  Timestamp.now().as_secs())
                                 user = get_from_sql_table(user[0])
@@ -196,8 +194,8 @@ def nostr_server():
                     update_sql_table(user[0], user[1], user[2], user[3], user[4], user[5], user[6],
                                      Timestamp.now().as_secs())
                     if any(dec_text.startswith("-" + s) for s in DVMConfig.SUPPORTED_TASKS):
-                        print(f"Received new msg: {dec_text}")
                         task = str(dec_text).split(' ')[0].removeprefix('-')
+                        print("Request from " + name + " (" + nip05 + ") Task: " + task)
                         required_amount = get_amount_per_task(task)
                         balance = user[1]
                         is_whitelisted = user[2]
@@ -227,22 +225,30 @@ def nostr_server():
                             for tag in tags:
                                 if tag.as_vec()[0] == "j":
                                     task = tag.as_vec()[1]
-                            print("Request from " + name + " (" + nip05 + ") Task: " + task)
+
                             tags.append(Tag.parse(["p", event.pubkey().to_hex()]))
                             evt = EventBuilder(4, "", tags).to_event(keys)
-                            print(evt.as_json())
+                            bolt11 = ""
+                            expires = event.created_at().as_secs() + (60 * 60)
+                            job_list.append(
+                                JobToWatch(event_id=evt.id().to_hex(), timestamp=event.created_at().as_secs(),
+                                           amount=required_amount, is_paid=True, status="processing", result="",
+                                           is_processed=False, bolt11=bolt11, expires=expires, from_bot=True))
                             do_work(evt, is_from_bot=True)
 
                         else:
+                            print("payment-required")
                             time.sleep(3.0)
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
                                 "Balance required, please zap this note with at least " + str(required_amount)
                                 + " Sats to start directly, or zap me that amount elsewhere, then try again.",
                                 event.id()).to_event(keys)
+                            bolt11 = ""
+                            expires = event.created_at().as_secs() + (60 * 60)
                             job_list.append(
-                                JobToWatch(id=evt.id().to_hex(), timestamp=str(event.created_at().as_secs()),
+                                JobToWatch(event_id=evt.id().to_hex(), timestamp=event.created_at().as_secs(),
                                            amount=required_amount, is_paid=False, status="payment-required", result="",
-                                           is_processed=False))
+                                           is_processed=False, bolt11=bolt11, expires=expires, from_bot=True))
                             send_event(evt, client)
 
                     elif not DVMConfig.PASSIVE_MODE:
@@ -280,8 +286,6 @@ def nostr_server():
             elif event.kind() == 9734:
                 print(event.as_json())
             elif event.kind() == 9735:
-                print(event.as_json())
-                print("Zap received")
                 zapped_event = None
                 invoice_amount = 0
                 anon = False
@@ -290,7 +294,6 @@ def nostr_server():
                     for tag in event.tags():
                         if tag.as_vec()[0] == 'bolt11':
                             invoice_amount = parse_bolt11_invoice(tag.as_vec()[1])
-                            print(invoice_amount)
                         elif tag.as_vec()[0] == 'e':
                             zapped_event = get_event_by_id(tag.as_vec()[1])
                         elif tag.as_vec()[0] == 'description':
@@ -313,6 +316,8 @@ def nostr_server():
                                     else:
                                         anon = True
                                         print("Anonymous Zap received. Unlucky, I don't know from whom, and never will")
+                    user = get_or_add_user(sender)
+                    print("Zap received: " + str(invoice_amount) + " Sats from" + user[6])
                     if zapped_event is not None:
                         if zapped_event.kind() == 65000:  # if a reaction by us got zapped
                             amount = 0
@@ -824,7 +829,21 @@ def nostr_server():
             requests.post(url, headers=headers, data=request_form)
 
     client.handle_notifications(NotificationHandler())
+
     while True:
+        for job in job_list:
+            if job.bolt11 != "" and not job.from_bot:
+                if check_bolt11_ln_bits_is_paid(job.bolt11).lower() == "true":
+                    send_job_status_reaction(job.job_key, "processing", True, 0, client=client)
+                    event = get_event_by_id(job.event_id)
+                    do_work(event, is_from_bot=False)
+
+            if Timestamp.now().as_secs() > job.expires:
+                job_list.remove(job)
+
+        if len(job_list) > 0:
+            print(str(job_list))
+
         time.sleep(5.0)
 
 
@@ -950,7 +969,7 @@ def get_amount_per_task(task):
 def check_event_status(content, originaleventstr: str, use_bot=False):
     originalevent = Event.from_json(originaleventstr)
     for x in job_list:
-        if x.id == originalevent.id().to_hex():
+        if x.event_id == originalevent.id().to_hex():
             is_paid = x.is_paid
             amount = x.amount
             x.result = content
@@ -969,21 +988,21 @@ def check_event_status(content, originaleventstr: str, use_bot=False):
             print(str(job_list))
             break
 
-    else:
-        resultcontent = post_process_result(content, originalevent)
-        print(str(job_list))
-        if use_bot:
-            keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-            receiver_key = PublicKey()
-            for tag in originalevent.tags():
-                if tag.as_vec()[0] == "p":
-                    receiver_key = PublicKey.from_hex(tag.as_vec()[1])
-            event = EventBuilder.new_encrypted_direct_msg(keys, receiver_key, resultcontent, None).to_event(keys)
-            send_event(event)
 
-        else:
-            send_nostr_reply_event(resultcontent, originaleventstr)
-            send_job_status_reaction(originalevent, "success")
+    resultcontent = post_process_result(content, originalevent)
+    print(str(job_list))
+    if use_bot:
+        keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+        receiver_key = PublicKey()
+        for tag in originalevent.tags():
+            if tag.as_vec()[0] == "p":
+                receiver_key = PublicKey.from_hex(tag.as_vec()[1])
+        event = EventBuilder.new_encrypted_direct_msg(keys, receiver_key, resultcontent, None).to_event(keys)
+        send_event(event)
+
+    else:
+        send_nostr_reply_event(resultcontent, originaleventstr)
+        send_job_status_reaction(originalevent, "success")
 
 
 # NIP90 REPLIES
@@ -1077,27 +1096,35 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
 
     if status == "success" or status == "error":  #
         for x in job_list:
-            if x.id == original_event.id():
+            if x.event_id == original_event.id():
                 is_paid = x.is_paid
                 amount = x.amount
                 break
+
+    bolt11 = ""
+    expires = original_event.created_at().as_secs() + (60*60*24)
     if status == "payment-required" or (status == "processing" and not is_paid):
+        if DVMConfig.LNBITS_INVOICE_KEY != "":
+            try:
+                bolt11 = create_bolt11_ln_bits(amount)
+            except Exception as e:
+                print(e)
         job_list.append(
-            JobToWatch(id=original_event.id().to_hex(), timestamp=original_event.created_at().as_secs(), amount=amount,
+            JobToWatch(event_id=original_event.id().to_hex(), timestamp=original_event.created_at().as_secs(), amount=amount,
                        is_paid=is_paid,
-                       status=status, result="", is_processed=False))
+                       status=status, result="", is_processed=False, bolt11=bolt11, expires=expires, from_bot=False))
         print(str(job_list))
     if status == "payment-required" or status == "payment-rejected" or (status == "processing" and not is_paid) or (
             status == "success" and not is_paid):
-        # try:
-        #    if DVMConfig.LNBITS_INVOICE_KEY != "":
-        #        bolt11 = createBolt11LnBits(amount)
-        #        amount_tag = Tag.parse(["amount", str(amount), bolt11])
-        # except Exception as e:
-        #   print(e)
 
-        amount_tag = Tag.parse(["amount", str(amount * 1000)])  # to millisats
+        if DVMConfig.LNBITS_INVOICE_KEY != "":
+            amount_tag = Tag.parse(["amount", str(amount), bolt11])
+        else:
+            amount_tag = Tag.parse(["amount", str(amount * 1000)])  # to millisats
         tags.append(amount_tag)
+
+
+
 
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
     event = EventBuilder(65000, reaction, tags).to_event(keys)
@@ -1418,13 +1445,28 @@ def parse_bolt11_invoice(invoice):
     return int(number)
 
 
-def create_bolt11_ln_bits(millisats):
-    sats = int(millisats / 1000)
-    url = DVMConfig.LNBITS_INVOICE_URL
-    data = {'invoice_key': DVMConfig.LNBITS_INVOICE_KEY, 'sats': str(sats), 'memo': "Nostr-DVM"}
-    res = requests.post(url, data=data)
-    obj = json.loads(res.text)
-    return obj["payment_request"]
+def create_bolt11_ln_bits(sats):
+    url = DVMConfig.LNBITS_URL + "/api/v1/payments"
+    data = {'amount': sats, 'memo': "Nostr-DVM", 'out' : False}
+    headers = {'X-API-Key': DVMConfig.LNBITS_INVOICE_KEY, 'Content-Type': 'application/json', 'charset': 'UTF-8'}
+    try:
+        res = requests.post(url, data=data, headers=headers)
+        obj = json.loads(res.text)
+        return obj["payment_request"]
+    except Exception as e:
+        print(e)
+        return None
+
+def check_bolt11_ln_bits_is_paid(bolt11):
+    url = DVMConfig.LNBITS_URL + "/api/v1/payments/" + bolt11
+    headers = {'X-API-Key': DVMConfig.LNBITS_INVOICE_KEY, 'Content-Type': 'application/json', 'charset': 'UTF-8'}
+    try:
+        res = requests.post(url, headers=headers)
+        obj = json.loads(res.text)
+        return obj["paid"]
+    except Exception as e:
+        print(e)
+        return None
 
 
 def get_index_of_first_letter(ip):
@@ -1629,8 +1671,8 @@ def admin_make_database_updates():
     if listdatabase:
         list_db()
 
-    publickey = PublicKey.from_bech32(
-        "npub1cc79kn3phxc7c6mn45zynf4gtz0khkz59j4anew7dtj8fv50aqrqlth2hf").to_hex()  # use this if you have the npub
+    publickey = PublicKey.from_bech32("npub19jkj3lf4gh53qnp70uupvv3k3pyl39fzu52ygkhhszd5083yd36qpyu0dy").to_hex()
+    # use this if you have the npub
     # publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
     # publickey = "c63c5b4e21b9b1ec6b73ad0449a6a8589f6bd8542cabd9e5de6ae474b28fe806"
 
