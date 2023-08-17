@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import timedelta
 from sqlite3 import Error
 from urllib.parse import urlparse
+
+import pandas as pd
 from bech32 import bech32_decode, convertbits
 
 import requests
@@ -1124,22 +1126,31 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
 # POSTPROCESSING
 def post_process_result(anno, original_event):
     print("post-processing...")
-    result = ""
-    for tag in original_event.tags():
-        if tag.as_vec()[0] == "output":
-            try:
-                if tag.as_vec()[1] == "text/plain":
-                    result = ""
-                    for element in anno.data:
-                        name = element["name"] #name
-                        cleared_name = str(name).lstrip("\'").rstrip("\'")
-                        result = result + cleared_name + "\n"
-                    result = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
-                # TODO add more
-                else:
+    if isinstance(anno, Anno): #if input is an anno we parse it to required output format
+        for tag in original_event.tags():
+            if tag.as_vec()[0] == "output":
+                print("requested output is " +tag.as_vec()[1] + "...")
+                try:
+                    if tag.as_vec()[1] == "text/plain":
+                        result = ""
+                        for element in anno.data:
+                            name = element["name"] #name
+                            cleared_name = str(name).lstrip("\'").rstrip("\'")
+                            result = result + cleared_name + "\n"
+                        result = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
+
+                    elif tag.as_vec()[1] == "text/json" or tag.as_vec()[1] == "json":
+                        #result = json.dumps(json.loads(anno.data.to_json(orient="records")))
+                        result = json.dumps(anno.data.tolist())
+                    # TODO add more
+                    else:
+                        result = str(anno.data)
+                except Exception as e:
+                    print(e)
                     result = str(anno.data)
-            except:
-                result = str(anno.data)
+
+    elif isinstance(anno, str): #If input is a string we do nothing for now.
+        result = anno
     return result
 
 
@@ -1335,7 +1346,7 @@ def check_task_is_supported(event):
                 input_type = tag.as_vec()[2]
         elif tag.as_vec()[0] == 'output':
             output = tag.as_vec()[1]
-            if not (output == "text/plain"):
+            if not (output == "text/plain" or output == "text/json" or output == "json"):
                 print("Output format not supported, skipping..")
                 return False
 
