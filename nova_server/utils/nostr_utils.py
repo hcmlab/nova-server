@@ -322,9 +322,8 @@ def nostr_server():
                                     amount = int(float(tag.as_vec()[1]) / 1000)
                                 elif tag.as_vec()[0] == 'e':
                                     job_event = get_event_by_id(tag.as_vec()[1])
-                                    print("[Nostr] Original Job Request event found...")
 
-                            if job_event is not None:
+                            if job_event is not None and check_task_is_supported(job_event):
                                 if amount <= invoice_amount:
                                     print("[Nostr] Payment-request fulfilled...")
                                     send_job_status_reaction(job_event, "processing", client=client)
