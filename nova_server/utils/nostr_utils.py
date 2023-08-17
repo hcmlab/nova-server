@@ -629,7 +629,7 @@ def nostr_server():
             for tag in event.tags():
                 if tag.as_vec()[0] == 'i':
                     input_type = tag.as_vec()[2]
-                    if input_type == "url":
+                    if input_type == "text":
                         text = tag.as_vec()[1].replace(";", "")
                     elif input_type == "event":
                         evt = get_event_by_id(tag.as_vec()[1])
@@ -643,6 +643,7 @@ def nostr_server():
                 elif tag.as_vec()[0] == 'p':
                     user = tag.as_vec()[1]
                 request_form["optStr"] = 'message=' + text + ';user=' + user
+
         elif task == "inactive-following":
             request_form["mode"] = "PREDICT_STATIC"
             request_form["trainerFilePath"] = 'inactive-following'
