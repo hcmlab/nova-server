@@ -81,8 +81,8 @@ def nostr_server():
     class NotificationHandler(HandleNotification):
         def handle(self, relay_url, event):
             if 65002 <= event.kind() <= 66000:
-                print(f"[Nostr] Received new NIP90 Job Request from {relay_url}: {event.as_json()}")
                 user = get_or_add_user(event.pubkey().to_hex())
+                print(f"[Nostr] Received new NIP90 Job Request from {relay_url}: {event.as_json()}")
                 is_whitelisted = user[2]
                 is_blacklisted = user[3]
                 if is_blacklisted:
@@ -638,8 +638,7 @@ def nostr_server():
                         job_id_filter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
                         events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
                         if len(events) > 0:
-                            evt = events[0]
-                            text = evt.content().replace(";", "")
+                            text = events[0].content().replace(";", "")
                 elif tag.as_vec()[0] == 'p':
                     user = tag.as_vec()[1]
                 request_form["optStr"] = 'message=' + text + ';user=' + user
@@ -1308,10 +1307,10 @@ def parse_bot_command_to_event(dec_text):
 
 # CHECK INPUTS/TASK AVAILABLE
 def check_task_is_supported(event):
-    task = get_task(event)
+
     input_value = ""
     input_type = ""
-    print("Received new Task: " + task)
+
     has_i_tag = False
     for tag in event.tags():
         if tag.as_vec()[0] == 'i':
@@ -1329,6 +1328,9 @@ def check_task_is_supported(event):
     if not has_i_tag:
         print("Job Event missing i tag, skipping..")
         return False
+
+    task = get_task(event)
+    print("Received new Task: " + task)
 
     if task not in DVMConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
         print("Task not supported, skipping..")
