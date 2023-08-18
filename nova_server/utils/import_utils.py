@@ -31,6 +31,7 @@ def assert_or_install_dependencies(packages, trainer_name):
         except:
             cuda_available = False
 
+        # remove cuda specific wheel params
         if not cuda_available and 'torch' in name:
             pk[0] = pk[0][:pk[0].find('+cu')]
             for p in pk:
@@ -40,7 +41,13 @@ def assert_or_install_dependencies(packages, trainer_name):
         params.append("--target={}".format(site_package_path))
         adjusted_name = str(name).replace('-', '_')
 
-        if Path(f'{site_package_path}/{adjusted_name}').exists():
+        if (Path(f'{site_package_path})/{adjusted_name}').exists()
+                or any(adjusted_name in x for x in
+                        [x.name for x in
+                            Path(f'{site_package_path}').glob(f'{adjusted_name}-*.dist-info')
+                        ]
+                    )
+            ):
             print(f'Skip installation of {site_package_path}/{name} - package already installed')
         else:
             install_package(pk[0], params)
