@@ -558,7 +558,7 @@ def LLAMA2(message, user, system_prompt=""):
     DATA = ""
 
     payload = {
-        "system_prompt": SYSTEM_PROMPT,
+        "system_prompt": system_prompt,
         "data_desc": DATA_DESC,
         "data": DATA
     }
