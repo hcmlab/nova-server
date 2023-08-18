@@ -1107,7 +1107,7 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
             status == "success" and not is_paid):
 
         if DVMConfig.LNBITS_INVOICE_KEY != "":
-            amount_tag = Tag.parse(["amount", str(amount), bolt11])
+            amount_tag = Tag.parse(["amount", str(amount * 1000), bolt11])
         else:
             amount_tag = Tag.parse(["amount", str(amount * 1000)])  # to millisats
         tags.append(amount_tag)

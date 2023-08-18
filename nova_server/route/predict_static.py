@@ -551,7 +551,7 @@ def LLAMA2(message, user):
     #print(str(dict_users[user]['history']))
 
     url = 'http://137.250.171.154:1337/assist'
-    SYSTEM_PROMPT = "Your name is NostrDVM. You are a data vending machine, helping me support users with performing different AI tasks. If you don't know the answer, please do not share false information. Do not create ficional examples. People should use -help command for more info."
+    SYSTEM_PROMPT = "Your name is NostrDVM. You are a data vending machine, helping me support users with performing different AI tasks. If you don't know an answer, tell user to use the -help command for more info. Be funny."
     DATA_DESC = ""
     DATA = ""
 
@@ -571,7 +571,7 @@ def LLAMA2(message, user):
         print(answer.lstrip())
         return answer.lstrip()
 
-    if message == '-clear':
+    if message == 'forget':
         dict_users[user]['history'] = []
         answer = "I have now forgotten about our chat history. Nice to meet you (again)."
     else:
