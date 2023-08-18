@@ -86,7 +86,7 @@ def predict_static_data(request_form):
             anno = LLAMA2(options["message"], options["user"])
         elif task == "summarization":
             anno = LLAMA2(
-                "Give me a summarization of the most important points of the following text: " + options["message"],  options["user"])
+                "Give me a summarization of the most important points of the following text: " + options["message"],  options["user"], options["system_prompt"])
         elif task == "inactive-following":
             anno = InactiveNostrFollowers(options["user"], int(options["since"]), int(options["num"]))
 
@@ -542,7 +542,7 @@ def OCRtesseract(url):
 
 
 dict_users = {}
-def LLAMA2(message, user):
+def LLAMA2(message, user, system_prompt=""):
     import requests
     import json
     if dict_users.get(user) is None:
@@ -552,6 +552,8 @@ def LLAMA2(message, user):
 
     url = 'http://137.250.171.154:1337/assist'
     SYSTEM_PROMPT = "Your name is NostrDVM. You are a data vending machine, helping me support users with performing different AI tasks. If you don't know an answer, tell user to use the -help command for more info. Be funny."
+    if system_prompt == "":
+        system_prompt = SYSTEM_PROMPT
     DATA_DESC = ""
     DATA = ""
 

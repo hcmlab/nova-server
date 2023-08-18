@@ -635,6 +635,7 @@ def nostr_server():
             request_form["mode"] = "PREDICT_STATIC"
             request_form["trainerFilePath"] = 'summarization'
             text = ""
+            all_texts = ""
             user = event.pubkey().to_hex()
             for tag in event.tags():
                 if tag.as_vec()[0] == 'i':
@@ -649,9 +650,10 @@ def nostr_server():
                         events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
                         if len(events) > 0:
                             text = events[0].content().replace(";", "")
+                    all_texts = all_texts + text +"\n"
                 elif tag.as_vec()[0] == 'p':
                     user = tag.as_vec()[1]
-                request_form["optStr"] = 'message=' + text + ';user=' + user
+                request_form["optStr"] = 'user=' + user + ';system_prompt=' + "just return a summarization of the given input, no smalltalk" + ';message=' + all_texts
 
         elif task == "inactive-following":
             request_form["mode"] = "PREDICT_STATIC"
@@ -989,7 +991,7 @@ def check_event_status(data, original_event_str: str, use_bot=False):
 
     else:
         send_nostr_reply_event(post_processed_content, original_event_str)
-        send_job_status_reaction(original_event, "success")
+        #send_job_status_reaction(original_event, "success")
 
 
 # NIP90 REPLIES
