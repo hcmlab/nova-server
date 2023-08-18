@@ -19,7 +19,7 @@ from Crypto.Cipher import AES
 
 from decord import AudioReader, cpu
 from nostr_sdk import PublicKey, Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, \
-    nip04_decrypt, EventId, Metadata, nostr_sdk
+    nip04_decrypt, EventId, Metadata, nostr_sdk, Alphabet
 import time
 
 from nova_utils.ssi_utils.ssi_anno_utils import Anno
@@ -522,6 +522,7 @@ def nostr_server():
                     if input_type == "url":
                         url = tag.as_vec()[1]
                     elif input_type == "event":
+
                         evt = get_event_by_id(tag.as_vec()[1])
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
                     elif input_type == "job":
@@ -632,6 +633,7 @@ def nostr_server():
 
 
         elif task == "summarization":
+            pattern = r"[^a-zA-Z0-9.!?'\s]"
             request_form["mode"] = "PREDICT_STATIC"
             request_form["trainerFilePath"] = 'summarization'
             text = ""
@@ -641,19 +643,29 @@ def nostr_server():
                 if tag.as_vec()[0] == 'i':
                     input_type = tag.as_vec()[2]
                     if input_type == "text":
-                        text = tag.as_vec()[1].replace(";", "")
+                        text = re.sub(pattern, "", tag.as_vec()[1]).replace("\n", "")
                     elif input_type == "event":
-                        evt = get_event_by_id(tag.as_vec()[1])
-                        text = evt.content().replace(";", "")
+                        id = tag.as_vec()[1]
+                        split = id.split(":")
+                        if len(split) == 3:
+                            id_filter = Filter().kinds([int(split[0])]).author(split[1]).custom_tag(Alphabet.D, [split[2]])
+                            events = client.get_events_of([id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
+                            if len(events) > 0:
+                                evt = events[0]
+                                text = re.sub(pattern, "", evt.content()).replace("\n", "")
+                        else:
+                            evt = get_event_by_id(tag.as_vec()[1])
+                            text = re.sub(pattern, "", evt.content()).replace("\n", "")
+
                     elif input_type == "job":
                         job_id_filter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
                         events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
                         if len(events) > 0:
                             text = events[0].content().replace(";", "")
-                    all_texts = all_texts + text +"\n"
+                    all_texts = all_texts + text
                 elif tag.as_vec()[0] == 'p':
                     user = tag.as_vec()[1]
-                request_form["optStr"] = 'user=' + user + ';system_prompt=' + "just return a summarization of the given input, no smalltalk" + ';message=' + all_texts
+                request_form["optStr"] = 'user=' + user + ';system_prompt=' + "return a summarization of the given input, no smalltalk. input might contain mutliple articles, separated by three new lines" + ';message=' + all_texts
 
         elif task == "inactive-following":
             request_form["mode"] = "PREDICT_STATIC"
