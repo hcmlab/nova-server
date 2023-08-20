@@ -151,6 +151,8 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
         model = "stabilityai/stable-diffusion-xl-base-1.0"
     elif model.__contains__("sd15"):
         model = "runwayml/stable-diffusion-v1-5"
+    elif model.__contains__("sd21"):
+        model = "stabilityai/stable-diffusion-2-1"
     elif model.__contains__("wild"):
         model = "stablydiffusedsWild_351"
     elif model.__contains__("lora"):
@@ -184,7 +186,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
 
     if model == "stabilityai/stable-diffusion-xl-base-1.0":
 
-        base = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
+        base = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True, safety_checker = None, requires_safety_checker = False)
         base.to("cuda")
         loramodelsfolder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
         # base.load_lora_weights(loramodelsfolder + "cyborg_style_xl-alpha.safetensors")
@@ -248,7 +250,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
         base_model = os.environ[
                          'TRANSFORMERS_CACHE'] + "stablediffusionmodels/anyloraCheckpoint_bakedvaeBlessedFp16.safetensors"
 
-        if model == "ghibli" or model == "monster" or model == "chad" or model == "inks":
+        if model == "ghibli" or model == "monster" or model == "chad" or model == "inks" or model == "reuben":
             # local lora models
             if model == "ghibli":
                 model_path = loramodelsfolder + "ghibli_style_offset.safetensors"
@@ -258,8 +260,11 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
                 model_path = loramodelsfolder + "Gigachadv1.safetensors"
             elif model == "inks":
                 model_path = loramodelsfolder + "Inkscenery.safetensors"
+            elif model == "reuben":
+                model_path = loramodelsfolder + "Inkscenery.safetensors"
 
-            pipe = StableDiffusionPipeline.from_single_file(base_model, torch_dtype=torch.float16)
+            pipe = StableDiffusionPipeline.from_single_file(base_model, torch_dtype=torch.float16,
+                                                            safety_checker = None, requires_safety_checker = False)
             pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
             pipe.to("cuda")
             pipe.load_lora_weights(model_path)
@@ -290,7 +295,8 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
     else:
         if model == "runwayml/stable-diffusion-v1-5":
             pipe = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16,
-                                                     use_safetensors=True, variant="fp16")
+                                                     use_safetensors=True, variant="fp16",
+                                                     safety_checker = None, requires_safety_checker = False)
         else:
             pipe = StableDiffusionPipeline.from_single_file(
                 os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/" + model + ".safetensors")
