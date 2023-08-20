@@ -1419,11 +1419,12 @@ def parse_bot_command_to_event(dec_text):
 
 
 
-def check_event_has_not_unifinished_job_input(event, append, client):
-    if not check_task_is_supported(event, client):
+def check_event_has_not_unifinished_job_input(nevent, append, client):
+    tasksupported, task = check_task_is_supported(nevent, client)
+    if not tasksupported:
         return False
 
-    for tag in event.tags():
+    for tag in nevent.tags():
         if tag.as_vec()[0] == 'i':
             if len(tag.as_vec()) < 3:
                 print("Job Event missing/malformed i tag, skipping..")
@@ -1437,9 +1438,9 @@ def check_event_has_not_unifinished_job_input(event, append, client):
                     events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
                     if len(events) == 0:
                         if append:
-                            job = RequiredJobToWatch(event=event, timestamp=Timestamp.now().as_secs())
+                            job = RequiredJobToWatch(event=nevent, timestamp=Timestamp.now().as_secs())
                             jobs_on_hold_list.append(job)
-                            send_job_status_reaction(event, "chain-scheduled", True, 0, client=client)
+                            send_job_status_reaction(nevent, "chain-scheduled", True, 0, client=client)
 
                         return False
     else:
