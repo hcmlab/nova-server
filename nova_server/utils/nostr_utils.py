@@ -663,18 +663,8 @@ def nostr_server():
                     if input_type == "text":
                         text = re.sub(pattern, "", tag.as_vec()[1]).replace("\n", "")
                     elif input_type == "event":
-                        id = tag.as_vec()[1]
-                        split = id.split(":")
-                        if len(split) == 3:
-                            id_filter = Filter().kinds([int(split[0])]).author(split[1]).custom_tag(Alphabet.D, [split[2]])
-                            events = client.get_events_of([id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
-                            if len(events) > 0:
-                                evt = events[0]
-                                text = re.sub(pattern, "", evt.content()).replace("\n", "")
-                        else:
-                            evt = get_event_by_id(tag.as_vec()[1])
-                            text = re.sub(pattern, "", evt.content()).replace("\n", "")
-
+                        evt = get_event_by_id(tag.as_vec()[1])
+                        text = re.sub(pattern, "", evt.content()).replace("\n", "")
                     elif input_type == "job":
                         job_id_filter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
                         events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
@@ -880,7 +870,7 @@ def nostr_server():
 
 
 # SEND AND RECEIVE EVENTS
-def get_event_by_id(event_id_hex, client=None):
+def get_event_by_id(event_id, client=None):
     is_new_client = False
     if client is None:
         keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
@@ -890,8 +880,15 @@ def get_event_by_id(event_id_hex, client=None):
         client.connect()
         is_new_client = True
 
-    id_filter = Filter().id(event_id_hex).limit(1)
-    events = client.get_events_of([id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
+    split = event_id.split(":")
+    if len(split) == 3:
+        id_filter = Filter().kinds([int(split[0])]).author(split[1]).custom_tag(Alphabet.D, [split[2]])
+        events = client.get_events_of([id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
+    else:
+        event_id_filter = Filter().event(EventId.from_hex(event_id)).limit(1)
+        events = client.get_events_of([event_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
+        #id_filter = Filter().id(event_id_hex).limit(1)
+        #events = client.get_events_of([id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
     if is_new_client:
         client.disconnect()
     if len(events) > 0:
@@ -1432,10 +1429,9 @@ def check_task_is_supported(event, client):
                 input_value = tag.as_vec()[1]
                 input_type = tag.as_vec()[2]
                 if input_type == "event":
-                    event_id_filter = Filter().event(EventId.from_hex(tag.as_vec()[1])).limit(1)
-                    events = client.get_events_of([event_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
-                    if len(events) == 0:
-                        return False, ""
+                   events = get_event_by_id(input_value)
+                   if len(events) == 0:
+                       return False, ""
 
         elif tag.as_vec()[0] == 'output':
                 output = tag.as_vec()[1]
