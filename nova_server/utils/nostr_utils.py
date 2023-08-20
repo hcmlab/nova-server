@@ -398,7 +398,7 @@ def nostr_server():
             print("Task not supported on this DVM, skipping..")
     # PREPARE REQUEST FORM AND DATA AND SEND TO PROCESSING
     def create_requestform_from_nostr_event(event, is_bot=False):
-        task = get_task(event)
+        task = get_task(event, client=client)
 
         # Read config.ini file
         config_object = ConfigParser()
@@ -499,9 +499,7 @@ def nostr_server():
             elif input_type == "job":
                 for tag in event.tags():
                     if tag.as_vec()[0] == 'i':
-                        job_id_filter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
-                        events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
-                        evt = events[0]
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
                         text = evt.content()
                         break
 
@@ -520,9 +518,7 @@ def nostr_server():
                         evt = get_event_by_id(tag.as_vec()[1])
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
                     elif input_type == "job":
-                        job_id_filter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
-                        events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
-                        evt = events[0]
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
             request_form["optStr"] = 'url=' + url
 
@@ -541,17 +537,15 @@ def nostr_server():
                     input_type = tag.as_vec()[2]
                     if input_type == "url":
                         url = tag.as_vec()[1]
-                    elif input_type  == "text":
+                    elif input_type == "text":
                         prompt = tag.as_vec()[1]
                     elif input_type == "event":
-
                         evt = get_event_by_id(tag.as_vec()[1])
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
                     elif input_type == "job":
-                        job_id_filter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
-                        events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
-                        evt = events[0]
-                        url = evt.content()
+                         evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
+                         if evt is not None:
+                             url = evt.content()
                 elif tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == "negative_prompt":
                         negative_prompt = tag.as_vec()[2]
@@ -591,10 +585,8 @@ def nostr_server():
                                            "Reply only with comma-seperated lists, no smalltalk")
                         prompt = llamalist.replace("\n", ",")
                     elif input_type == "job":
-                        job_id_filter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
-                        events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
-                        if len(events) > 0:
-                            evt = events[0]
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
+                        if evt is not None:
                             llamalist = LLAMA2("Give me the keywords of the following input: "+ evt.content(), ""
                                                ,"Reply only with comma-seperated lists, no smalltak")
                             promptarr = llamalist.split(":")
@@ -614,10 +606,10 @@ def nostr_server():
                         width = tag.as_vec()[2]
                         height = tag.as_vec()[3]
                     elif tag.as_vec()[1] == "ratio":
-                        if len(tag.as_vec()) > 2:
+                        if len(tag.as_vec()) > 3:
                             ratio_width = (tag.as_vec()[2])
                             ratio_height = (tag.as_vec()[3])
-                        elif len(tag.as_vec()) == 2:
+                        elif len(tag.as_vec()) == 3:
                             split = tag.as_vec()[2].split(":")
                             ratio_width = split[0]
                             ratio_height = split[1]
@@ -646,9 +638,7 @@ def nostr_server():
                         evt = get_event_by_id(tag.as_vec()[1])
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
                     elif input_type == "job":
-                        job_id_filter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
-                        events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
-                        evt = events[0]
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
                         url = evt.content()
                 elif tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == "upscale":
@@ -685,10 +675,9 @@ def nostr_server():
                         evt = get_event_by_id(tag.as_vec()[1])
                         text = re.sub(pattern, "", evt.content()).replace("\n", "")
                     elif input_type == "job":
-                        job_id_filter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
-                        events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
-                        if len(events) > 0:
-                            text = events[0].content().replace(";", "")
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
+                        if evt is not None:
+                            text = evt.content().replace(";", "")
                     all_texts = all_texts + text
                 elif tag.as_vec()[0] == 'p':
                     user = tag.as_vec()[1]
@@ -847,7 +836,7 @@ def nostr_server():
     def do_work(job_event, is_from_bot=False):
         if (65002 <= job_event.kind() <= 66000) or job_event.kind() == 4 or job_event.kind() == 68001:
             request_form = create_requestform_from_nostr_event(job_event, is_from_bot)
-            task = get_task(job_event)
+            task = get_task(job_event, client=client)
             if task == "speech-to-text":
                 print("[Nostr] Adding Nostr speech-to-text Job event: " + job_event.as_json())
                 if organize_input_data(job_event, request_form) is None:
@@ -922,6 +911,35 @@ def get_event_by_id(event_id, client=None):
     else:
         return None
 
+def get_referenced_event_by_id(event_id, kinds=None, client=None):
+    #return the event this event is referred in
+    if kinds is None:
+        kinds = []
+    is_new_client = False
+    if client is None:
+        keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+        client = Client(keys)
+        for relay in DVMConfig.RELAY_LIST:
+            client.add_relay(relay)
+        client.connect()
+        is_new_client = True
+    if kinds is None:
+        kinds = []
+    if len(kinds) > 0:
+        job_id_filter = Filter().kinds(kinds).event(EventId.from_hex(event_id)).limit(1)
+    else:
+        job_id_filter = Filter().event(EventId.from_hex(event_id)).limit(1)
+
+
+
+    events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
+
+    if is_new_client:
+        client.disconnect()
+    if len(events) > 0:
+        return events[0]
+    else:
+        return None
 
 def send_event(event, client=None):
     relays = []
@@ -957,7 +975,7 @@ def send_event(event, client=None):
 
 
 # GET INFO ON TASK
-def get_task(event):
+def get_task(event, client):
     if event.kind() == 66000:  # use this for events that have no id yet
         for tag in event.tags():
             if tag.as_vec()[0] == 'j':
@@ -1010,6 +1028,14 @@ def get_task(event):
                     file_type = check_url_is_readable(tag.as_vec()[1])
                     if file_type == "image":
                         has_image_tag = True
+                elif tag.as_vec()[2] == "job":
+                    evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
+                    if evt is not None:
+                        file_type = check_url_is_readable(evt.content())
+                        if file_type == "image":
+                            has_image_tag = True
+
+
         
         if has_image_tag:
             return "image-to-image"
@@ -1134,7 +1160,7 @@ def send_nostr_reply_event(content, original_event_as_str):
 
 def send_job_status_reaction(original_event, status, is_paid=True, amount=0, client=None, content=None):
     altdesc = "This is a reaction to a NIP90 DVM AI task. "
-    task = get_task(original_event)
+    task = get_task(original_event, client=client)
     if status == "processing":
         altdesc = "NIP90 DVM AI task " + task + " started processing. "
         reaction = altdesc + emoji.emojize(":thumbs_up:")
@@ -1442,11 +1468,9 @@ def check_event_has_not_unifinished_job_input(nevent, append, client):
             else:
                 input = tag.as_vec()[1]
                 input_type = tag.as_vec()[2]
-
                 if input_type == "job":
-                    job_id_filter = Filter().kind(65001).event(EventId.from_hex(input)).limit(1)
-                    events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
-                    if len(events) == 0:
+                    evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
+                    if evt is not None:
                         if append:
                             job = RequiredJobToWatch(event=nevent, timestamp=Timestamp.now().as_secs())
                             jobs_on_hold_list.append(job)
@@ -1482,7 +1506,7 @@ def check_task_is_supported(event, client):
                     print("Output format not supported, skipping..")
                     return False, ""
 
-    task = get_task(event)
+    task = get_task(event, client=client)
     if task not in DVMConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
         return False, task
     elif task == "translation" and (
