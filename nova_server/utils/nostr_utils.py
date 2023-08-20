@@ -1392,6 +1392,9 @@ def parse_bot_command_to_event(dec_text):
 
 
 def check_event_has_not_unifinished_job_input(event, append, client):
+    if not check_task_is_supported(event, client):
+        return False
+
     for tag in event.tags():
         if tag.as_vec()[0] == 'i':
             if len(tag.as_vec()) < 3:
@@ -1400,6 +1403,7 @@ def check_event_has_not_unifinished_job_input(event, append, client):
             else:
                 input = tag.as_vec()[1]
                 input_type = tag.as_vec()[2]
+
                 if input_type == "job":
                     job_id_filter = Filter().kind(65001).event(EventId.from_hex(input)).limit(1)
                     events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
