@@ -587,17 +587,22 @@ def nostr_server():
                         prompt = tag.as_vec()[1]
                     elif input_type == "event":
                         evt = get_event_by_id(tag.as_vec()[1])
-                        llamalist = LLAMA2(evt.content(), "",
-                                           "return a comma seperated list of the most important keywords from the given input, no smalltalk.")
+                        llamalist = LLAMA2("Give me the keywords of the following input: "  + evt.content(), "",
+                                           "Reply only with comma-seperated lists, no smalltalk")
                         prompt = llamalist.replace("\n", ",")
                     elif input_type == "job":
                         job_id_filter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
                         events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
                         if len(events) > 0:
                             evt = events[0]
-                            llamalist = LLAMA2(evt.content(), "" ,"return a comma seperated list of the most important keywords from the given input, no smalltalk.")
-                            print(llamalist)
-                            prompt = llamalist.replace("\n", ",")
+                            llamalist = LLAMA2("Give me the keywords of the following input: "+ evt.content(), ""
+                                               ,"Reply only with comma-seperated lists, no smalltak")
+                            promptarr = llamalist.split(":")
+                            if len(promptarr) > 1:
+                                prompt = promptarr[1].lstrip("\n").replace("\n", ",")
+                            else:
+                                prompt = promptarr[0].replace("\n", ",")
+
                         else:
                             prompt = ""
                 elif tag.as_vec()[0] == 'param':
@@ -609,8 +614,13 @@ def nostr_server():
                         width = tag.as_vec()[2]
                         height = tag.as_vec()[3]
                     elif tag.as_vec()[1] == "ratio":
-                        ratio_width = (tag.as_vec()[2])
-                        ratio_height = (tag.as_vec()[3])
+                        if len(tag.as_vec()) > 2:
+                            ratio_width = (tag.as_vec()[2])
+                            ratio_height = (tag.as_vec()[3])
+                        elif len(tag.as_vec()) == 2:
+                            split = tag.as_vec()[2].split(":")
+                            ratio_width = split[0]
+                            ratio_height = split[1]
                     elif tag.as_vec()[1] == "upscale":
                         upscale = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "model":
