@@ -1429,8 +1429,10 @@ def check_task_is_supported(event, client):
                 input_value = tag.as_vec()[1]
                 input_type = tag.as_vec()[2]
                 if input_type == "event":
-                   events = get_event_by_id(input_value)
-                   if len(events) == 0:
+                   evt = get_event_by_id(input_value)
+                   print(evt.as_json())
+                   if evt == None:
+                       print("Event not found")
                        return False, ""
 
         elif tag.as_vec()[0] == 'output':
