@@ -350,11 +350,13 @@ def nostr_server():
         is_whitelisted = user[2]
         is_blacklisted = user[3]
         task_supported, task = check_task_is_supported(event, client=client)
+
         if is_blacklisted:
             send_job_status_reaction(event, "error", client=client)
             print("[Nostr] Request by blacklisted user, skipped")
 
         elif task_supported:
+            print("Received new Task: " + task)
             amount = get_amount_per_task(task)
             if amount is None:
                 return
@@ -392,6 +394,8 @@ def nostr_server():
                     print("[Nostr] Requesting payment for Event: " + event.id().to_hex())
                     send_job_status_reaction(event, "payment-required",
                                              False, amount, client=client)
+        else:
+            print("Task not supported on this DVM, skipping..")
     # PREPARE REQUEST FORM AND DATA AND SEND TO PROCESSING
     def create_requestform_from_nostr_event(event, is_bot=False):
         task = get_task(event)
@@ -1442,10 +1446,8 @@ def check_task_is_supported(event, client):
                     return False, ""
 
     task = get_task(event)
-    print("Received new Task: " + task)
-
     if task not in DVMConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
-        print("Task not supported, skipping..")
+
         return False, task
     elif task == "translation" and (
             input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
