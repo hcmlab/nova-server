@@ -587,7 +587,7 @@ def nostr_server():
                         prompt = tag.as_vec()[1]
                     elif input_type == "event":
                         evt = get_event_by_id(tag.as_vec()[1])
-                        llamalist = LLAMA2(evt.content(),
+                        llamalist = LLAMA2(evt.content(), "",
                                            "return a comma seperated list of the most important keywords from the given input, no smalltalk.")
                         prompt = llamalist
                     elif input_type == "job":
@@ -595,7 +595,7 @@ def nostr_server():
                         events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
                         if len(events) > 0:
                             evt = events[0]
-                            llamalist = LLAMA2(evt.content(),"return a comma seperated list of the most important keywords from the given input, no smalltalk.")
+                            llamalist = LLAMA2(evt.content(), "" ,"return a comma seperated list of the most important keywords from the given input, no smalltalk.")
                             print(llamalist)
                             prompt = llamalist
                         else:
