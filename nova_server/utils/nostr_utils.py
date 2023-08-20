@@ -58,8 +58,13 @@ class JobToWatch:
     expires: int
     from_bot: bool
 
+@dataclass
+class RequiredJobToWatch:
+    event: Event
+    timestamp: int
 
 job_list = []
+jobs_on_hold_list = []
 
 
 # init_logger(LogLevel.DEBUG)
@@ -69,6 +74,7 @@ def nostr_server():
     sk = keys.secret_key()
     pk = keys.public_key()
     print(f"Nostr Bot/DVM public key: {pk.to_bech32()}, Hex: {pk.to_hex()} ")
+    print(f"Supported DVM Jobs: {DVMConfig.SUPPORTED_TASKS}")
     client = Client(keys)
     for relay in DVMConfig.RELAY_LIST:
         client.add_relay(relay)
@@ -84,52 +90,9 @@ def nostr_server():
     class NotificationHandler(HandleNotification):
         def handle(self, relay_url, event):
             if 65002 <= event.kind() <= 66000:
-                user = get_or_add_user(event.pubkey().to_hex())
                 print(f"[Nostr] Received new NIP90 Job Request from {relay_url}: {event.as_json()}")
-                is_whitelisted = user[2]
-                is_blacklisted = user[3]
-                if is_blacklisted:
-                    send_job_status_reaction(event, "error", client=client)
-                    print("[Nostr] Request by blacklisted user, skipped")
-                elif check_task_is_supported(event):
-                    task = get_task(event)
-                    amount = get_amount_per_task(task)
-                    if amount is None:
-                        return
-
-                    if is_whitelisted or task == "chat":
-                        print("[Nostr] Whitelisted for task " + task + ". Starting processing..")
-                        send_job_status_reaction(event, "processing", True, 0, client=client)
-                        do_work(event, is_from_bot=False)
-                    # otherwise send payment request
-                    else:
-                        bid = 0
-                        for tag in event.tags():
-                            if tag.as_vec()[0] == 'bid':
-                                bid = int(tag.as_vec()[1])
-
-                        print("[Nostr][Payment required] New Nostr " + task + " Job event: " + event.as_json())
-                        if bid > 0:
-                            bid_offer = int(bid / 1000)
-                            if (bid_offer > DVMConfig.AUTOPROCESS_MIN_AMOUNT or
-                                    bid_offer < DVMConfig.AUTOPROCESS_MAX_AMOUNT):
-                                print("[Nostr][Auto-processing: Payment suspended to end] Job event: " + str(
-                                    event.as_json()))
-                                do_work(event, is_from_bot=False)
-                            else:
-                                if bid_offer >= amount:
-                                    send_job_status_reaction(event, "payment-required", False,
-                                                             bid_offer,
-                                                             client=client)
-                                else:
-                                    send_job_status_reaction(event, "payment-rejected", False,
-                                                             amount,
-                                                             client=client)  # Reject and tell user minimum amount
-
-                        else:  # If there is no bid, just request server rate from user
-                            print("[Nostr] Requesting payment for Event: " + event.id().to_hex())
-                            send_job_status_reaction(event, "payment-required",
-                                                     False, amount, client=client)
+                if check_event_has_not_unifinished_job_input(event,True, client):
+                    handle_nip90_job_event(event)
 
             elif event.kind() == 4:
                 sender = event.pubkey().to_hex()
@@ -308,7 +271,8 @@ def nostr_server():
                                 elif tag.as_vec()[0] == 'e':
                                     job_event = get_event_by_id(tag.as_vec()[1])
 
-                            if job_event is not None and check_task_is_supported(job_event):
+                            task_supported, task = check_task_is_supported(job_event, client=client)
+                            if job_event is not None and task_supported:
                                 if amount <= invoice_amount:
                                     print("[Nostr] Payment-request fulfilled...")
                                     send_job_status_reaction(job_event, "processing", client=client)
@@ -328,6 +292,9 @@ def nostr_server():
                                     send_job_status_reaction(job_event, "payment-rejected",
                                                              False, invoice_amount, client=client)
                                     print("[Nostr] Invoice was not paid sufficiently")
+
+
+
                         elif zapped_event.kind() == 4 and not DVMConfig.PASSIVE_MODE:
                             required_amount = 50
                             job_event = None
@@ -376,6 +343,55 @@ def nostr_server():
         def handle_msg(self, relay_url, msg):
             return
 
+
+
+    def handle_nip90_job_event(event):
+        user = get_or_add_user(event.pubkey().to_hex())
+        is_whitelisted = user[2]
+        is_blacklisted = user[3]
+        task_supported, task = check_task_is_supported(event, client=client)
+        if is_blacklisted:
+            send_job_status_reaction(event, "error", client=client)
+            print("[Nostr] Request by blacklisted user, skipped")
+
+        elif task_supported:
+            amount = get_amount_per_task(task)
+            if amount is None:
+                return
+
+            if is_whitelisted or task == "chat":
+                print("[Nostr] Whitelisted for task " + task + ". Starting processing..")
+                send_job_status_reaction(event, "processing", True, 0, client=client)
+                do_work(event, is_from_bot=False)
+            # otherwise send payment request
+            else:
+                bid = 0
+                for tag in event.tags():
+                    if tag.as_vec()[0] == 'bid':
+                        bid = int(tag.as_vec()[1])
+
+                print("[Nostr][Payment required] New Nostr " + task + " Job event: " + event.as_json())
+                if bid > 0:
+                    bid_offer = int(bid / 1000)
+                    if (bid_offer > DVMConfig.AUTOPROCESS_MIN_AMOUNT or
+                            bid_offer < DVMConfig.AUTOPROCESS_MAX_AMOUNT):
+                        print("[Nostr][Auto-processing: Payment suspended to end] Job event: " + str(
+                            event.as_json()))
+                        do_work(event, is_from_bot=False)
+                    else:
+                        if bid_offer >= amount:
+                            send_job_status_reaction(event, "payment-required", False,
+                                                     bid_offer,
+                                                     client=client)
+                        else:
+                            send_job_status_reaction(event, "payment-rejected", False,
+                                                     amount,
+                                                     client=client)  # Reject and tell user minimum amount
+
+                else:  # If there is no bid, just request server rate from user
+                    print("[Nostr] Requesting payment for Event: " + event.id().to_hex())
+                    send_job_status_reaction(event, "payment-required",
+                                             False, amount, client=client)
     # PREPARE REQUEST FORM AND DATA AND SEND TO PROCESSING
     def create_requestform_from_nostr_event(event, is_bot=False):
         task = get_task(event)
@@ -840,9 +856,22 @@ def nostr_server():
                     event = get_event_by_id(job.event_id)
                     send_job_status_reaction(event, "processing", True, 0, client=client)
                     do_work(event, is_from_bot=False)
+                elif check_bolt11_ln_bits_is_paid(job.payment_hash) is None: #invoice expired
+                    job_list.remove(job)
+                    #event = get_event_by_id(job.event_id)
+                    #send_job_status_reaction(event, "invoice-expired", False, 0, client=client)
 
             if Timestamp.now().as_secs() > job.expires:
                 job_list.remove(job)
+
+        for job in jobs_on_hold_list:
+            if check_event_has_not_unifinished_job_input(job.event, False, client=client):
+                handle_nip90_job_event(job.event)
+                jobs_on_hold_list.remove(job)
+
+            if Timestamp.now().as_secs() > job.timestamp + 60*20: #remove jobs to look for after 20 minutes..
+                jobs_on_hold_list.remove(job)
+
 
         #if len(job_list) > 0:
         #    print(str(job_list))
@@ -1074,6 +1103,9 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
     elif status == "success":
         altdesc = "NIP90 DVM AI task " + task + " finished successfully. "
         reaction = altdesc + emoji.emojize(":call_me_hand:")
+    elif status == "chain-scheduled":
+        altdesc = "NIP90 DVM AI task " + task + " Chain Task scheduled"
+        reaction = altdesc + emoji.emojize(":thumbs_up:")
     elif status == "error":
         altdesc = "NIP90 DVM AI task " + task + " had an error. "
         if content is None:
@@ -1358,8 +1390,32 @@ def parse_bot_command_to_event(dec_text):
         return [j_tag, i_tag]
 
 
+
+def check_event_has_not_unifinished_job_input(event, append, client):
+    for tag in event.tags():
+        if tag.as_vec()[0] == 'i':
+            if len(tag.as_vec()) < 3:
+                print("Job Event missing/malformed i tag, skipping..")
+                return False
+            else:
+                input = tag.as_vec()[1]
+                input_type = tag.as_vec()[2]
+                if input_type == "job":
+                    job_id_filter = Filter().kind(65001).event(EventId.from_hex(input)).limit(1)
+                    events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
+                    if len(events) == 0:
+                        if append:
+                            job = RequiredJobToWatch(event=event, timestamp=Timestamp.now().as_secs())
+                            jobs_on_hold_list.append(job)
+                            send_job_status_reaction(event, "chain-scheduled", True, 0, client=client)
+
+                        return False
+    else:
+        return True
+
+
 # CHECK INPUTS/TASK AVAILABLE
-def check_task_is_supported(event):
+def check_task_is_supported(event, client):
 
     input_value = ""
     input_type = ""
@@ -1367,41 +1423,46 @@ def check_task_is_supported(event):
         if tag.as_vec()[0] == 'i':
             if len(tag.as_vec()) < 3:
                 print("Job Event missing/malformed i tag, skipping..")
-                return False
+                return False, ""
             else:
                 input_value = tag.as_vec()[1]
                 input_type = tag.as_vec()[2]
+                if input_type == "event":
+                    event_id_filter = Filter().event(EventId.from_hex(tag.as_vec()[1])).limit(1)
+                    events = client.get_events_of([event_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
+                    if len(events) == 0:
+                        return False, ""
+
         elif tag.as_vec()[0] == 'output':
-            output = tag.as_vec()[1]
-            if not (output == "text/plain" or output == "text/json" or output == "json"):
-                print("Output format not supported, skipping..")
-                return False
+                output = tag.as_vec()[1]
+                if not (output == "text/plain" or output == "text/json" or output == "json"):
+                    print("Output format not supported, skipping..")
+                    return False, ""
 
     task = get_task(event)
     print("Received new Task: " + task)
 
     if task not in DVMConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
         print("Task not supported, skipping..")
-        return False
+        return False, task
     elif task == "translation" and (
             input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
-        return False
-    if task == "translation" and input_type != "text" and len(
-            event.content) > 4999:  # Google Services have a limit of 5000 signs
-        return False
+        return False, task
+    if task == "translation" and input_type != "text" and len(event.content()) > 4999:  # Google Services have a limit of 5000 signs
+        return False, task
     elif task == "summarization" and (
             input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
-        return False
+        return False, task
 
     elif task == "speech-to-text" and (
             input_type != "event" and input_type != "job" and input_type != "url"):  # The input types per task
-        return False
+        return False, task
     elif task == "image-upscale" and (input_type != "event" and input_type != "job" and input_type != "url"):
-        return False
+        return False, task
     if input_type == 'url' and check_url_is_readable(input_value) is None:
-        return False
+        return False, task
 
-    return True
+    return True, task
 
 
 def check_url_is_readable(url):
@@ -1497,7 +1558,7 @@ def check_bolt11_ln_bits_is_paid(payment_hash):
         obj = json.loads(res.text)
         return obj["paid"]
     except Exception as e:
-        print(e)
+        #print("Exception checking invoice is paid:" + e)
         return None
 
 
