@@ -428,6 +428,7 @@ def nostr_server():
 
             for tag in event.tags():
                 if tag.as_vec()[0] == 'param':
+
                     print(tag.as_vec())
                     param = tag.as_vec()[1]
                     if param == "range":  # check for paramtype
@@ -586,13 +587,17 @@ def nostr_server():
                         prompt = tag.as_vec()[1]
                     elif input_type == "event":
                         evt = get_event_by_id(tag.as_vec()[1])
-                        prompt = evt.content()
+                        llamalist = LLAMA2(evt.content(),
+                                           "return a comma seperated list of the most important keywords from the given input, no smalltalk.")
+                        prompt = llamalist
                     elif input_type == "job":
                         job_id_filter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
                         events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
                         if len(events) > 0:
                             evt = events[0]
-                            prompt = evt.content()
+                            llamalist = LLAMA2(evt.content(),"return a comma seperated list of the most important keywords from the given input, no smalltalk.")
+                            print(llamalist)
+                            prompt = llamalist
                         else:
                             prompt = ""
                 elif tag.as_vec()[0] == 'param':
@@ -709,6 +714,15 @@ def nostr_server():
                 input_type = tag.as_vec()[2]
                 break
 
+        if input_type == "event": #NIP94 event
+            evt = get_event_by_id(input_value)
+            if evt is not None:
+                if evt.kind() == 1063:
+                    for tag in evt.tags():
+                        if tag.as_vec()[0] == 'url':
+                            input_type = "url"
+                            input_value = tag.as_vec()[1]
+
         if input_type == "url":
             if not os.path.exists(data_dir + '\\' + request_form["database"] + '\\' + session):
                 os.mkdir(data_dir + '\\' + request_form["database"] + '\\' + session)
@@ -777,47 +791,47 @@ def nostr_server():
                     print(str(input_value).lower())
                     return None
 
-                filename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
-                    "roles"] + '.original' + file_type + '.' + ext
-                print(filename)
+            filename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
+                "roles"] + '.original' + file_type + '.' + ext
+            print(filename)
 
-                try:
-                    if not os.path.exists(filename):
-                        file = open(filename, 'wb')
-                        for chunk in req.iter_content(100000):
-                            file.write(chunk)
-                        file.close()
-                except Exception as e:
-                    print(e)
             try:
-                file_reader = AudioReader(filename, ctx=cpu(0), mono=False)
-                duration = file_reader.duration()
+                if not os.path.exists(filename):
+                    file = open(filename, 'wb')
+                    for chunk in req.iter_content(100000):
+                        file.write(chunk)
+                    file.close()
             except Exception as e:
                 print(e)
-                return None
+        try:
+            file_reader = AudioReader(filename, ctx=cpu(0), mono=False)
+            duration = file_reader.duration()
+        except Exception as e:
+            print(e)
+            return None
 
-            print("Duration of the Media file: " + str(duration))
-            if float(request_form['endTime']) == 0.0:
-                end_time = float(duration)
-            elif float(request_form['endTime']) > duration:
-                end_time = float(duration)
-            else:
-                end_time = float(request_form['endTime'])
-            if float(request_form['startTime']) < 0.0 or float(request_form['startTime']) > end_time:
-                start_time = 0.0
-            else:
-                start_time = float(request_form['startTime'])
+        print("Duration of the Media file: " + str(duration))
+        if float(request_form['endTime']) == 0.0:
+            end_time = float(duration)
+        elif float(request_form['endTime']) > duration:
+            end_time = float(duration)
+        else:
+            end_time = float(request_form['endTime'])
+        if float(request_form['startTime']) < 0.0 or float(request_form['startTime']) > end_time:
+            start_time = 0.0
+        else:
+            start_time = float(request_form['startTime'])
 
-            print("Converting from " + str(start_time) + " until " + str(end_time))
-            # for now we cut and convert all files to mp3
-            finalfilename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
-                "roles"] + '.' + request_form["streamName"] + '.mp3'
-            fs, x = ffmpegio.audio.read(filename, ss=start_time, to=end_time, sample_fmt='dbl', ac=1)
-            ffmpegio.audio.write(finalfilename, fs, x)
+        print("Converting from " + str(start_time) + " until " + str(end_time))
+        # for now we cut and convert all files to mp3
+        finalfilename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
+            "roles"] + '.' + request_form["streamName"] + '.mp3'
+        fs, x = ffmpegio.audio.read(filename, ss=start_time, to=end_time, sample_fmt='dbl', ac=1)
+        ffmpegio.audio.write(finalfilename, fs, x)
 
-            if not db_entry_exists(request_form, session, "name", "Sessions"):
-                duration = end_time - start_time
-                add_new_session_to_db(request_form, duration)
+        if not db_entry_exists(request_form, session, "name", "Sessions"):
+            duration = end_time - start_time
+            add_new_session_to_db(request_form, duration)
         return True
 
     def do_work(job_event, is_from_bot=False):
@@ -886,13 +900,11 @@ def get_event_by_id(event_id, client=None):
 
     split = event_id.split(":")
     if len(split) == 3:
-        id_filter = Filter().kinds([int(split[0])]).author(split[1]).custom_tag(Alphabet.D, [split[2]])
+        id_filter = Filter().author(split[1]).custom_tag(Alphabet.D, [split[2]])
         events = client.get_events_of([id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
     else:
-        event_id_filter = Filter().event(EventId.from_hex(event_id)).limit(1)
-        events = client.get_events_of([event_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
-        #id_filter = Filter().id(event_id_hex).limit(1)
-        #events = client.get_events_of([id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
+        id_filter = Filter().id(event_id).limit(1)
+        events = client.get_events_of([id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
     if is_new_client:
         client.disconnect()
     if len(events) > 0:
@@ -959,6 +971,21 @@ def get_task(event):
                         return "image-to-text"
                     else:
                         return "unknown job"
+                elif tag.as_vec()[2] == "event":
+                    evt = get_event_by_id(tag.as_vec()[1])
+                    if evt is not None:
+                        if evt.kind() == 1063:
+                            for tag in evt.tags():
+                                if tag.as_vec()[0] == 'url':
+
+                                    file_type = check_url_is_readable(tag.as_vec()[1])
+                                    if file_type == "audio" or file_type == "video":
+
+                                        return "speech-to-text"
+                                    elif file_type == "image":
+                                        return "image-to-text"
+                                    else:
+                                        return "unknown job"
                 else:
                     return "unknown type"
     elif event.kind() == 65003:
@@ -1434,7 +1461,6 @@ def check_task_is_supported(event, client):
                 input_type = tag.as_vec()[2]
                 if input_type == "event":
                    evt = get_event_by_id(input_value)
-                   print(evt.as_json())
                    if evt == None:
                        print("Event not found")
                        return False, ""
@@ -1447,7 +1473,6 @@ def check_task_is_supported(event, client):
 
     task = get_task(event)
     if task not in DVMConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
-
         return False, task
     elif task == "translation" and (
             input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
