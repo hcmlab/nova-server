@@ -155,6 +155,8 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
         model = "stabilityai/stable-diffusion-2-1"
     elif model.__contains__("wild"):
         model = "stablydiffusedsWild_351"
+    elif model.__contains__("dreamshaper"):
+        model = "dreamshaper_8"
     elif model.__contains__("lora"):
         model = model
     else:
@@ -166,9 +168,10 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
     mwidth = 768
     mheight = 768
 
-    if model == "stablydiffusedsWild_351" or model == "realisticVisionV51_v51VAE-inpainting" or model == "realisticVisionV51_v51VAE" or model == "stabilityai/stable-diffusion-xl-base-1.0":
+    if  model == "dreamshaper_8" or model == "stabilityai/stable-diffusion-xl-base-1.0":
         mwidth = 1024
         mheight = 1024
+
 
     height = min(int(heightst), mheight)
     width = min(int(widthst), mwidth)
@@ -200,10 +203,10 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
             variant="fp16",
         )
 
-        # refiner.load_lora_weights(loramodelsfolder + "cyborg_style_xl-alpha.safetensors")
-        # refiner.load_lora_weights(loramodelsfolder + "ghibli_last.safetensors")
-        # refiner.unet = torch.compile(refiner.unet, mode="reduce-overhead", fullgraph=True)
+        #refiner.load_lora_weights(loramodelsfolder + "AndreiTarkovskyStyle.safetensors")
+        #refiner.unet = torch.compile(refiner.unet, mode="reduce-overhead", fullgraph=True)
         # Define how many steps and what % of steps to be run on each experts (80/20) here
+
         n_steps = 35
         high_noise_frac = 0.8
         image = base(
@@ -250,7 +253,8 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
         base_model = os.environ[
                          'TRANSFORMERS_CACHE'] + "stablediffusionmodels/anyloraCheckpoint_bakedvaeBlessedFp16.safetensors"
 
-        if model == "ghibli" or model == "monster" or model == "chad" or model == "inks" or model == "reuben":
+
+        if model == "ghibli" or model == "monster" or model == "chad" or model == "inks" or model == "reubenwu":
             # local lora models
             if model == "ghibli":
                 model_path = loramodelsfolder + "ghibli_style_offset.safetensors"
@@ -260,13 +264,18 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
                 model_path = loramodelsfolder + "Gigachadv1.safetensors"
             elif model == "inks":
                 model_path = loramodelsfolder + "Inkscenery.safetensors"
-            elif model == "reuben":
-                model_path = loramodelsfolder + "Inkscenery.safetensors"
+
+            elif model == "reubenwu":
+                model_path = loramodelsfolder + "ReubenWu.safetensors"
+                #base_model =  "stabilityai/stable-diffusion-2-1"
+
+
 
             pipe = StableDiffusionPipeline.from_single_file(base_model, torch_dtype=torch.float16,
                                                             safety_checker = None, requires_safety_checker = False)
             pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
             pipe.to("cuda")
+
             pipe.load_lora_weights(model_path)
         else:
             # huggingface repo lora models
