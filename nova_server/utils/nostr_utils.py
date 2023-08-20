@@ -63,13 +63,12 @@ job_list = []
 
 
 # init_logger(LogLevel.DEBUG)
-
 def nostr_server():
     global job_list
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
     sk = keys.secret_key()
     pk = keys.public_key()
-    print(f"Nostr Bot/DVM public key: {pk.to_bech32()}")
+    print(f"Nostr Bot/DVM public key: {pk.to_bech32()}, Hex: {pk.to_hex()} ")
     client = Client(keys)
     for relay in DVMConfig.RELAY_LIST:
         client.add_relay(relay)
@@ -514,13 +513,15 @@ def nostr_server():
             negative_prompt = ""
             strength = 0.5
             guidance_scale = 7.5
-            model = "sdxl"
+            model = "pix2pix"
 
             for tag in event.tags():
                 if tag.as_vec()[0] == 'i':
                     input_type = tag.as_vec()[2]
                     if input_type == "url":
                         url = tag.as_vec()[1]
+                    elif input_type  == "text":
+                        prompt = tag.as_vec()[1]
                     elif input_type == "event":
 
                         evt = get_event_by_id(tag.as_vec()[1])
@@ -531,9 +532,7 @@ def nostr_server():
                         evt = events[0]
                         url = evt.content()
                 elif tag.as_vec()[0] == 'param':
-                    if tag.as_vec()[1] == "prompt":
-                        prompt = tag.as_vec()[2]
-                    elif tag.as_vec()[1] == "negative_prompt":
+                    if tag.as_vec()[1] == "negative_prompt":
                         negative_prompt = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "strength":
                         strength = float(tag.as_vec()[2])
@@ -571,8 +570,11 @@ def nostr_server():
                     elif input_type == "job":
                         job_id_filter = Filter().kind(65001).event(EventId.from_hex(tag.as_vec()[1])).limit(1)
                         events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
-                        evt = events[0]
-                        prompt = evt.content()
+                        if len(events) > 0:
+                            evt = events[0]
+                            prompt = evt.content()
+                        else:
+                            prompt = ""
                 elif tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == "prompt":
                         extra_prompt = tag.as_vec()[2]
@@ -934,7 +936,18 @@ def get_task(event):
     elif event.kind() == 65004:
         return "translation"
     elif event.kind() == 65005:
-        return "text-to-image"
+        has_image_tag = False
+        for tag in event.tags():
+            if tag.as_vec()[0] == "i":
+                if tag.as_vec()[2] == "url":
+                    file_type = check_url_is_readable(tag.as_vec()[1])
+                    if file_type == "image":
+                        has_image_tag = True
+        
+        if has_image_tag:
+            return "image-to-image"
+        else:
+            return "text-to-image"
     elif event.kind() == 65006:
         return "event-list-generation"
     else:
@@ -1258,8 +1271,8 @@ def parse_bot_command_to_event(dec_text):
                     tags.append(param_tag)
                 elif i.startswith("prompt "):
                     prompt = i.replace("prompt ", "")
-                    param_tag = Tag.parse(["param", "prompt", prompt])
-                    tags.append(param_tag)
+                    i_tag_2 = Tag.parse(["i", prompt, "text"])
+                    tags.append(i_tag_2)
                 elif i.startswith("strength "):
                     strength = i.replace("strength ", "")
                     param_tag = Tag.parse(["param", "strength", strength])
@@ -1370,15 +1383,20 @@ def check_task_is_supported(event):
     if task not in DVMConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
         print("Task not supported, skipping..")
         return False
-    if task == "translation" and (
+    elif task == "translation" and (
             input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
         return False
-    # if task == "translation" and len(event.content) > 4999:  # Google Services have a limit of 5000 signs
-    #    return False
-    if task == "speech-to-text" and (
+    if task == "translation" and input_type != "text" and len(
+            event.content) > 4999:  # Google Services have a limit of 5000 signs
+        return False
+    elif task == "summarization" and (
+            input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
+        return False
+
+    elif task == "speech-to-text" and (
             input_type != "event" and input_type != "job" and input_type != "url"):  # The input types per task
         return False
-    if task == "image-upscale" and (input_type != "event" and input_type != "job" and input_type != "url"):
+    elif task == "image-upscale" and (input_type != "event" and input_type != "job" and input_type != "url"):
         return False
     if input_type == 'url' and check_url_is_readable(input_value) is None:
         return False
@@ -1716,8 +1734,11 @@ def nip89_announce_tasks():
     k65003_tag = Tag.parse(["k", 65003])
     k65004_tag = Tag.parse(["k", 65004])
     k65005_tag = Tag.parse(["k", 65005])
+    d_tag = Tag.parse(["d", "x4jufeq1i2m42f"])
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    event = EventBuilder(31990, "", [k65002_tag, k65003_tag ,k65004_tag, k65005_tag]).to_event(keys)
+    content = "name\":\"NOSTR AI DVM\",\"image\":\"https://cdn.nostr.build/i/38f36583552828a0961b01cddc6a3f4cd3ed8250dc5f73ab22ed7ed03eceaed9.jpg\",\"about\":\"Text Extraction:\\nProviding results using WhisperX large-v2 model for the input formats: wav, mp3, mp4, ogg, avi, mov, youtube, overcast, as well as text Extraction from images with tesseract OCR for jpgs.           \\nPossible outputs: text/plain and timestamped labels depending on alignment parameters (word, segment, raw)\\n\\nSummarization:\\nProvides a Summarization of the most important points of the given input.\"}"""
+
+    event = EventBuilder(31990, content, [k65002_tag, k65003_tag ,k65004_tag, k65005_tag, d_tag]).to_event(keys)
     send_event(event)
 
 
