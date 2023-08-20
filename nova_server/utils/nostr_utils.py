@@ -1469,8 +1469,8 @@ def check_event_has_not_unifinished_job_input(nevent, append, client):
                 input = tag.as_vec()[1]
                 input_type = tag.as_vec()[2]
                 if input_type == "job":
-                    evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
-                    if evt is not None:
+                    evt = get_referenced_event_by_id(input, [65001], client)
+                    if evt is None:
                         if append:
                             job = RequiredJobToWatch(event=nevent, timestamp=Timestamp.now().as_secs())
                             jobs_on_hold_list.append(job)
