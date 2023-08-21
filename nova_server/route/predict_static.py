@@ -189,7 +189,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
 
     if model == "stabilityai/stable-diffusion-xl-base-1.0":
 
-        base = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True, safety_checker = None, requires_safety_checker = False)
+        base = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
         base.to("cuda")
         loramodelsfolder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
         # base.load_lora_weights(loramodelsfolder + "cyborg_style_xl-alpha.safetensors")
@@ -264,7 +264,6 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
                 model_path = loramodelsfolder + "Gigachadv1.safetensors"
             elif model == "inks":
                 model_path = loramodelsfolder + "Inkscenery.safetensors"
-
             elif model == "reubenwu":
                 model_path = loramodelsfolder + "ReubenWu.safetensors"
                 #base_model =  "stabilityai/stable-diffusion-2-1"
@@ -304,11 +303,12 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
     else:
         if model == "runwayml/stable-diffusion-v1-5":
             pipe = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16,
-                                                     use_safetensors=True, variant="fp16",
-                                                     safety_checker = None, requires_safety_checker = False)
+                                                     use_safetensors=True, variant="fp16"
+                                                     )
         else:
             pipe = StableDiffusionPipeline.from_single_file(
-                os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/" + model + ".safetensors")
+                os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/" + model + ".safetensors",
+                safety_checker = None, requires_safety_checker = False)
 
         # pipe.unet.load_attn_procs(model_id_or_path)
         pipe = pipe.to("cuda")
@@ -338,6 +338,10 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
 
     from diffusers import StableDiffusionImg2ImgPipeline
 
+    mwidth = 768
+    mheight = 768
+
+
     if model.__contains__("gta"):
         model = "GTA5_Artwork_Diffusion_gtav_style"
     elif model.__contains__("realistic"):
@@ -347,20 +351,30 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
     elif model.__contains__("wild"):
         model = "stablydiffusedsWild_351"
     elif model.__contains__("pix2pix"):
+        mwidth = 768
+        mheight = 768
         model = "timbrooks/instruct-pix2pix"
     else:
         model = "timbrooks/instruct-pix2pix"
 
     init_image = load_image(url).convert("RGB")
 
+
+
+    if  model == "dreamshaper_8" or model == "stabilityai/stable-diffusion-xl-refiner-1.0":
+        mwidth = 1024
+        mheight = 1024
+
+
+
     if init_image.width > init_image.height:
         scale = float(init_image.height / init_image.width)
-        init_image = init_image.resize((1024,  int(1024 * scale)))
+        init_image = init_image.resize((mwidth,  int(mheight * scale)))
     elif init_image.width < init_image.height:
         scale = float(init_image.width / init_image.height)
-        init_image = init_image.resize((int(1024 * scale), 1024))
+        init_image = init_image.resize((int(mwidth * scale), mheight))
     else:
-        init_image = init_image.resize((1024, 1024))
+        init_image = init_image.resize((mwidth, mheight))
 
 
     if model == "stabilityai/stable-diffusion-xl-refiner-1.0":
@@ -383,13 +397,10 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
     elif model == "timbrooks/instruct-pix2pix":
         pipe = StableDiffusionInstructPix2PixPipeline.from_pretrained(model, torch_dtype=torch.float16,
                                                                       safety_checker=None)
-        pipe.to("cuda")
+
         pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
-        # `image` is an RGB PIL.Image
-        guidance_scale = "7.5"
-        image = \
-        pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image, guidance_scale=float(guidance_scale),
-             image_guidance_scale=1.5, num_inference_steps=50).images[0]
+        pipe.to("cuda")
+        image = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image).images[0]
 
         # 'CompVis/stable-diffusion-v1-4'
     else:

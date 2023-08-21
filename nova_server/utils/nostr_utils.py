@@ -591,9 +591,9 @@ def nostr_server():
                                                ,"Reply only with comma-seperated lists, no smalltak")
                             promptarr = llamalist.split(":")
                             if len(promptarr) > 1:
-                                prompt = promptarr[1].lstrip("\n").replace("\n", ",")
+                                prompt = promptarr[1].lstrip("\n").replace("\n", ",").replace("*", "")
                             else:
-                                prompt = promptarr[0].replace("\n", ",")
+                                prompt = promptarr[0].replace("\n", ",").repalce("*","")
 
                         else:
                             prompt = ""
