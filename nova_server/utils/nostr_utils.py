@@ -132,6 +132,17 @@ def nostr_server():
                                         send_event(evt, client)
                                         return
                         except Exception as e:
+                            if not user[2]: #whitelisted
+                                update_sql_table(sender, user[1] + get_amount_per_task(get_task(event, client)), user[2], user[3], user[4],
+                                                 user[5], user[6],
+                                                 Timestamp.now().as_secs())
+                                message = "There was the following error : " + str(e) + ". Credits have been reimbursed"
+                            else:
+                                # User didn't pay, so no reimbursement
+                                message = "There was the following error : " + str(e)
+
+                            evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), message, event.id()).to_event(keys)
+                            send_event(evt, client)
                             print(e)
 
                     # upate last active status
@@ -549,6 +560,8 @@ def nostr_server():
                 elif tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == "negative_prompt":
                         negative_prompt = tag.as_vec()[2]
+                    elif tag.as_vec()[1] == "extra_prompt":
+                        prompt = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "strength":
                         strength = float(tag.as_vec()[2])
                     elif tag.as_vec()[1] == "guidance_scale":
@@ -598,7 +611,7 @@ def nostr_server():
                         else:
                             prompt = ""
                 elif tag.as_vec()[0] == 'param':
-                    if tag.as_vec()[1] == "prompt":
+                    if tag.as_vec()[1] == "prompt" or tag.as_vec()[1] == "extra_prompt":
                         extra_prompt = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "negative_prompt":
                         negative_prompt = tag.as_vec()[2]
@@ -1818,20 +1831,23 @@ def get_or_add_user(sender):
 def admin_make_database_updates():
     # This is called on start of Server, Admin function to manually whitelist/blacklist/add balance/delete users
     # List all entries, why not.
+
+
+    rebroadcast_nip89 = False
     listdatabase = False
     deleteuser = False
     whitelistuser = False
     unwhitelistuser = False
     blacklistuser = False
     addbalance = False
+    additional_balance = 250
 
     if listdatabase:
         list_db()
 
-    #publickey = PublicKey.from_bech32("npub19jkj3lf4gh53qnp70uupvv3k3pyl39fzu52ygkhhszd5083yd36qpyu0dy").to_hex()
+    publickey = PublicKey.from_bech32("npub1rzg96zjavgatsx5ch2vvtq4atatly5rvdwqgjp0utxw45zeznvyqfdkxve").to_hex()
     # use this if you have the npub
-    publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
-    # publickey = "c63c5b4e21b9b1ec6b73ad0449a6a8589f6bd8542cabd9e5de6ae474b28fe806"
+    #publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
 
     if whitelistuser:
         user = get_from_sql_table(publickey)
@@ -1846,28 +1862,49 @@ def admin_make_database_updates():
         update_sql_table(user[0], user[1], False, True, user[4], user[5], user[6], user[7])
 
     if addbalance:
-        additional_balance = 250
+
         user = get_from_sql_table(publickey)
         update_sql_table(user[0], user[1] + additional_balance, user[2], user[3], user[4], user[5], user[6], user[7])
 
     if deleteuser:
         delete_from_sql_table(publickey)
+        
+    if rebroadcast_nip89:
+        nip89_announce_tasks()
 
 def nip89_announce_tasks():
 
-    k65002_tag = Tag.parse(["k", 65002])
-    k65003_tag = Tag.parse(["k", 65003])
-    k65004_tag = Tag.parse(["k", 65004])
-    k65005_tag = Tag.parse(["k", 65005])
-    d_tag = Tag.parse(["d", "x4jufeq1i2m42f"])
+    k65002_tag = Tag.parse(["k", "65002"])
+    d_tag = Tag.parse(["d", "0wllfdaxzp624bji"])
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "name\":\"NOSTR AI DVM\",\"image\":\"https://cdn.nostr.build/i/38f36583552828a0961b01cddc6a3f4cd3ed8250dc5f73ab22ed7ed03eceaed9.jpg\",\"about\":\"Text Extraction:\\nProviding results using WhisperX large-v2 model for the input formats: wav, mp3, mp4, ogg, avi, mov, youtube, overcast, as well as text Extraction from images with tesseract OCR for jpgs.           \\nPossible outputs: text/plain and timestamped labels depending on alignment parameters (word, segment, raw)\\n\\nSummarization:\\nProvides a Summarization of the most important points of the given input.\"}"""
+    content = "{\"name\":\"NostrAI DVM Text Extractor\",\"image\":\"https://cdn.nostr.build/i/38f36583552828a0961b01cddc6a3f4cd3ed8250dc5f73ab22ed7ed03eceaed9.jpg\",\"about\":\"Providing results using WhisperX model for the input formats: wav, mp3, mp4, ogg, avi, mov, as well as youtube, and overcast links. \\nPossible outputs: text/plain,  empty output format will provide timestamped labels with granularity depending on alignment parameters (word, segment, raw).\\nDefault model: large-v2, Default alignment: raw\\n\\nFurther allows text extraction from images with tesseract OCR for jpgs.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"tiny\",\"base\",\"small\",\"large-v1\",\"large-v2\",\"tiny.en\",\"base.en\",\"small.en\"]},\"alignment\":{\"required\":false,\"values\":[\"word\",\"segment\",\"raw\"]}}}"
+    event = EventBuilder(31990, content, [k65002_tag, d_tag]).to_event(keys)
+    send_event(event)
 
-    event = EventBuilder(31990, content, [k65002_tag, k65003_tag ,k65004_tag, k65005_tag, d_tag]).to_event(keys)
+    k65003_tag = Tag.parse(["k", "65003"])
+    d_tag = Tag.parse(["d", "ns5x24xqm03vuiw4"])
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    content = "{\"name\":\"NostrAI Summarizer\",\"image\":\"https://cdn.nostr.build/i/a177be1159da5aad8396a1188f686728d55647d3a7371549584daf2b5e50eec9.jpg\",\"about\":\"Uses a LLAMA2 instance to summarise the most important points of a given input (text, event, job). Can for example be applied on transcribed podcasts, Nostr Long form events, etc.\",\"nip90Params\":{}}"
+    event = EventBuilder(31990, content, [k65003_tag, d_tag]).to_event(keys)
+    send_event(event)
+
+    k65004_tag = Tag.parse(["k", "65004"])
+    d_tag = Tag.parse(["d", "dpsu1wsh7ubsioy2"])
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    content = "{\"name\":\"NostrAI DVM Translator\",\"image\":\"https://cdn.nostr.build/i/feb98d8700abe7d6c67d9106a72a20354bf50805af79869638f5a32d24a5ac2a.jpg\",\"about\":\"Translates Text from given text/event/job, currently using Google Translation Services into language defined in param. A Maximum of 5000 characters can be translated. \",\"nip90Params\":{\"language\":{\"required\":true,\"values\":[\"af\",\"am\",\"ar\",\"az\",\"be\",\"bg\",\"bn\",\"bs\",\"ca\",\"ceb\",\"co\",\"cs\",\"cy\",\"da\",\"de\",\"el\",\"eo\",\"es\",\"et\",\"eu\",\"fa\",\"fi\",\"fr\",\"fy\",\"ga\",\"gd\",\"gl\",\"gu\",\"ha\",\"haw\",\"hi\",\"hmn\",\"hr\",\"ht\",\"hu\",\"hy\",\"id\",\"ig\",\"is\",\"it\",\"he\",\"ja\",\"jv\",\"ka\",\"kk\",\"km\",\"kn\",\"ko\",\"ku\",\"ky\",\"la\",\"lb\",\"lo\",\"lt\",\"lv\",\"mg\",\"mi\",\"mk\",\"ml\",\"mn\",\"mr\",\"ms\",\"mt\",\"my\",\"ne\",\"nl\",\"no\",\"ny\",\"or\",\"pa\",\"pl\",\"ps\",\"pt\",\"ro\",\"ru\",\"sd\",\"si\",\"sk\",\"sl\",\"sm\",\"sn\",\"so\",\"sq\",\"sr\",\"st\",\"su\",\"sv\",\"sw\",\"ta\",\"te\",\"tg\",\"th\",\"tl\",\"tr\",\"ug\",\"uk\",\"ur\",\"uz\",\"vi\",\"xh\",\"yi\",\"yo\",\"zh\",\"zu\"]}}}"
+    event = EventBuilder(31990, content, [k65004_tag, d_tag]).to_event(keys)
+    send_event(event)
+
+    k65005_tag = Tag.parse(["k", "65005"])
+    d_tag = Tag.parse(["d", "06sfjfp9frr3ubcq"])
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    content = "{\"name\":\"NostrAI DVM Artist\",\"image\":\"https://cdn.nostr.build/i/2c9ff28899732291fdcde742747b533a12c56185a345ce94c0b9e5ae9f5460f8.jpg\",\"about\":\"Generate an Image based on a prompt. Supports various models. By default uses Stable Diffusion XL 1.0. \\nPossible Inputs are text, events or jobs.\\nAn optional negative prompt can help the model avoid things it shouldn't do.\\nImages are upscaled by default 4x.\\n\\nAdditionally supports Image2Image conversion. Requires as input url of an image/previous job/event and a second text input containing the prompt. By default, uses instruct-pix2pix model, alternative is sdxl (Stable Diffusion XL) model. \\nWill return an url to the generated Image.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"sdxl\",\"sd15\",\"sd21\",\"wild\",\"dreamshaper\",\"realistic\",\"pix2pix\",\"lora_ghibli\",\"lora_inks\",\"lora_t4\"]},\"ratio\":{\"required\":false,\"values\":[\"1:1\",\"4:3\",\"16:9\",\"16:10\",\"3:4\",\"9:16\",\"10:16\"]},\"negative_prompt\":{\"required\":false,\"values\":[]},\"extra_prompt\":{\"required\":false,\"values\":[]},\"upscale\":{\"required\":false,\"values\":[\"1\",\"2\",\"3\",\"4\"]}}}"
+    event = EventBuilder(31990, content, [k65005_tag, d_tag]).to_event(keys)
     send_event(event)
 
 
 
+    print("Announced NIP 89")
 
 if __name__ == '__main__':
     os.environ["NOVA_DATA_DIR"] = "W:\\nova\\data"
