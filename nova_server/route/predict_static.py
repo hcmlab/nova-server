@@ -521,6 +521,7 @@ def imageUpscale4x(url):
 def GoogleTranslate(text, translation_lang):
     from translatepy.translators.google import GoogleTranslate
     gtranslate = GoogleTranslate()
+    text = text[:4999]
     try:
         translated_text = str(gtranslate.translate(text, translation_lang))
         print("Translated Text: " + translated_text)
@@ -626,13 +627,13 @@ def InactiveNostrFollowers(user, notactivesincedays, numberinactivefollowers):
                     #print("Follower " + str(i))
                     i = i+1
                     follower = PublicKey.from_hex(tag.as_vec()[1])
-                    dif =  Timestamp.now().as_secs() - notactivesinceseconds
+                    dif = Timestamp.now().as_secs() - notactivesinceseconds
                     notactivesince = Timestamp.from_secs(dif)
-                    filter = Filter().pubkey(follower).kind(1).since(notactivesince)
+                    filter = Filter().pubkey(follower).kinds([1, 7]).since(notactivesince)
                     notes = cl.get_events_of([filter], timedelta(seconds=1))
                     if len(notes) == 0:
                         j = j + 1
-                        print("Following " + str(i) + " Entry found: " + str(j)  + " of " + str(numberinactivefollowers) +" " + follower.to_bech32())
+                        print("Following " + str(i) + " Entry found: " + str(j) + " of " + str(numberinactivefollowers) +" " + follower.to_bech32())
                         inactivefollowerslist = inactivefollowerslist + "@" + follower.to_bech32() + "\n"
 
                         if j == numberinactivefollowers:
