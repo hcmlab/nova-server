@@ -635,6 +635,7 @@ def InactiveNostrFollowers(user, notactivesincedays, numberinactivefollowers, is
         bestentry = followers[0]
         for entry in followers:
             if entry.created_at().as_secs() > newest:
+                newest = entry.created_at().as_secs()
                 bestentry = entry
 
         i = 0
@@ -658,7 +659,7 @@ def InactiveNostrFollowers(user, notactivesincedays, numberinactivefollowers, is
                 filter1 = Filter().author(followings[i]).kinds([1, 7]).since(notactivesince).limit(1)
                 filters.append(filter1)
 
-            notes = cl.get_events_of(filters, timedelta(seconds=5))
+            notes = cl.get_events_of(filters, timedelta(seconds=6))
 
             for note in notes:
                     dic[note.pubkey().to_hex()] = "True"
@@ -672,7 +673,7 @@ def InactiveNostrFollowers(user, notactivesincedays, numberinactivefollowers, is
             filter1 = Filter().author(followings[i]).kinds([1, 7]).since(notactivesince).limit(1)
             filters.append(filter1)
 
-        notes = cl.get_events_of(filters, timedelta(seconds=5))
+        notes = cl.get_events_of(filters, timedelta(seconds=6))
         for note in notes:
             dic[note.pubkey().to_hex()] = "True"
 
