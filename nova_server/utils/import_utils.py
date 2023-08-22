@@ -31,17 +31,26 @@ def assert_or_install_dependencies(packages, trainer_name):
         except:
             cuda_available = False
 
-        # remove cuda specific wheel params
-        if not cuda_available and 'torch' in name:
+        # remove cuda specific torch wheel params
+        if name.startswith('torch') and '+cu' in name and not cuda_available:
             pk[0] = pk[0][:pk[0].find('+cu')]
             for p in pk:
                 if 'index-url' in p or 'download.pytorch.org/whl' in p:
                     params.remove(p)
 
         params.append("--target={}".format(site_package_path))
-        adjusted_name = str(name).replace('-', '_')
 
-        if (Path(f'{site_package_path})/{adjusted_name}').exists()
+        # appears to be pythonic way (snake case)
+        if (Path('{}/{}'.format(site_package_path, adjusted_name := str(name).replace('-', '_'))).exists()
+                or any(adjusted_name in x for x in
+                        [x.name for x in
+                            Path(f'{site_package_path}').glob(f'{adjusted_name}-*.dist-info')
+                        ]
+                    )
+            ):
+            print(f'Skip installation of {site_package_path}/{name} - package already installed')
+        # some don't follow it, e.g. pyannote (. instead of _)
+        elif (Path('{}/{}'.format(site_package_path, adjusted_name := str(name).replace('-', '.'))).exists()
                 or any(adjusted_name in x for x in
                         [x.name for x in
                             Path(f'{site_package_path}').glob(f'{adjusted_name}-*.dist-info')
