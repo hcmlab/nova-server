@@ -80,7 +80,7 @@ def nostr_server():
         client.add_relay(relay)
     client.connect()
     dm_zap_filter = Filter().pubkey(pk).kinds([4, 9734, 9735]).since(Timestamp.now())
-    dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005]).since(Timestamp.now()))
+    dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005, 65006]).since(Timestamp.now()))
     client.subscribe([dm_zap_filter, dvm_filter])
 
     create_sql_table()
@@ -182,6 +182,7 @@ def nostr_server():
                                     task = tag.as_vec()[1]
 
                             tags.append(Tag.parse(["p", event.pubkey().to_hex()]))
+                            tags.append(Tag.parse(["y", event.pubkey().to_hex()]))
                             evt = EventBuilder(4, "", tags).to_event(keys)
 
                             expires = event.created_at().as_secs() + (60 * 60)
@@ -514,7 +515,7 @@ def nostr_server():
                         text = evt.content()
                         break
 
-            request_form["optStr"] = 'text=' + text + ';translation_lang=' + translation_lang
+            request_form["optStr"] = 'text=' + text.replace('\U0001f919', "") + ';translation_lang=' + translation_lang
 
         elif task == "image-to-text":
             request_form["mode"] = "PREDICT_STATIC"
@@ -700,17 +701,17 @@ def nostr_server():
             request_form["mode"] = "PREDICT_STATIC"
             request_form["trainerFilePath"] = 'inactive-following'
             days = "30"
-            number = "25"
+            number = "10"
             user = event.pubkey().to_hex()
             for tag in event.tags():
-                if tag.as_vec()[0] == 'p':
+                if tag.as_vec()[0] == 'y':
                     user = tag.as_vec()[1]
-                elif tag.as_vec()[0] == 'param':
+                if tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == 'since':
                         days = tag.as_vec()[2]
                     elif tag.as_vec()[1] == 'numusers':
                         number = tag.as_vec()[2]
-            request_form["optStr"] = 'user=' + user + ';since=' + days + ';num=' + number
+            request_form["optStr"] = 'user=' + user + ';since=' + days + ';num=' + number + ';is_bot=' + str(is_bot)
 
         return request_form
 
@@ -725,6 +726,7 @@ def nostr_server():
                 input_value = tag.as_vec()[1]
                 input_type = tag.as_vec()[2]
                 break
+
 
         if input_type == "event": #NIP94 event
             evt = get_event_by_id(input_value)
@@ -761,19 +763,27 @@ def nostr_server():
                 filepath = data_dir + '\\' + request_form["database"] + '\\' + session + '\\'
                 try:
                     filename = downloadYouTube(input_value, filepath)
+                    print(filename)
+                    print(input_value)
+
                     o = urlparse(input_value)
                     q = urllib.parse.parse_qs(o.query)
+
                 except Exception as e:
                     print(e)
                     return None
+                try:
+                    if float(request_form["startTime"]) == 0.0:
+                        if o.query.find('?t=') != -1:
+                            request_form["startTime"] = q['t'][0]  # overwrite from link.. why not..
+                            request_form["startTime"] = q['t'][0]  # overrite from link.. why not..
+                            print("Setting start time automatically to " + request_form["startTime"])
+                            if float(request_form["endTime"]) > 0.0:
+                                request_form["endTime"] = str(float(q['t'][0]) + float(request_form["endTime"]))
+                                print("Moving end time automatically to " + request_form["endTime"])
+                except Exception as e:
+                    print(e)
 
-                if float(request_form["startTime"]) == 0.0:
-                    if o.query.find('t=') != -1:
-                        request_form["startTime"] = q['t'][0]  # overwrite from link.. why not..
-                        print("Setting start time automatically to " + request_form["startTime"])
-                        if float(request_form["endTime"]) > 0.0:
-                            request_form["endTime"] = str(float(q['t'][0]) + float(request_form["endTime"]))
-                            print("Moving end time automatically to " + request_form["endTime"])
 
             # Regular links have a media file ending and/or mime types
             else:
@@ -803,9 +813,9 @@ def nostr_server():
                     print(str(input_value).lower())
                     return None
 
-            filename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
-                "roles"] + '.original' + file_type + '.' + ext
-            print(filename)
+                filename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
+                    "roles"] + '.original' + file_type + '.' + ext
+                print(filename)
 
             try:
                 if not os.path.exists(filename):
@@ -1056,9 +1066,12 @@ def get_task(event, client):
         else:
             return "text-to-image"
     elif event.kind() == 65006:
+        return "inactive-following"
+    elif event.kind() == 65007:
         return "event-list-generation"
     else:
         return "unknown type"
+
 
 
 def get_amount_per_task(task):
@@ -1264,6 +1277,7 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
 def post_process_result(anno, original_event):
     print("post-processing...")
     if isinstance(anno, Anno): #if input is an anno we parse it to required output format
+        print("HELLO3")
         for tag in original_event.tags():
             if tag.as_vec()[0] == "output":
                 print("requested output is " +tag.as_vec()[1] + "...")
@@ -1287,8 +1301,13 @@ def post_process_result(anno, original_event):
                     result = str(anno.data)
 
     elif isinstance(anno, str): #If input is a string we do nothing for now.
-        result = anno
-    return result
+        print("HELLO")
+        return anno
+    elif isinstance(anno, list): #If input is a string we do nothing for now.
+        print("HELLO2")
+        return anno
+    else:
+        return anno
 
 
 # BOT FUNCTIONS
@@ -1449,14 +1468,16 @@ def parse_bot_command_to_event(dec_text):
 
     elif str(dec_text).startswith("-inactive-following"):
         since_days = "30"
-        number_users = "25"
-        command = dec_text.replace("-inactive-following ", "")
+        number_users = "10"
+        command = dec_text.replace("-inactive-following", "")
         split = command.split(" -")
         for i in split:
             if i.startswith("sincedays "):
                 since_days = i.replace("sincedays ", "")
+                print("Since days: " + str(since_days))
             elif i.startswith("num"):
                 number_users = i.replace("num ", "")
+
         param_tag_since = Tag.parse(["param", "since", since_days])
         param_tag_num_users = Tag.parse(["param", "numusers", number_users])
         j_tag = Tag.parse(["j", "inactive-following"])
@@ -1875,12 +1896,15 @@ def admin_make_database_updates():
 
 def nip89_announce_tasks():
 
-    k65002_tag = Tag.parse(["k", "65002"])
-    d_tag = Tag.parse(["d", "0wllfdaxzp624bji"])
+
+
+    k65004_tag = Tag.parse(["k", "65004"])
+    d_tag = Tag.parse(["d", "dpsu1wsh7ubsioy2"])
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "{\"name\":\"NostrAI DVM Text Extractor\",\"image\":\"https://cdn.nostr.build/i/38f36583552828a0961b01cddc6a3f4cd3ed8250dc5f73ab22ed7ed03eceaed9.jpg\",\"about\":\"Providing results using WhisperX model for the input formats: wav, mp3, mp4, ogg, avi, mov, as well as youtube, and overcast links. \\nPossible outputs: text/plain,  empty output format will provide timestamped labels with granularity depending on alignment parameters (word, segment, raw).\\nDefault model: large-v2, Default alignment: raw\\n\\nFurther allows text extraction from images with tesseract OCR for jpgs.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"tiny\",\"base\",\"small\",\"large-v1\",\"large-v2\",\"tiny.en\",\"base.en\",\"small.en\"]},\"alignment\":{\"required\":false,\"values\":[\"word\",\"segment\",\"raw\"]}}}"
-    event = EventBuilder(31990, content, [k65002_tag, d_tag]).to_event(keys)
+    content = "{\"name\":\"NostrAI DVM Translator\",\"image\":\"https://cdn.nostr.build/i/feb98d8700abe7d6c67d9106a72a20354bf50805af79869638f5a32d24a5ac2a.jpg\",\"about\":\"Translates Text from given text/event/job, currently using Google Translation Services into language defined in param. A maximum of 5000 characters can be translated. \",\"nip90Params\":{\"language\":{\"required\":true,\"values\":[\"af\",\"am\",\"ar\",\"az\",\"be\",\"bg\",\"bn\",\"bs\",\"ca\",\"ceb\",\"co\",\"cs\",\"cy\",\"da\",\"de\",\"el\",\"eo\",\"es\",\"et\",\"eu\",\"fa\",\"fi\",\"fr\",\"fy\",\"ga\",\"gd\",\"gl\",\"gu\",\"ha\",\"haw\",\"hi\",\"hmn\",\"hr\",\"ht\",\"hu\",\"hy\",\"id\",\"ig\",\"is\",\"it\",\"he\",\"ja\",\"jv\",\"ka\",\"kk\",\"km\",\"kn\",\"ko\",\"ku\",\"ky\",\"la\",\"lb\",\"lo\",\"lt\",\"lv\",\"mg\",\"mi\",\"mk\",\"ml\",\"mn\",\"mr\",\"ms\",\"mt\",\"my\",\"ne\",\"nl\",\"no\",\"ny\",\"or\",\"pa\",\"pl\",\"ps\",\"pt\",\"ro\",\"ru\",\"sd\",\"si\",\"sk\",\"sl\",\"sm\",\"sn\",\"so\",\"sq\",\"sr\",\"st\",\"su\",\"sv\",\"sw\",\"ta\",\"te\",\"tg\",\"th\",\"tl\",\"tr\",\"ug\",\"uk\",\"ur\",\"uz\",\"vi\",\"xh\",\"yi\",\"yo\",\"zh\",\"zu\"]}}}"
+    event = EventBuilder(31990, content, [k65004_tag, d_tag]).to_event(keys)
     send_event(event)
+
 
     k65003_tag = Tag.parse(["k", "65003"])
     d_tag = Tag.parse(["d", "ns5x24xqm03vuiw4"])
@@ -1889,17 +1913,24 @@ def nip89_announce_tasks():
     event = EventBuilder(31990, content, [k65003_tag, d_tag]).to_event(keys)
     send_event(event)
 
-    k65004_tag = Tag.parse(["k", "65004"])
-    d_tag = Tag.parse(["d", "dpsu1wsh7ubsioy2"])
+    k65006_tag = Tag.parse(["k", "65006"])
+    d_tag = Tag.parse(["d", "ebfw1pwoe2cx2f7n"])
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "{\"name\":\"NostrAI DVM Translator\",\"image\":\"https://cdn.nostr.build/i/feb98d8700abe7d6c67d9106a72a20354bf50805af79869638f5a32d24a5ac2a.jpg\",\"about\":\"Translates Text from given text/event/job, currently using Google Translation Services into language defined in param. A Maximum of 5000 characters can be translated. \",\"nip90Params\":{\"language\":{\"required\":true,\"values\":[\"af\",\"am\",\"ar\",\"az\",\"be\",\"bg\",\"bn\",\"bs\",\"ca\",\"ceb\",\"co\",\"cs\",\"cy\",\"da\",\"de\",\"el\",\"eo\",\"es\",\"et\",\"eu\",\"fa\",\"fi\",\"fr\",\"fy\",\"ga\",\"gd\",\"gl\",\"gu\",\"ha\",\"haw\",\"hi\",\"hmn\",\"hr\",\"ht\",\"hu\",\"hy\",\"id\",\"ig\",\"is\",\"it\",\"he\",\"ja\",\"jv\",\"ka\",\"kk\",\"km\",\"kn\",\"ko\",\"ku\",\"ky\",\"la\",\"lb\",\"lo\",\"lt\",\"lv\",\"mg\",\"mi\",\"mk\",\"ml\",\"mn\",\"mr\",\"ms\",\"mt\",\"my\",\"ne\",\"nl\",\"no\",\"ny\",\"or\",\"pa\",\"pl\",\"ps\",\"pt\",\"ro\",\"ru\",\"sd\",\"si\",\"sk\",\"sl\",\"sm\",\"sn\",\"so\",\"sq\",\"sr\",\"st\",\"su\",\"sv\",\"sw\",\"ta\",\"te\",\"tg\",\"th\",\"tl\",\"tr\",\"ug\",\"uk\",\"ur\",\"uz\",\"vi\",\"xh\",\"yi\",\"yo\",\"zh\",\"zu\"]}}}"
-    event = EventBuilder(31990, content, [k65004_tag, d_tag]).to_event(keys)
+    content = "{\"name\":\"Nostr AI DVM Inactive Followings\",\"image\":\"https://cdn.nostr.build/i/fff3f825ff3aa20daf0cb6e099264dfd5b7a66b0922431d22810b33e8de13d36.jpg\",\"about\":\"Returns a list of 10 inactive followings. This includes npubs of users who haven't posted or reacted within the last x days (default 30). Parameter since can be used to increase the search window, e.g. inactive in the last 60 days.\",\"nip90Params\":{\"since\":{\"required\":false,\"values\":[\"30\",\"60\",\"90\",\"120\",\"150\",\"180\"]}}}"
+    event = EventBuilder(31990, content, [k65006_tag, d_tag]).to_event(keys)
+    send_event(event)
+
+    k65002_tag = Tag.parse(["k", "65002"])
+    d_tag = Tag.parse(["d", "0wllfdaxzp624bji"])
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    content = "{\"name\":\"NostrAI DVM Text Extractor\",\"image\":\"https://cdn.nostr.build/i/38f36583552828a0961b01cddc6a3f4cd3ed8250dc5f73ab22ed7ed03eceaed9.jpg\",\"about\":\"Providing results using WhisperX model for the input formats: wav, mp3, mp4, ogg, avi, mov, as well as youtube, and overcast links. \\nPossible outputs: text/plain,  empty output format will provide timestamped labels with granularity depending on alignment parameters (word, segment, raw).\\nDefault model: large-v2, Default alignment: raw\\n\\nFurther allows text extraction from images with tesseract OCR for jpgs.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"tiny\",\"base\",\"small\",\"large-v1\",\"large-v2\",\"tiny.en\",\"base.en\",\"small.en\"]},\"alignment\":{\"required\":false,\"values\":[\"word\",\"segment\",\"raw\"]}}}"
+    event = EventBuilder(31990, content, [k65002_tag, d_tag]).to_event(keys)
     send_event(event)
 
     k65005_tag = Tag.parse(["k", "65005"])
     d_tag = Tag.parse(["d", "06sfjfp9frr3ubcq"])
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "{\"name\":\"NostrAI DVM Artist\",\"image\":\"https://cdn.nostr.build/i/2c9ff28899732291fdcde742747b533a12c56185a345ce94c0b9e5ae9f5460f8.jpg\",\"about\":\"Generate an Image based on a prompt. Supports various models. By default uses Stable Diffusion XL 1.0. \\nPossible Inputs are text, events or jobs.\\nAn optional negative prompt can help the model avoid things it shouldn't do.\\nImages are upscaled by default 4x.\\n\\nAdditionally supports Image2Image conversion. Requires as input url of an image/previous job/event and a second text input containing the prompt. By default, uses instruct-pix2pix model, alternative is sdxl (Stable Diffusion XL) model. \\nWill return an url to the generated Image.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"sdxl\",\"sd15\",\"sd21\",\"wild\",\"dreamshaper\",\"realistic\",\"pix2pix\",\"lora_ghibli\",\"lora_inks\",\"lora_t4\"]},\"ratio\":{\"required\":false,\"values\":[\"1:1\",\"4:3\",\"16:9\",\"16:10\",\"3:4\",\"9:16\",\"10:16\"]},\"negative_prompt\":{\"required\":false,\"values\":[]},\"extra_prompt\":{\"required\":false,\"values\":[]},\"upscale\":{\"required\":false,\"values\":[\"1\",\"2\",\"3\",\"4\"]}}}"
+    content = "{\"name\":\"NostrAI DVM Artist\",\"image\":\"https://cdn.nostr.build/i/2c9ff28899732291fdcde742747b533a12c56185a345ce94c0b9e5ae9f5460f8.jpg\",\"about\":\"Generate an Image based on a prompt. Supports various models. By default uses Stable Diffusion XL 1.0. \\nPossible Inputs are text, events or jobs.\\nAn optional negative prompt can help the model avoid things it shouldn't do.\\nImages are upscaled  4x by default.\\n\\nAdditionally supports Image2Image conversion. Requires as input url of an image/previous job/event and a second text input containing the prompt. By default, uses instruct-pix2pix model, alternative is sdxl (Stable Diffusion XL) model. \\nWill return an url to the generated Image.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"sdxl\",\"sd15\",\"sd21\",\"wild\",\"dreamshaper\",\"realistic\",\"pix2pix\",\"lora_ghibli\",\"lora_inks\",\"lora_t4\"]},\"ratio\":{\"required\":false,\"values\":[\"1:1\",\"4:3\",\"16:9\",\"16:10\",\"3:4\",\"9:16\",\"10:16\"]},\"negative_prompt\":{\"required\":false,\"values\":[]},\"extra_prompt\":{\"required\":false,\"values\":[]},\"upscale\":{\"required\":false,\"values\":[\"1\",\"2\",\"3\",\"4\"]}}}"
     event = EventBuilder(31990, content, [k65005_tag, d_tag]).to_event(keys)
     send_event(event)
 

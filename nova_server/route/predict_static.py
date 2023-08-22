@@ -11,7 +11,7 @@ from diffusers import DiffusionPipeline, StableDiffusionXLImg2ImgPipeline, Stabl
 from diffusers.utils import load_image
 from flask import Blueprint, request, jsonify
 from huggingface_hub import model_info
-from nostr_sdk import PublicKey, Timestamp
+from nostr_sdk import PublicKey, Timestamp, Tag
 
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
@@ -88,7 +88,7 @@ def predict_static_data(request_form):
             anno = LLAMA2(
                 "Give me a summarization of the most important points of the following text: " + options["message"],  options["user"], options["system_prompt"])
         elif task == "inactive-following":
-            anno = InactiveNostrFollowers(options["user"], int(options["since"]), int(options["num"]))
+            anno = InactiveNostrFollowers(options["user"], int(options["since"]), int(options["num"]), str2bool(options["is_bot"]))
 
         if "nostrEvent" in request_form:
             if request_form["nostrEvent"] is not None :
@@ -612,10 +612,9 @@ def LLAMA2(message, user, system_prompt=""):
     return answer
 
 
-def InactiveNostrFollowers(user, notactivesincedays, numberinactivefollowers):
+def InactiveNostrFollowers(user, notactivesincedays, numberinactivefollowers, is_bot):
     from nostr_sdk import Keys, Client, Filter
     notactivesinceseconds = int(notactivesincedays) * 24 * 60 * 60
-
     inactivefollowerslist = ""
     relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
     relaytimeout = 5
@@ -629,30 +628,57 @@ def InactiveNostrFollowers(user, notactivesincedays, numberinactivefollowers):
     followers = cl.get_events_of([filter], timedelta(seconds=relaytimeout))
 
     if len(followers) > 0:
-        i = 0
-        j= 0
-        for entry in followers:
-            #print(entry.as_json())
-            for tag in entry.tags():
-                if tag.as_vec()[0] == "p":
-                    #print("Follower " + str(i))
-                    i = i+1
-                    follower = PublicKey.from_hex(tag.as_vec()[1])
-                    dif = Timestamp.now().as_secs() - notactivesinceseconds
-                    notactivesince = Timestamp.from_secs(dif)
-                    filter = Filter().pubkey(follower).kinds([1, 7]).since(notactivesince)
-                    notes = cl.get_events_of([filter], timedelta(seconds=1))
-                    if len(notes) == 0:
-                        j = j + 1
-                        print("Following " + str(i) + " Entry found: " + str(j) + " of " + str(numberinactivefollowers) +" " + follower.to_bech32())
-                        inactivefollowerslist = inactivefollowerslist + "@" + follower.to_bech32() + "\n"
 
-                        if j == numberinactivefollowers:
-                            return inactivefollowerslist + "\n\nPlease wait for a while after unfollowing users before performing this task again, so relays can update your following list."
+        j= 0
+        resultlist = []
+        newest = 0
+        bestentry = followers[0]
+        for entry in followers:
+            if entry.created_at().as_secs() > newest:
+                bestentry = entry
+
+        i = 0
+        print(bestentry.as_json())
+        for tag in bestentry.tags():
+            if tag.as_vec()[0] == "p":
+                i = i + 1
+
+                follower = PublicKey.from_hex(tag.as_vec()[1])
+                print("Follower " + str(i) + " " + str(follower.to_bech32()))
+
+
+
+                dif = Timestamp.now().as_secs() - notactivesinceseconds
+                notactivesince = Timestamp.from_secs(dif)
+                filter = Filter().pubkey(follower).kinds([1, 7]).since(notactivesince)
+                notes = cl.get_events_of([filter], timedelta(seconds=1))
+                if len(notes) == 0:
+                    j = j + 1
+                    print("Following " + str(i) + " Entry found: " + str(j) + " of " + str(numberinactivefollowers) +" " + follower.to_bech32())
+                    if(is_bot):
+                        inactivefollowerslist = inactivefollowerslist + "nostr:" + follower.to_bech32() + "\n"
+                    else:
+                        p_tag = Tag.parse(["p", follower.to_hex()])
+                        resultlist.append(p_tag.as_vec())
+                        print(str(resultlist))
+
+
+                    if j == numberinactivefollowers:
+                        if is_bot:
+                            return inactivefollowerslist
+                        else:
+                            return json.dumps(resultlist)
 
     else:
         print("Not found")
-        return "No followers found on relays."
+        return "No inactive followers found on relays."
+
     print("done")
-    return "All followings have been scanned! No (more) followings have been inactive in the given timespan\n\n" + inactivefollowerslist
+    if len(resultlist) == 0:
+        return "No inactive followers found on relays."
+
+    if is_bot:
+        return inactivefollowerslist
+    else:
+        return json.dumps(resultlist)
     cl.disconnect()
