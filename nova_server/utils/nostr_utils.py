@@ -1284,21 +1284,27 @@ def post_process_result(anno, original_event):
                 try:
                     if tag.as_vec()[1] == "text/plain":
                         result = ""
+                        #print(str(anno.data))
                         for element in anno.data:
                             name = element["name"] #name
+                            print(name)
                             cleared_name = str(name).lstrip("\'").rstrip("\'")
                             result = result + cleared_name + "\n"
                         result = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
+                        return result
 
                     elif tag.as_vec()[1] == "text/json" or tag.as_vec()[1] == "json":
                         #result = json.dumps(json.loads(anno.data.to_json(orient="records")))
                         result = json.dumps(anno.data.tolist())
+                        return result
                     # TODO add more
                     else:
                         result = str(anno.data)
+                        return result
                 except Exception as e:
                     print(e)
                     result = str(anno.data)
+                    return result
 
     elif isinstance(anno, str): #If input is a string we do nothing for now.
         print("HELLO")
