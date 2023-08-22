@@ -624,12 +624,12 @@ def InactiveNostrFollowers(user, notactivesincedays, numberinactivefollowers, is
         cl.add_relay(relay)
     cl.connect()
     pk = PublicKey.from_hex(user)
-    filter = Filter().author(user).kind(3).limit(1)
-    followers = cl.get_events_of([filter], timedelta(seconds=relaytimeout))
+    filt = Filter().author(user).kind(3).limit(1)
+    followers = cl.get_events_of([filt], timedelta(seconds=relaytimeout))
 
     if len(followers) > 0:
 
-        j= 0
+
         resultlist = []
         newest = 0
         bestentry = followers[0]
@@ -639,46 +639,63 @@ def InactiveNostrFollowers(user, notactivesincedays, numberinactivefollowers, is
 
         i = 0
         print(bestentry.as_json())
+        followings = []
+        dic = {}
         for tag in bestentry.tags():
             if tag.as_vec()[0] == "p":
-                i = i + 1
+                following = tag.as_vec()[1]
+                followings.append(following)
+                dic[following] = "False"
+        print("Followings: " + str(len(followings)))
 
-                follower = PublicKey.from_hex(tag.as_vec()[1])
-                print("Follower " + str(i) + " " + str(follower.to_bech32()))
+        step = 25
+        dif = Timestamp.now().as_secs() - notactivesinceseconds
+        notactivesince = Timestamp.from_secs(dif)
+
+        while i < len(followings) - step:
+            filters = []
+            for i in range(i+step+1):
+                filter1 = Filter().author(followings[i]).kinds([1, 7]).since(notactivesince).limit(1)
+                filters.append(filter1)
+
+            notes = cl.get_events_of(filters, timedelta(seconds=5))
+
+            for note in notes:
+                    dic[note.pubkey().to_hex()] = "True"
 
 
+            print(str(i) + "/" + str(len(followings)))
 
-                dif = Timestamp.now().as_secs() - notactivesinceseconds
-                notactivesince = Timestamp.from_secs(dif)
-                filter = Filter().pubkey(follower).kinds([1, 7]).since(notactivesince)
-                notes = cl.get_events_of([filter], timedelta(seconds=1))
-                if len(notes) == 0:
-                    j = j + 1
-                    print("Following " + str(i) + " Entry found: " + str(j) + " of " + str(numberinactivefollowers) +" " + follower.to_bech32())
-                    if(is_bot):
-                        inactivefollowerslist = inactivefollowerslist + "nostr:" + follower.to_bech32() + "\n"
-                    else:
-                        p_tag = Tag.parse(["p", follower.to_hex()])
-                        resultlist.append(p_tag.as_vec())
-                        print(str(resultlist))
+        missingscans = len(followings) - i
+        filters = []
+        for i in range(i+missingscans):
+            filter1 = Filter().author(followings[i]).kinds([1, 7]).since(notactivesince).limit(1)
+            filters.append(filter1)
+
+        notes = cl.get_events_of(filters, timedelta(seconds=5))
+        for note in notes:
+            dic[note.pubkey().to_hex()] = "True"
+
+        print(str(len(followings)) + "/" + str(len(followings)))
+
+        cl.disconnect()
 
 
-                    if j == numberinactivefollowers:
-                        if is_bot:
-                            return inactivefollowerslist
-                        else:
-                            return json.dumps(resultlist)
+        result = {k for (k, v) in dic.items() if v == "False"}
+        if len(result) == 0:
+            print("Not found")
+            return "No inactive followers found on relays."
 
-    else:
-        print("Not found")
-        return "No inactive followers found on relays."
 
-    print("done")
-    if len(resultlist) == 0:
-        return "No inactive followers found on relays."
+        for k in result:
+            if (is_bot):
+                inactivefollowerslist = inactivefollowerslist + "nostr:" + PublicKey.from_hex(k).to_bech32() + "\n"
+            else:
+                p_tag = Tag.parse(["p", k])
+                resultlist.append(p_tag.as_vec())
 
-    if is_bot:
-        return inactivefollowerslist
-    else:
-        return json.dumps(resultlist)
-    cl.disconnect()
+        if (is_bot):
+            return inactivefollowerslist
+        else:
+            return json.dumps(resultlist)
+

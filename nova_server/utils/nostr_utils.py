@@ -884,8 +884,9 @@ def nostr_server():
                 if str(check_bolt11_ln_bits_is_paid(job.payment_hash)) == "True":
                     job.is_paid = True
                     event = get_event_by_id(job.event_id)
-                    send_job_status_reaction(event, "processing", True, 0, client=client)
-                    do_work(event, is_from_bot=False)
+                    if event != None:
+                        send_job_status_reaction(event, "processing", True, 0, client=client)
+                        do_work(event, is_from_bot=False)
                 elif check_bolt11_ln_bits_is_paid(job.payment_hash) is None: #invoice expired
                     job_list.remove(job)
                     #event = get_event_by_id(job.event_id)
@@ -1277,7 +1278,6 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
 def post_process_result(anno, original_event):
     print("post-processing...")
     if isinstance(anno, Anno): #if input is an anno we parse it to required output format
-        print("HELLO3")
         for tag in original_event.tags():
             if tag.as_vec()[0] == "output":
                 print("requested output is " +tag.as_vec()[1] + "...")
@@ -1305,13 +1305,6 @@ def post_process_result(anno, original_event):
                     print(e)
                     result = str(anno.data)
                     return result
-
-    elif isinstance(anno, str): #If input is a string we do nothing for now.
-        print("HELLO")
-        return anno
-    elif isinstance(anno, list): #If input is a string we do nothing for now.
-        print("HELLO2")
-        return anno
     else:
         return anno
 
@@ -1334,7 +1327,7 @@ def get_bot_help_text():
             "Transcribe Audio/Video/Youtube/Overcast from an URL with WhisperX large-v2 (" + str(
             DVMConfig.COSTPERUNIT_SPEECHTOTEXT) + " Sats)\n"
             "-speech-to-text urltofile \nAdditional parameters:\n-from timeinseconds -to timeinseconds\n\n"
-            "Get a List of 25 inactive users you follow (" + str(DVMConfig.COSTPERUNIT_INACTIVE_FOLLOWING) + " Sats)\n"
+            "Get a List of 10 inactive users you follow (" + str(DVMConfig.COSTPERUNIT_INACTIVE_FOLLOWING) + " Sats)\n"
             "-inactive-following\nAdditional parameters:\n-sincedays days (e.g. 60), default 30\n\n"
             "To show your current balance\n -balance \n\n"
             "You can either zap my responses directly if your client supports it (e.g. Amethyst) or you can zap any "
