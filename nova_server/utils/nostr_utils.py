@@ -1327,7 +1327,7 @@ def get_bot_help_text():
             "Transcribe Audio/Video/Youtube/Overcast from an URL with WhisperX large-v2 (" + str(
             DVMConfig.COSTPERUNIT_SPEECHTOTEXT) + " Sats)\n"
             "-speech-to-text urltofile \nAdditional parameters:\n-from timeinseconds -to timeinseconds\n\n"
-            "Get a List of 10 inactive users you follow (" + str(DVMConfig.COSTPERUNIT_INACTIVE_FOLLOWING) + " Sats)\n"
+            "Get a List of inactive users you follow (" + str(DVMConfig.COSTPERUNIT_INACTIVE_FOLLOWING) + " Sats)\n"
             "-inactive-following\nAdditional parameters:\n-sincedays days (e.g. 60), default 30\n\n"
             "To show your current balance\n -balance \n\n"
             "You can either zap my responses directly if your client supports it (e.g. Amethyst) or you can zap any "
@@ -1467,20 +1467,16 @@ def parse_bot_command_to_event(dec_text):
 
     elif str(dec_text).startswith("-inactive-following"):
         since_days = "30"
-        number_users = "10"
         command = dec_text.replace("-inactive-following", "")
         split = command.split(" -")
         for i in split:
             if i.startswith("sincedays "):
                 since_days = i.replace("sincedays ", "")
                 print("Since days: " + str(since_days))
-            elif i.startswith("num"):
-                number_users = i.replace("num ", "")
 
         param_tag_since = Tag.parse(["param", "since", since_days])
-        param_tag_num_users = Tag.parse(["param", "numusers", number_users])
         j_tag = Tag.parse(["j", "inactive-following"])
-        return [j_tag, param_tag_since, param_tag_num_users]
+        return [j_tag, param_tag_since]
     else:
         text = dec_text
         j_tag = Tag.parse(["j", "chat"])
@@ -1854,7 +1850,7 @@ def admin_make_database_updates():
     # List all entries, why not.
 
 
-    rebroadcast_nip89 = False
+    rebroadcast_nip89 = True
     listdatabase = False
     deleteuser = False
     whitelistuser = False
@@ -1915,7 +1911,7 @@ def nip89_announce_tasks():
     k65006_tag = Tag.parse(["k", "65006"])
     d_tag = Tag.parse(["d", "ebfw1pwoe2cx2f7n"])
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "{\"name\":\"Nostr AI DVM Inactive Followings\",\"image\":\"https://cdn.nostr.build/i/fff3f825ff3aa20daf0cb6e099264dfd5b7a66b0922431d22810b33e8de13d36.jpg\",\"about\":\"Returns a list of 10 inactive followings. This includes npubs of users who haven't posted or reacted within the last x days (default 30). Parameter since can be used to increase the search window, e.g. inactive in the last 60 days.\",\"nip90Params\":{\"since\":{\"required\":false,\"values\":[\"30\",\"60\",\"90\",\"120\",\"150\",\"180\"]}}}"
+    content = "{\"name\":\"Nostr AI DVM Inactive Followings\",\"image\":\"https://cdn.nostr.build/i/fff3f825ff3aa20daf0cb6e099264dfd5b7a66b0922431d22810b33e8de13d36.jpg\",\"about\":\"Returns a list of inactive followings. This includes npubs of users who haven't posted or reacted within the last x days (default 30). Parameter since can be used to increase the search window, e.g. inactive in the last 60 days.\",\"nip90Params\":{\"since\":{\"required\":false,\"values\":[\"30\",\"60\",\"90\",\"120\",\"150\",\"180\"]}}}"
     event = EventBuilder(31990, content, [k65006_tag, d_tag]).to_event(keys)
     send_event(event)
 
