@@ -536,9 +536,9 @@ def nostr_server():
         elif task == "image-to-image":
             request_form["mode"] = "PREDICT_STATIC"
             request_form["trainerFilePath"] = 'image-to-image'
-            prompt = ""
-            url = ""
-            negative_prompt = ""
+            prompt = "surprise me"
+            url = " "
+            negative_prompt = " "
             strength = 0.5
             guidance_scale = 7.5
             model = "pix2pix"
@@ -1047,6 +1047,7 @@ def get_task(event, client):
                         file_type = check_url_is_readable(evt.content())
                         if file_type == "image":
                             has_image_tag = True
+
 
 
         
