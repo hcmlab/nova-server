@@ -145,7 +145,7 @@ def nostr_server():
                             send_event(evt, client)
                             print(e)
 
-                    # upate last active status
+                    # update last active status
                     update_sql_table(user[0], user[1], user[2], user[3], user[4], user[5], user[6],
                                      Timestamp.now().as_secs())
                     if any(dec_text.startswith("-" + s) for s in DVMConfig.SUPPORTED_TASKS):
@@ -200,7 +200,7 @@ def nostr_server():
                     elif not DVMConfig.PASSIVE_MODE:
                         print("Request from " + name + " (" + nip05 + ") Message: " + dec_text)
                         if str(dec_text).startswith("-balance"):
-                            get_or_add_user(sender)
+                            user = get_or_add_user(sender)
                             balance = user[1]
                             time.sleep(3.0)
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
@@ -1802,9 +1802,9 @@ def admin_make_database_updates():
 
 
     rebroadcast_nip89 = False
-    cleardb = True
-    listdatabase = True
-    deleteuser = True
+    cleardb = False
+    listdatabase = False
+    deleteuser = False
     whitelistuser = False
     unwhitelistuser = False
     blacklistuser = False
