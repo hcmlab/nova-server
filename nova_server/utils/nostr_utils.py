@@ -196,8 +196,8 @@ def nostr_server():
                             print("payment-required")
                             time.sleep(3.0)
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
-                                "Balance required, please zap this note with at least " + str(required_amount)
-                                + " Sats to start directly, or zap me that amount elsewhere, then try again.",
+                                "Balance required, please zap me with at least " + str(required_amount)
+                                + " Sats, then try again.",
                                 event.id()).to_event(keys)
                             expires = event.created_at().as_secs() + (60 * 60)
                             job_list.append(
@@ -272,7 +272,7 @@ def nostr_server():
                                         anon = True
                                         print("Anonymous Zap received. Unlucky, I don't know from whom, and never will")
                     user = get_or_add_user(sender)
-                    print("Zap received: " + str(invoice_amount) + " Sats from" + user[6])
+                    print("Zap received: " + str(invoice_amount) + " Sats from " + user[6])
                     if zapped_event is not None:
                         if zapped_event.kind() == 65000:  # if a reaction by us got zapped
                             amount = 0
