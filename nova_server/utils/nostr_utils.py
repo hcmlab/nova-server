@@ -199,11 +199,11 @@ def nostr_server():
                                 "Balance required, please zap me with at least " + str(required_amount)
                                 + " Sats, then try again.",
                                 event.id()).to_event(keys)
-                            expires = event.created_at().as_secs() + (60 * 60)
-                            job_list.append(
-                                JobToWatch(event_id=evt.id().to_hex(), timestamp=event.created_at().as_secs(),
-                                           amount=required_amount, is_paid=False, status="payment-required", result="",
-                                           is_processed=False, bolt11="", payment_hash="", expires=expires, from_bot=True))
+                            #expires = event.created_at().as_secs() + (60 * 60)
+                            #job_list.append(
+                            #    JobToWatch(event_id=evt.id().to_hex(), timestamp=event.created_at().as_secs(),
+                            #               amount=required_amount, is_paid=False, status="payment-required", result="",
+                            #               is_processed=False, bolt11="", payment_hash="", expires=expires, from_bot=True))
                             send_event(evt, client)
 
                     elif not DVMConfig.PASSIVE_MODE:
@@ -306,39 +306,40 @@ def nostr_server():
                                     print("[Nostr] Invoice was not paid sufficiently")
 
 
+                        #removed direct start as we dont know if task is supported on this dvm
+                        #elif zapped_event.kind() == 4 and not DVMConfig.PASSIVE_MODE:
+                        #    required_amount = 50
+                        #    job_event = None
+                        #    update_user_balance(sender, invoice_amount)
+                            #for tag in zapped_event.tags():
+                            #    if tag.as_vec()[0] == 'e':
+                            #        job_event = get_event_by_id(tag.as_vec()[1])
 
-                        elif zapped_event.kind() == 4 and not DVMConfig.PASSIVE_MODE:
-                            required_amount = 50
-                            job_event = None
-                            for tag in zapped_event.tags():
-                                if tag.as_vec()[0] == 'e':
-                                    job_event = get_event_by_id(tag.as_vec()[1])
+                            #if job_event is not None:
+                            #    indices = [i for i, x in enumerate(job_list) if x.id == zapped_event.id().to_hex()]
+                            #    print(str(indices))
+                            #    if len(indices) == 1:
 
-                            if job_event is not None:
-                                indices = [i for i, x in enumerate(job_list) if x.id == zapped_event.id().to_hex()]
-                                print(str(indices))
-                                if len(indices) == 1:
-
-                                    dec_text = nip04_decrypt(sk, job_event.pubkey(), job_event.content())
-                                    tags = parse_bot_command_to_event(dec_text)
-                                    tags.append(Tag.parse(["p", job_event.pubkey().to_hex()]))
-                                    work_event = EventBuilder(4, "", tags).to_event(keys)
-                                    for tag in tags:
-                                        if tag.as_vec()[0] == "j":
-                                            task = tag.as_vec()[1]
-                                            required_amount = get_amount_per_task(task)
-                                    if invoice_amount >= required_amount:
-                                        dm_event = EventBuilder.new_encrypted_direct_msg(keys, job_event.pubkey(),
-                                                    "Zap ⚡️ received! Your Job is now scheduled. I will DM you "
-                                                    "once I'm done processing.", None).to_event(keys)
-                                        send_event(dm_event, client)
-                                        job_list.pop(indices[0])
-                                        print(work_event.as_json())
-                                        do_work(work_event, is_from_bot=True)
-                                    elif not anon:
-                                        update_user_balance(sender, invoice_amount)
-                                elif not anon:
-                                    update_user_balance(sender, invoice_amount)
+                            #        dec_text = nip04_decrypt(sk, job_event.pubkey(), job_event.content())
+                            #        tags = parse_bot_command_to_event(dec_text)
+                            #        tags.append(Tag.parse(["p", job_event.pubkey().to_hex()]))
+                            #        work_event = EventBuilder(4, "", tags).to_event(keys)
+                            #        for tag in tags:
+                            #            if tag.as_vec()[0] == "j":
+                            #                task = tag.as_vec()[1]
+                            #                required_amount = get_amount_per_task(task)
+                            #        if invoice_amount >= required_amount:
+                            #            dm_event = EventBuilder.new_encrypted_direct_msg(keys, job_event.pubkey(),
+                            #                        "Zap ⚡️ received! Your Job is now scheduled. I will DM you "
+                            #                        "once I'm done processing.", None).to_event(keys)
+                            #            send_event(dm_event, client)
+                            #            job_list.pop(indices[0])
+                            #            print(work_event.as_json())
+                            #            do_work(work_event, is_from_bot=True)
+                            #        elif not anon:
+                            #            update_user_balance(sender, invoice_amount)
+                            #    elif not anon:
+                            #        update_user_balance(sender, invoice_amount)
                             elif not anon:
                                 update_user_balance(sender, invoice_amount)
                         elif zapped_event.kind() == 65001:
@@ -1328,8 +1329,7 @@ def get_bot_help_text():
             "Get a List of inactive users you follow (" + str(DVMConfig.COSTPERUNIT_INACTIVE_FOLLOWING) + " Sats)\n"
             "-inactive-following\nAdditional parameters:\n-sincedays days (e.g. 60), default 30\n\n"
             "To show your current balance\n -balance \n\n"
-            "You can either zap my responses directly if your client supports it (e.g. Amethyst) or you can zap any "
-            "post or my profile (e.g. in Damus) to top up your balance.")
+            "You can zap any of my notes/dms or my profile to top up your balance. I also understand Zapplepay.  bg##")
 
 
 def parse_bot_command_to_event(dec_text):
@@ -1855,12 +1855,12 @@ def admin_make_database_updates():
     unwhitelistuser = False
     blacklistuser = False
     addbalance = False
-    additional_balance = 250
+    additional_balance = 500
 
     if listdatabase:
         list_db()
 
-    publickey = PublicKey.from_bech32("npub1rzg96zjavgatsx5ch2vvtq4atatly5rvdwqgjp0utxw45zeznvyqfdkxve").to_hex()
+    publickey = PublicKey.from_bech32("npub1w4uswmv6lu9yel005l3qgheysmr7tk9uvwluddznju3nuxalevvs2d0jr5").to_hex()
     # use this if you have the npub
     #publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
 
