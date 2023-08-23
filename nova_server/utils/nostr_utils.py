@@ -100,6 +100,10 @@ def nostr_server():
                     user = get_or_add_user(sender)
                     nip05 = user[4]
                     name = user[6]
+                    if nip05 == None:
+                        nip05 = ""
+                    if name == None:
+                        name = ""
                     # Get nip05,lud16 and name from profile and store them in db.
                     if str(nip05) == "" or nip05 is None:
                         try:
@@ -197,7 +201,7 @@ def nostr_server():
                             send_event(evt, client)
 
                     elif not DVMConfig.PASSIVE_MODE:
-                        print("Request from " + name + " (" + nip05 + ") Message: " + dec_text)
+                        print("Request from " + str(name) + " (" +str (nip05) + ") Message: " + dec_text)
                         if str(dec_text).startswith("-balance"):
                             user = get_or_add_user(sender)
                             balance = user[1]
