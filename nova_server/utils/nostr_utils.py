@@ -709,9 +709,7 @@ def nostr_server():
                 if tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == 'since':
                         days = tag.as_vec()[2]
-                    elif tag.as_vec()[1] == 'numusers':
-                        number = tag.as_vec()[2]
-            request_form["optStr"] = 'user=' + user + ';since=' + days + ';num=' + number + ';is_bot=' + str(is_bot)
+            request_form["optStr"] = 'user=' + user + ';since=' + days + ';is_bot=' + str(is_bot)
 
         return request_form
 
@@ -1850,7 +1848,7 @@ def admin_make_database_updates():
     # List all entries, why not.
 
 
-    rebroadcast_nip89 = True
+    rebroadcast_nip89 = False
     listdatabase = False
     deleteuser = False
     whitelistuser = False

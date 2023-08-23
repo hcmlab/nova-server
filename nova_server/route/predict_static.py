@@ -88,7 +88,7 @@ def predict_static_data(request_form):
             anno = LLAMA2(
                 "Give me a summarization of the most important points of the following text: " + options["message"],  options["user"], options["system_prompt"])
         elif task == "inactive-following":
-            anno = InactiveNostrFollowers(options["user"], int(options["since"]), int(options["num"]), str2bool(options["is_bot"]))
+            anno = InactiveNostrFollowers(options["user"], int(options["since"]), str2bool(options["is_bot"]))
 
         if "nostrEvent" in request_form:
             if request_form["nostrEvent"] is not None :
@@ -612,18 +612,19 @@ def LLAMA2(message, user, system_prompt=""):
     return answer
 
 
-def InactiveNostrFollowers(user, notactivesincedays, numberinactivefollowers, is_bot):
+def InactiveNostrFollowers(user, notactivesincedays, is_bot):
     from nostr_sdk import Keys, Client, Filter
-    notactivesinceseconds = int(notactivesincedays) * 24 * 60 * 60
+
     inactivefollowerslist = ""
     relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
     relaytimeout = 5
+    step = 20
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
     cl = Client(keys)
     for relay in relay_list:
         cl.add_relay(relay)
     cl.connect()
-    pk = PublicKey.from_hex(user)
+
     filt = Filter().author(user).kind(3).limit(1)
     followers = cl.get_events_of([filt], timedelta(seconds=relaytimeout))
 
@@ -649,28 +650,26 @@ def InactiveNostrFollowers(user, notactivesincedays, numberinactivefollowers, is
                 dic[following] = "False"
         print("Followings: " + str(len(followings)))
 
-        step = 25
+        notactivesinceseconds = int(notactivesincedays) * 24 * 60 * 60
         dif = Timestamp.now().as_secs() - notactivesinceseconds
         notactivesince = Timestamp.from_secs(dif)
 
         while i < len(followings) - step:
             filters = []
-            for i in range(i+step+1):
-                filter1 = Filter().author(followings[i]).kinds([1, 7]).since(notactivesince).limit(1)
+            for i in range(i, i+step+1):
+                filter1 = Filter().author(followings[i]).since(notactivesince).limit(1)
                 filters.append(filter1)
 
             notes = cl.get_events_of(filters, timedelta(seconds=6))
 
             for note in notes:
                     dic[note.pubkey().to_hex()] = "True"
-
-
             print(str(i) + "/" + str(len(followings)))
 
-        missingscans = len(followings) - i
+        missing_scans = len(followings) - i
         filters = []
-        for i in range(i+missingscans):
-            filter1 = Filter().author(followings[i]).kinds([1, 7]).since(notactivesince).limit(1)
+        for i in range(i+missing_scans):
+            filter1 = Filter().author(followings[i]).since(notactivesince).limit(1)
             filters.append(filter1)
 
         notes = cl.get_events_of(filters, timedelta(seconds=6))
@@ -680,16 +679,14 @@ def InactiveNostrFollowers(user, notactivesincedays, numberinactivefollowers, is
         print(str(len(followings)) + "/" + str(len(followings)))
 
         cl.disconnect()
-
-
         result = {k for (k, v) in dic.items() if v == "False"}
         if len(result) == 0:
             print("Not found")
             return "No inactive followers found on relays."
 
-
         for k in result:
             if (is_bot):
+
                 inactivefollowerslist = inactivefollowerslist + "nostr:" + PublicKey.from_hex(k).to_bech32() + "\n"
             else:
                 p_tag = Tag.parse(["p", k])
