@@ -150,7 +150,7 @@ def nostr_server():
                                      Timestamp.now().as_secs())
                     if any(dec_text.startswith("-" + s) for s in DVMConfig.SUPPORTED_TASKS):
                         task = str(dec_text).split(' ')[0].removeprefix('-')
-                        print("Request from " + name + " (" + nip05 + ") Task: " + task)
+                        print("Request from " + str(name) + " (" + str(nip05) + ") Task: " + str(task))
                         required_amount = get_amount_per_task(task)
                         balance = user[1]
                         is_whitelisted = user[2]
@@ -1849,7 +1849,7 @@ def admin_make_database_updates():
 
 
     rebroadcast_nip89 = False
-    listdatabase = False
+    listdatabase = True
     deleteuser = False
     whitelistuser = False
     unwhitelistuser = False
@@ -1860,7 +1860,7 @@ def admin_make_database_updates():
     if listdatabase:
         list_db()
 
-    publickey = PublicKey.from_bech32("npub1w4uswmv6lu9yel005l3qgheysmr7tk9uvwluddznju3nuxalevvs2d0jr5").to_hex()
+    publickey = PublicKey.from_bech32("npub1y0kt3nttqhre2utsglce4pzyma67lp3xumldwzkkfrdkpjjht6qqnlyrh7").to_hex()
     # use this if you have the npub
     #publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
 
