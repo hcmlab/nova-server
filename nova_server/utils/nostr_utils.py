@@ -1692,7 +1692,7 @@ def add_to_sql_table(npub, sats, iswhitelisted, isblacklisted, nip05, lud16, nam
         con = sqlite3.connect(DVMConfig.USERDB)
         cur = con.cursor()
         data = (npub, sats, iswhitelisted, isblacklisted, nip05, lud16, name, lastactive)
-        cur.execute("INSERT INTO users VALUES(?, ?, ?, ?, ?, ?, ?, ?)", data)
+        cur.execute("INSERT or IGNORE INTO users VALUES(?, ?, ?, ?, ?, ?, ?, ?)", data)
         con.commit()
         con.close()
     except Error as e:
@@ -1802,20 +1802,20 @@ def admin_make_database_updates():
 
 
     rebroadcast_nip89 = False
+    cleardb = True
     listdatabase = True
-    deleteuser = False
+    deleteuser = True
     whitelistuser = False
     unwhitelistuser = False
     blacklistuser = False
     addbalance = False
     additional_balance = 500
 
-    if listdatabase:
-        list_db()
 
-    publickey = PublicKey.from_bech32("npub1y0kt3nttqhre2utsglce4pzyma67lp3xumldwzkkfrdkpjjht6qqnlyrh7").to_hex()
+
+    publickey = PublicKey.from_bech32("npub19jkj3lf4gh53qnp70uupvv3k3pyl39fzu52ygkhhszd5083yd36qpyu0dy").to_hex()
     # use this if you have the npub
-    publickey = "2cad28fd3545e9104c3e7f381632368849f89522e514445af7809b479e246c74"
+    #publickey = "2cad28fd3545e9104c3e7f381632368849f89522e514445af7809b479e246c74"
 
     if whitelistuser:
         user = get_from_sql_table(publickey)
@@ -1836,6 +1836,12 @@ def admin_make_database_updates():
 
     if deleteuser:
         delete_from_sql_table(publickey)
+
+    if cleardb:
+        clear_db()
+
+    if listdatabase:
+        list_db()
         
     if rebroadcast_nip89:
         nip89_announce_tasks()
