@@ -84,7 +84,6 @@ def nostr_server():
     client.subscribe([dm_zap_filter, dvm_filter])
 
     create_sql_table()
-    # clear_db()
     admin_make_database_updates()
 
     class NotificationHandler(HandleNotification):
@@ -1022,9 +1021,9 @@ def get_task(event, client):
         else:
             return "text-to-image"
     elif event.kind() == 65006:
-        return "inactive-following"
-    elif event.kind() == 65007:
         return "event-list-generation"
+    elif event.kind() == 65007:
+        return "inactive-following"
     else:
         return "unknown type"
 
@@ -1865,11 +1864,11 @@ def nip89_announce_tasks():
     event = EventBuilder(31990, content, [k65003_tag, d_tag]).to_event(keys)
     send_event(event)
 
-    k65006_tag = Tag.parse(["k", "65006"])
+    k65007_tag = Tag.parse(["k", "65007"])
     d_tag = Tag.parse(["d", "ebfw1pwoe2cx2f7n"])
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
     content = "{\"name\":\"Nostr AI DVM Inactive Followings\",\"image\":\"https://cdn.nostr.build/i/fff3f825ff3aa20daf0cb6e099264dfd5b7a66b0922431d22810b33e8de13d36.jpg\",\"about\":\"Returns a list of inactive followings. This includes npubs of users who haven't posted or reacted within the last x days (default 30). Parameter since can be used to increase the search window, e.g. inactive in the last 60 days.\",\"nip90Params\":{\"since\":{\"required\":false,\"values\":[\"30\",\"60\",\"90\",\"120\",\"150\",\"180\"]}}}"
-    event = EventBuilder(31990, content, [k65006_tag, d_tag]).to_event(keys)
+    event = EventBuilder(31990, content, [k65007_tag, d_tag]).to_event(keys)
     send_event(event)
 
     k65002_tag = Tag.parse(["k", "65002"])
