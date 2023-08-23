@@ -102,7 +102,7 @@ def nostr_server():
                     nip05 = user[4]
                     name = user[6]
                     # Get nip05,lud16 and name from profile and store them in db.
-                    if nip05 == "" or nip05 is None:
+                    if str(nip05) == "" or nip05 is None:
                         try:
                             profile_filter = Filter().kind(0).author(event.pubkey().to_hex()).limit(1)
                             events = client.get_events_of([profile_filter], timedelta(seconds=3))
@@ -110,14 +110,14 @@ def nostr_server():
                                 ev = events[0]
                                 metadata = Metadata.from_json(ev.content())
                                 name = metadata.get_display_name()
-                                if name == "" or name is None:
+                                if str(name) == "" or name is None:
                                     name = metadata.get_name()
                                 nip05 = metadata.get_nip05()
                                 lud16 = metadata.get_lud16()
                                 update_sql_table(user[0], user[1], user[2], user[3], nip05, lud16, name,
                                                  Timestamp.now().as_secs())
                                 user = get_from_sql_table(user[0])
-                                if nip05 == "" or nip05 is None:
+                                if str(nip05) == "" or nip05 is None:
 
                                     if DVMConfig.REQUIRES_NIP05 and user[1] <= DVMConfig.NEW_USER_BALANCE:
                                         time.sleep(1.0)
@@ -177,10 +177,6 @@ def nostr_server():
 
                             send_event(evt, client)
                             tags = parse_bot_command_to_event(dec_text)
-                            for tag in tags:
-                                if tag.as_vec()[0] == "j":
-                                    task = tag.as_vec()[1]
-
                             tags.append(Tag.parse(["p", event.pubkey().to_hex()]))
                             tags.append(Tag.parse(["y", event.pubkey().to_hex()]))
                             evt = EventBuilder(4, "", tags).to_event(keys)
@@ -199,11 +195,6 @@ def nostr_server():
                                 "Balance required, please zap me with at least " + str(required_amount)
                                 + " Sats, then try again.",
                                 event.id()).to_event(keys)
-                            #expires = event.created_at().as_secs() + (60 * 60)
-                            #job_list.append(
-                            #    JobToWatch(event_id=evt.id().to_hex(), timestamp=event.created_at().as_secs(),
-                            #               amount=required_amount, is_paid=False, status="payment-required", result="",
-                            #               is_processed=False, bolt11="", payment_hash="", expires=expires, from_bot=True))
                             send_event(evt, client)
 
                     elif not DVMConfig.PASSIVE_MODE:
@@ -305,42 +296,7 @@ def nostr_server():
                                                              False, invoice_amount, client=client)
                                     print("[Nostr] Invoice was not paid sufficiently")
 
-
-                        #removed direct start as we dont know if task is supported on this dvm
-                        #elif zapped_event.kind() == 4 and not DVMConfig.PASSIVE_MODE:
-                        #    required_amount = 50
-                        #    job_event = None
-                        #    update_user_balance(sender, invoice_amount)
-                            #for tag in zapped_event.tags():
-                            #    if tag.as_vec()[0] == 'e':
-                            #        job_event = get_event_by_id(tag.as_vec()[1])
-
-                            #if job_event is not None:
-                            #    indices = [i for i, x in enumerate(job_list) if x.id == zapped_event.id().to_hex()]
-                            #    print(str(indices))
-                            #    if len(indices) == 1:
-
-                            #        dec_text = nip04_decrypt(sk, job_event.pubkey(), job_event.content())
-                            #        tags = parse_bot_command_to_event(dec_text)
-                            #        tags.append(Tag.parse(["p", job_event.pubkey().to_hex()]))
-                            #        work_event = EventBuilder(4, "", tags).to_event(keys)
-                            #        for tag in tags:
-                            #            if tag.as_vec()[0] == "j":
-                            #                task = tag.as_vec()[1]
-                            #                required_amount = get_amount_per_task(task)
-                            #        if invoice_amount >= required_amount:
-                            #            dm_event = EventBuilder.new_encrypted_direct_msg(keys, job_event.pubkey(),
-                            #                        "Zap ⚡️ received! Your Job is now scheduled. I will DM you "
-                            #                        "once I'm done processing.", None).to_event(keys)
-                            #            send_event(dm_event, client)
-                            #            job_list.pop(indices[0])
-                            #            print(work_event.as_json())
-                            #            do_work(work_event, is_from_bot=True)
-                            #        elif not anon:
-                            #            update_user_balance(sender, invoice_amount)
-                            #    elif not anon:
-                            #        update_user_balance(sender, invoice_amount)
-                            elif not anon:
+                            elif not anon and not DVMConfig.PASSIVE_MODE:
                                 update_user_balance(sender, invoice_amount)
                         elif zapped_event.kind() == 65001:
                             print("Someone zapped the result of an exisiting Task. Nice")
@@ -1129,7 +1085,7 @@ def check_event_status(data, original_event_str: str, use_bot=False):
         keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
         receiver_key = PublicKey()
         for tag in original_event.tags():
-            if tag.as_vec()[0] == "p":
+            if tag.as_vec()[0] == "p": #TODO maybe use another tag, e.g y, as p might be overwritten in some events.
                 receiver_key = PublicKey.from_hex(tag.as_vec()[1])
         event = EventBuilder.new_encrypted_direct_msg(keys, receiver_key, post_processed_content, None).to_event(keys)
         send_event(event)
@@ -1241,6 +1197,7 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
                 break
 
     bolt11 = ""
+    payment_hash = ""
     expires = original_event.created_at().as_secs() + (60*60*24)
     if status == "payment-required" or (status == "processing" and not is_paid):
         if DVMConfig.LNBITS_INVOICE_KEY != "":
@@ -1262,9 +1219,6 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
             amount_tag = Tag.parse(["amount", str(amount * 1000)])  # to millisats
         tags.append(amount_tag)
 
-
-
-
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
     event = EventBuilder(65000, reaction, tags).to_event(keys)
 
@@ -1279,14 +1233,13 @@ def post_process_result(anno, original_event):
     if isinstance(anno, Anno): #if input is an anno we parse it to required output format
         for tag in original_event.tags():
             if tag.as_vec()[0] == "output":
-                print("requested output is " +tag.as_vec()[1] + "...")
+                print("requested output is " + str(tag.as_vec()[1]) + "...")
                 try:
                     if tag.as_vec()[1] == "text/plain":
                         result = ""
                         #print(str(anno.data))
                         for element in anno.data:
                             name = element["name"] #name
-                            print(name)
                             cleared_name = str(name).lstrip("\'").rstrip("\'")
                             result = result + cleared_name + "\n"
                         result = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
@@ -1849,8 +1802,8 @@ def admin_make_database_updates():
 
 
     rebroadcast_nip89 = False
-    listdatabase = False
-    deleteuser = False
+    listdatabase = True
+    deleteuser = True
     whitelistuser = False
     unwhitelistuser = False
     blacklistuser = False
@@ -1860,9 +1813,9 @@ def admin_make_database_updates():
     if listdatabase:
         list_db()
 
-    publickey = PublicKey.from_bech32("npub1w4uswmv6lu9yel005l3qgheysmr7tk9uvwluddznju3nuxalevvs2d0jr5").to_hex()
+    #publickey = PublicKey.from_bech32("npub1y0kt3nttqhre2utsglce4pzyma67lp3xumldwzkkfrdkpjjht6qqnlyrh7").to_hex()
     # use this if you have the npub
-    #publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
+    publickey = "2cad28fd3545e9104c3e7f381632368849f89522e514445af7809b479e246c74"
 
     if whitelistuser:
         user = get_from_sql_table(publickey)
