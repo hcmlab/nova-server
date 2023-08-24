@@ -1255,7 +1255,7 @@ def post_process_result(anno, original_event):
                 try:
                     if tag.as_vec()[1] == "text/plain":
                         result = ""
-                        #print(str(anno.data))
+                        print(str(anno.data))
                         for element in anno.data:
                             name = element["name"] #name
                             cleared_name = str(name).lstrip("\'").rstrip("\'")
@@ -1275,6 +1275,8 @@ def post_process_result(anno, original_event):
                     print(e)
                     result = str(anno.data)
                     return result
+            else:
+                return anno.data
     else:
         return anno
 
