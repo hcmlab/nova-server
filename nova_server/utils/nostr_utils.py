@@ -1304,7 +1304,7 @@ def get_bot_help_text():
 
 
 def parse_bot_command_to_event(dec_text):
-    dec_text = dec_text.replace("\n", "")
+    dec_text = dec_text.replace("\n", " ")
     if str(dec_text).startswith("-text-to-image"):
         command = dec_text.replace("-text-to-image ", "")
         split = command.split(" -")
@@ -1352,6 +1352,7 @@ def parse_bot_command_to_event(dec_text):
         return tags
 
     elif str(dec_text).startswith("-image-to-image"):
+        dec_text = dec_text.replace("\n", " ")
         command = dec_text.replace("-image-to-image ", "")
         split = command.split(" -")
         url = str(split[0]).replace(' ', '')
