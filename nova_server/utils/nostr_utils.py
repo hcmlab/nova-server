@@ -1681,7 +1681,7 @@ def check_url_is_readable(url):
             ".mp3") or content_type == 'audio/ogg' or str(url).endswith(".ogg"):
         return "audio"
     elif content_type == 'image/png' or str(url).endswith(".png") or content_type == 'image/jpg' or str(url).endswith(
-            ".jpg") or content_type == 'image/jpeg' or str(url).endswith(".jpeg") or content_type == 'image/png' or str(
+            ".jpg") or content_type == 'image/jpeg' or str(url).endswith(".jpeg") or str(url).endswith(".pdf") or content_type == 'image/png' or str(
             url).endswith(".png"):
         return "image"
     elif content_type == 'video/mp4' or str(url).endswith(".mp4") or content_type == 'video/avi' or str(url).endswith(
