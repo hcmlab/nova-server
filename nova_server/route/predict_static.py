@@ -553,26 +553,48 @@ def OCRtesseract(url):
     from PIL import Image
     from io import BytesIO
 
-    response = requests.get(url)
-    imgd = Image.open(BytesIO(response.content)).convert("RGB")
-    imgd.save("ocr.jpg")
-    img = cv2.imread("ocr.jpg")
-    img = cv2.resize(img, None, fx=1.2, fy=1.2, interpolation=cv2.INTER_CUBIC)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    kernel = np.ones((1, 1), np.uint8)
-    # img = cv2.dilate(img, kernel, iterations=1)
-    # img = cv2.erode(img, kernel, iterations=1)
-    # img = cv2.threshold(cv2.bilateralFilter(img, 5, 75, 75), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-    cv2.imwrite("ocr_procesed.jpg", img)
-    # img = cv2.threshold(cv2.medianBlur(img, 3), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+    if str(url).endswith("pdf"):
+        result = extract_text_from_pdf(url)
 
-    # Adding custom options
-    custom_config = r'--oem 3 --psm 6'
-    result = pytesseract.image_to_string(img, config=custom_config)
+    else:
+        response = requests.get(url)
+        imgd = Image.open(BytesIO(response.content)).convert("RGB")
+        imgd.save("ocr.jpg")
+        img = cv2.imread("ocr.jpg")
+        img = cv2.resize(img, None, fx=1.2, fy=1.2, interpolation=cv2.INTER_CUBIC)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        kernel = np.ones((1, 1), np.uint8)
+        # img = cv2.dilate(img, kernel, iterations=1)
+        # img = cv2.erode(img, kernel, iterations=1)
+        # img = cv2.threshold(cv2.bilateralFilter(img, 5, 75, 75), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+        cv2.imwrite("ocr_procesed.jpg", img)
+        # img = cv2.threshold(cv2.medianBlur(img, 3), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+
+        # Adding custom options
+        custom_config = r'--oem 3 --psm 6'
+        result = pytesseract.image_to_string(img, config=custom_config)
     print(str(result))
     return str(result)
 
+def extract_text_from_pdf(url):
+    import PyPDF2
+    from pathlib import Path
+    import requests
+    file_path = Path('temp.pdf')
+    response = requests.get(url)
+    file_path.write_bytes(response.content)
 
+    pdf_file_obj = open(file_path, 'rb')
+    pdf_reader = PyPDF2.PdfFileReader(pdf_file_obj)
+
+    text = ""
+    for page_num in range(pdf_reader.numPages):
+        page_obj = pdf_reader.getPage(page_num)
+        text += page_obj.extractText()
+
+    pdf_file_obj.close()
+
+    return text
 
 
 dict_users = {}
