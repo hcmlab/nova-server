@@ -3,7 +3,9 @@ import copy
 import gc
 import json
 import os
+import re
 from datetime import timedelta
+import random
 
 import numpy as np
 from diffusers import DiffusionPipeline, StableDiffusionXLImg2ImgPipeline, StableDiffusionInstructPix2PixPipeline, \
@@ -11,7 +13,7 @@ from diffusers import DiffusionPipeline, StableDiffusionXLImg2ImgPipeline, Stabl
 from diffusers.utils import load_image
 from flask import Blueprint, request, jsonify
 from huggingface_hub import model_info
-from nostr_sdk import PublicKey, Timestamp, Tag
+from nostr_sdk import PublicKey, Timestamp, Tag, EventId
 
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
@@ -89,6 +91,9 @@ def predict_static_data(request_form):
                 "Give me a summarization of the most important points of the following text: " + options["message"],  options["user"], options["system_prompt"])
         elif task == "inactive-following":
             anno = InactiveNostrFollowers(options["user"], int(options["since"]), str2bool(options["is_bot"]))
+        elif task == "note-recommendation":
+            anno = NoteRecommendations(options["user"], int(options["since"]), str2bool(options["is_bot"]))
+
 
         if "nostrEvent" in request_form:
             if request_form["nostrEvent"] is not None :
@@ -568,12 +573,25 @@ def OCRtesseract(url):
     return str(result)
 
 
+
+
 dict_users = {}
-def LLAMA2(message, user, system_prompt=""):
+def LLAMA2(message, user, system_prompt="", clear=False):
     import requests
     import json
+
     if dict_users.get(user) is None:
         dict_users[user] = {'history': []}
+
+    #get_promt_len(dict_users[user]['history'], message, system_prompt, "", "")
+
+    result = ""
+    split = message.split()
+    length = min(len(split), 1800)
+    for token in range(0, length):
+        result = result + " " + split[token]
+
+    message = result
 
     #print(str(dict_users[user]['history']))
 
@@ -604,6 +622,9 @@ def LLAMA2(message, user, system_prompt=""):
         dict_users[user]['history'] = []
         answer = "I have now forgotten about our chat history. Nice to meet you (again)."
     else:
+        if clear:
+            dict_users[user]['history'] = []
+
         payload['message'] = "User: " + message
         payload['history'] = dict_users[user]['history']
         answer = post_stream(url, payload)
@@ -611,6 +632,138 @@ def LLAMA2(message, user, system_prompt=""):
 
     return answer
 
+
+
+
+def NoteRecommendations(user, notactivesincedays, is_bot):
+    from nostr_sdk import Keys, Client, Filter
+
+    inactivefollowerslist = ""
+    relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
+    relaytimeout = 5
+    step = 20
+    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    cl = Client(keys)
+    for relay in relay_list:
+        cl.add_relay(relay)
+    cl.connect()
+
+    timeinseconds = 3 * 24 * 60 * 60
+    dif = Timestamp.now().as_secs() - timeinseconds
+    considernotessince = Timestamp.from_secs(dif)
+    filt = Filter().author(user).kind(1).since(considernotessince)
+    reactions = cl.get_events_of([filt], timedelta(seconds=relaytimeout))
+    list = []
+    random.shuffle(reactions)
+    for reaction in reactions:
+        if reaction.kind() == 1:
+            list.append(reaction.content())
+    all = json.dumps(list)
+    all = all.replace("\n", " ").replace("\n\n", " ")
+    cleared = ""
+    tokens = all.split()
+    for item in tokens:
+        item = item.replace("\n", " ").lstrip("\"").rstrip(",").rstrip(("."))
+        #print(item)
+        if item.__contains__("http") or item.__contains__("\nhttp")  or item.__contains__("\n\nhttp") or item.lower().__contains__("nostr:") or item.lower().__contains__("nevent") or item.__contains__("\\u"):
+            cleareditem = ""
+        else:
+            cleareditem = item
+        cleared = cleared + " " + cleareditem
+
+
+    cleared = cleared.replace("\n", " ")
+    #res = re.sub(r"[^ a-zA-Z0-9.!?/\\:,]+", '', all)
+    #print(cleared)
+    answer = LLAMA2("Give me the 10 most important substantives as keywords of the following input: " + cleared, "nostruser",
+                       "Reply only with a comma-seperated keywords. return topics starting with a *", clear=True)
+
+
+    promptarr = answer.split(":")
+    if len(promptarr) > 1:
+        #print(promptarr[1])
+        prompt = promptarr[1].lstrip("\n").replace("\n", ",").replace("*", "").replace("•", "")
+    else:
+        prompt = promptarr[0].replace("\n", ",").replace("*", "")
+
+    pattern = r"[^a-zA-Z,'\s]"
+    text = re.sub(pattern, "", prompt) + ","
+
+    #text = (text.replace("Let's,", "").replace("Why,", "").replace("GM,", "")
+    #        .replace("Remember,", "").replace("I,", "").replace("Think,", "")
+    #        .replace("Already,", ""))
+    #print(text)
+    keywords = text.split(', ')
+
+    print(keywords)
+
+    #answer = LLAMA2("Extent the given list with 5 synonyms per entry  " + str(keywords), user,
+    #                "Reply only with a comma-seperated keywords. return topics starting with a *")
+    #answer.replace(" - Alternatives:", ",")
+    #print(answer)
+    #promptarr = answer.split(":")
+    #if len(promptarr) > 1:
+    #    # print(promptarr[1])
+    #    prompt = promptarr[1].lstrip("\n").replace("\n", ",").replace("*", "").replace("•", "")
+    #else:
+    #    prompt = promptarr[0].replace("\n", ",").replace("*", "")
+
+    #pattern = r"[^a-zA-Z,'\s]"
+    #text = re.sub(pattern, "", prompt) + ","
+    #keywords = text.split(', ')
+
+    #print(keywords)
+
+
+    timeinseconds = 30 * 60  #last 30 min?
+    dif = Timestamp.now().as_secs() - timeinseconds
+    looksince = Timestamp.from_secs(dif)
+    filt2 = Filter().kind(1).since(looksince)
+    notes = cl.get_events_of([filt2], timedelta(seconds=10))
+
+    #finallist = []
+    finallist = {}
+
+    print("Notes found: " + str(len(notes)))
+    j=0
+    for note in notes:
+        j= j+1
+        res = [ele for ele in keywords if(ele.replace(',',"") in note.content())]
+        if bool(res):
+            if not note.id().to_hex() in finallist and note.pubkey().to_hex() != user:
+                finallist[note.id().to_hex()] = 0
+                filt = Filter().kinds([9735, 7, 1]).event(note.id())
+                reactions = cl.get_events_of([filt], timedelta(seconds=1))
+                print(str(len(reactions)) + "   " + str(j) + "/" + str(len(notes)))
+                finallist[note.id().to_hex()] = len(reactions)
+
+
+    finallist_sorted = sorted(finallist.items(), key=lambda x: x[1], reverse=True)
+    converted_dict = dict(finallist_sorted)
+    print(json.dumps(converted_dict))
+
+    notelist = ""
+    resultlist = []
+    i =0
+    for k in converted_dict:
+        #print(k)
+        if is_bot:
+            i = i+1
+            notelist = notelist + "nostr:" + EventId.from_hex(k).to_bech32() + "\n\n"
+            if i == 20:
+                break
+        else:
+            p_tag = Tag.parse(["p", k])
+            resultlist.append(p_tag.as_vec())
+
+    if is_bot:
+        return notelist
+    else:
+        return json.dumps(resultlist[:20])
+
+# take second element for sort
+def takeSecond(elem):
+    return elem[1]
 
 def InactiveNostrFollowers(user, notactivesincedays, is_bot):
     from nostr_sdk import Keys, Client, Filter
