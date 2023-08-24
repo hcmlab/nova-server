@@ -561,13 +561,16 @@ def nostr_server():
                     elif input_type == "job":
                         evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
                         if evt is not None:
-                            llamalist = LLAMA2("Give me the keywords of the following input: "+ evt.content(), ""
-                                               ,"Reply only with comma-seperated lists, no smalltak")
-                            promptarr = llamalist.split(":")
-                            if len(promptarr) > 1:
-                                prompt = promptarr[1].lstrip("\n").replace("\n", ",").replace("*", "")
-                            else:
-                                prompt = promptarr[0].replace("\n", ",").replace("*","")
+                            try:
+                                llamalist = LLAMA2(evt.content(), ""
+                                                   ,"Give me the keywords for the given text. Reply only with comma-seperated lists, no smalltak")
+                                promptarr = llamalist.split(":")
+                                if len(promptarr) > 1:
+                                    prompt = promptarr[1].lstrip("\n").replace("\n", ",").replace("*", "")
+                                else:
+                                    prompt = promptarr[0].replace("\n", ",").replace("*","")
+                            except:
+                                prompt = evt.content().replace("\n", ",")
 
                         else:
                             prompt = ""
