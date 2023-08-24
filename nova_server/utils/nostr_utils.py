@@ -2,12 +2,15 @@ import json
 
 import os
 import re
+import string
 import urllib
 from dataclasses import dataclass
 from datetime import timedelta
+import random
 from sqlite3 import Error
 from urllib.parse import urlparse
 
+import numpy as np
 import pandas as pd
 from bech32 import bech32_decode, convertbits
 
@@ -80,7 +83,7 @@ def nostr_server():
         client.add_relay(relay)
     client.connect()
     dm_zap_filter = Filter().pubkey(pk).kinds([4, 9734, 9735]).since(Timestamp.now())
-    dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005, 65006]).since(Timestamp.now()))
+    dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005, 65007]).since(Timestamp.now()))
     client.subscribe([dm_zap_filter, dvm_filter])
 
     create_sql_table()
@@ -266,7 +269,8 @@ def nostr_server():
                                         anon = True
                                         print("Anonymous Zap received. Unlucky, I don't know from whom, and never will")
                     user = get_or_add_user(sender)
-                    print("Zap received: " + str(invoice_amount) + " Sats from " + user[6])
+                    print(str(user))
+                    print("Zap received: " + str(invoice_amount) + " Sats from " + str(user[6]))
                     if zapped_event is not None:
                         if zapped_event.kind() == 65000:  # if a reaction by us got zapped
                             amount = 0
@@ -276,13 +280,12 @@ def nostr_server():
                                     amount = int(float(tag.as_vec()[1]) / 1000)
                                 elif tag.as_vec()[0] == 'e':
                                     job_event = get_event_by_id(tag.as_vec()[1])
-
-                            task_supported, task = check_task_is_supported(job_event, client=client)
+                            task_supported, task, duration = check_task_is_supported(job_event, client=client, get_duration=False)
                             if job_event is not None and task_supported:
                                 if amount <= invoice_amount:
                                     print("[Nostr] Payment-request fulfilled...")
                                     send_job_status_reaction(job_event, "processing", client=client)
-                                    indices = [i for i, x in enumerate(job_list) if x.id == job_event.id().to_hex()]
+                                    indices = [i for i, x in enumerate(job_list) if x.event_id == job_event.id().to_hex()]
                                     index = -1
                                     if len(indices) > 0:
                                         index = indices[0]
@@ -321,7 +324,11 @@ def nostr_server():
         user = get_or_add_user(event.pubkey().to_hex())
         is_whitelisted = user[2]
         is_blacklisted = user[3]
-        task_supported, task = check_task_is_supported(event, client=client)
+        print("Is whitelisted: " + str(is_whitelisted))
+        if is_whitelisted:
+            task_supported, task, duration = check_task_is_supported(event, client=client, get_duration=False)
+        else:
+            task_supported, task, duration = check_task_is_supported(event, client=client, get_duration=True)
 
         if is_blacklisted:
             send_job_status_reaction(event, "error", client=client)
@@ -329,7 +336,8 @@ def nostr_server():
 
         elif task_supported:
             print("Received new Task: " + task)
-            amount = get_amount_per_task(task)
+            print(duration)
+            amount = get_amount_per_task(task, duration)
             if amount is None:
                 return
 
@@ -396,12 +404,10 @@ def nostr_server():
             # Declare specific model type e.g. whisperx_large-v2
             request_form["mode"] = "PREDICT"
             alignment = "raw"
-            model_option = "large-v2"
+            model_option = "base" #"large-v2"
 
             for tag in event.tags():
                 if tag.as_vec()[0] == 'param':
-
-                    print(tag.as_vec())
                     param = tag.as_vec()[1]
                     if param == "range":  # check for paramtype
                         try:
@@ -686,146 +692,11 @@ def nostr_server():
 
         return request_form
 
-    def organize_input_data(event, request_form):
-        data_dir = os.environ["NOVA_DATA_DIR"]
-
-        session = event.id().to_hex()
-        input_type = "url"
-        input_value = ""
-        for tag in event.tags():
-            if tag.as_vec()[0] == 'i':
-                input_value = tag.as_vec()[1]
-                input_type = tag.as_vec()[2]
-                break
 
 
-        if input_type == "event": #NIP94 event
-            evt = get_event_by_id(input_value)
-            if evt is not None:
-                if evt.kind() == 1063:
-                    for tag in evt.tags():
-                        if tag.as_vec()[0] == 'url':
-                            input_type = "url"
-                            input_value = tag.as_vec()[1]
-
-        if input_type == "url":
-            if not os.path.exists(data_dir + '\\' + request_form["database"] + '\\' + session):
-                os.mkdir(data_dir + '\\' + request_form["database"] + '\\' + session)
-            # We can support some services that don't use default media links, like overcastfm for podcasts
-            if str(input_value).startswith("https://overcast.fm/"):
-                filename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
-                    "roles"] + ".originalaudio.mp3"
-                print("Found overcast.fm Link.. downloading")
-                download_podcast(input_value, filename)
-                finaltag = str(input_value).replace("https://overcast.fm/", "").split('/')
-                if float(request_form["startTime"]) == 0.0:
-                    if len(finaltag) > 1:
-                        t = time.strptime(finaltag[1], "%H:%M:%S")
-                        seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
-                        request_form["startTime"] = str(seconds)  # overwrite from link.. why not..
-                        print("Setting start time automatically to " + request_form["startTime"])
-                        if float(request_form["endTime"]) > 0.0:
-                            request_form["endTime"] = seconds + float(request_form["endTime"])
-                            print("Moving end time automatically to " + request_form["endTime"])
-
-            # or youtube links..
-            elif str(input_value).replace("http://", "").replace("https://", "").replace(
-                    "www.", "").replace("youtu.be/", "youtube.com?v=")[0:11] == "youtube.com":
-                filepath = data_dir + '\\' + request_form["database"] + '\\' + session + '\\'
-                try:
-                    filename = downloadYouTube(input_value, filepath)
-                    print(filename)
-                    print(input_value)
-
-                    o = urlparse(input_value)
-                    q = urllib.parse.parse_qs(o.query)
-
-                except Exception as e:
-                    print(e)
-                    return None
-                try:
-                    if float(request_form["startTime"]) == 0.0:
-                        if o.query.find('?t=') != -1:
-                            request_form["startTime"] = q['t'][0]  # overwrite from link.. why not..
-                            request_form["startTime"] = q['t'][0]  # overrite from link.. why not..
-                            print("Setting start time automatically to " + request_form["startTime"])
-                            if float(request_form["endTime"]) > 0.0:
-                                request_form["endTime"] = str(float(q['t'][0]) + float(request_form["endTime"]))
-                                print("Moving end time automatically to " + request_form["endTime"])
-                except Exception as e:
-                    print(e)
 
 
-            # Regular links have a media file ending and/or mime types
-            else:
-                req = requests.get(input_value)
-                content_type = req.headers['content-type']
-                print(content_type)
-                if content_type == 'audio/x-wav' or str(input_value).lower().endswith(".wav"):
-                    ext = "wav"
-                    file_type = "audio"
-                elif content_type == 'audio/mpeg' or str(input_value).lower().endswith(".mp3"):
-                    ext = "mp3"
-                    file_type = "audio"
-                elif content_type == 'audio/ogg' or str(input_value).lower().endswith(".ogg"):
-                    ext = "ogg"
-                    file_type = "audio"
-                elif content_type == 'video/mp4' or str(input_value).lower().endswith(".mp4"):
-                    ext = "mp4"
-                    file_type = "video"
-                elif content_type == 'video/avi' or str(input_value).lower().endswith(".avi"):
-                    ext = "avi"
-                    file_type = "video"
-                elif content_type == 'video/quicktime' or str(input_value).lower().endswith(".mov"):
-                    ext = "mov"
-                    file_type = "video"
 
-                else:
-                    print(str(input_value).lower())
-                    return None
-
-                filename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
-                    "roles"] + '.original' + file_type + '.' + ext
-                print(filename)
-
-            try:
-                if not os.path.exists(filename):
-                    file = open(filename, 'wb')
-                    for chunk in req.iter_content(100000):
-                        file.write(chunk)
-                    file.close()
-            except Exception as e:
-                print(e)
-        try:
-            file_reader = AudioReader(filename, ctx=cpu(0), mono=False)
-            duration = file_reader.duration()
-        except Exception as e:
-            print(e)
-            return None
-
-        print("Duration of the Media file: " + str(duration))
-        if float(request_form['endTime']) == 0.0:
-            end_time = float(duration)
-        elif float(request_form['endTime']) > duration:
-            end_time = float(duration)
-        else:
-            end_time = float(request_form['endTime'])
-        if float(request_form['startTime']) < 0.0 or float(request_form['startTime']) > end_time:
-            start_time = 0.0
-        else:
-            start_time = float(request_form['startTime'])
-
-        print("Converting from " + str(start_time) + " until " + str(end_time))
-        # for now we cut and convert all files to mp3
-        finalfilename = data_dir + '\\' + request_form["database"] + '\\' + session + '\\' + request_form[
-            "roles"] + '.' + request_form["streamName"] + '.mp3'
-        fs, x = ffmpegio.audio.read(filename, ss=start_time, to=end_time, sample_fmt='dbl', ac=1)
-        ffmpegio.audio.write(finalfilename, fs, x)
-
-        if not db_entry_exists(request_form, session, "name", "Sessions"):
-            duration = end_time - start_time
-            add_new_session_to_db(request_form, duration)
-        return True
 
     def do_work(job_event, is_from_bot=False):
         if (65002 <= job_event.kind() <= 66000) or job_event.kind() == 4 or job_event.kind() == 68001:
@@ -833,7 +704,15 @@ def nostr_server():
             task = get_task(job_event, client=client)
             if task == "speech-to-text":
                 print("[Nostr] Adding Nostr speech-to-text Job event: " + job_event.as_json())
-                if organize_input_data(job_event, request_form) is None:
+                input_value = ""
+                input_type = ""
+                for tag in job_event.tags():
+                    if tag.as_vec()[0] == 'i':
+                        input_value = tag.as_vec()[1]
+                        input_type = tag.as_vec()[2]
+                        break
+                success, duration = organize_input_data(input_value, input_type, request_form)
+                if success is None:
                     respond_to_error("Error processing video", job_event.as_json(), is_from_bot)
                     return
             elif task == "event-list-generation" or task.startswith("unknown"):
@@ -1032,7 +911,7 @@ def get_task(event, client):
 
 
 
-        
+
         if has_image_tag:
             return "image-to-image"
         else:
@@ -1046,13 +925,14 @@ def get_task(event, client):
 
 
 
-def get_amount_per_task(task):
+def get_amount_per_task(task, duration = 0):
     if task == "translation":
-        duration = 1  # todo get task duration
-        amount = DVMConfig.COSTPERUNIT_TRANSLATION * duration
+        amount = DVMConfig.COSTPERUNIT_TRANSLATION
     elif task == "speech-to-text":
-        duration = 1  # todo get task duration
-        amount = DVMConfig.COSTPERUNIT_SPEECHTOTEXT * duration
+        if duration == 0:
+            amount = DVMConfig.COSTPERUNIT_SPEECHTOTEXT * 100 #if we dont have a duration make it rate x 100.
+        else:
+            amount = DVMConfig.COSTPERUNIT_SPEECHTOTEXT * duration
     elif task == "text-to-image":
         amount = DVMConfig.COSTPERUNIT_IMAGEGENERATION
     elif task == "image-to-image":
@@ -1182,7 +1062,7 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
 
         altdesc = "NIP90 DVM AI task " + task + " requires payment of min " + str(amount) + " Sats. "
         if task == "speech-to-text":
-            altdesc = altdesc + (" Providing results with WhisperX large-v2. "
+            altdesc = altdesc + (" Providing results with WhisperX. "
                                  "Accepted input formats: wav,mp3,mp4,ogg,avi,mov,youtube,overcast. "
                                  "Possible outputs: text/plain, timestamped labels depending on "
                                  "alignment parameter (word,segment,raw) ")
@@ -1193,13 +1073,13 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
 
     elif status == "payment-rejected":
         altdesc = "NIP90 DVM AI task " + task + " payment is below required amount of " + str(amount) + " Sats. "
-        reaction = altdesc + emoji.emojize(":see_no_evil_monkey:")
+        reaction = altdesc + emoji.emojize(":thumbs_down:")
     elif status == "user-blocked-from-service":
 
         altdesc = "NIP90 DVM AI task " + task + " can't be performed. User has been blocked from Service. "
-        reaction = altdesc + emoji.emojize(":see_no_evil_monkey:")
+        reaction = altdesc + emoji.emojize(":thumbs_down:")
     else:
-        reaction = emoji.emojize(":see_no_evil_monkey:")
+        reaction = emoji.emojize(":thumbs_down:")
 
     etag = Tag.parse(["e", original_event.id().to_hex()])
     ptag = Tag.parse(["p", original_event.pubkey().to_hex()])
@@ -1251,9 +1131,10 @@ def post_process_result(anno, original_event):
     if isinstance(anno, Anno): #if input is an anno we parse it to required output format
         for tag in original_event.tags():
             if tag.as_vec()[0] == "output":
+                output_format = tag.as_vec()[1]
                 print("requested output is " + str(tag.as_vec()[1]) + "...")
                 try:
-                    if tag.as_vec()[1] == "text/plain":
+                    if output_format == "text/plain":
                         result = ""
                         print(str(anno.data))
                         for element in anno.data:
@@ -1263,7 +1144,7 @@ def post_process_result(anno, original_event):
                         result = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
                         return result
 
-                    elif tag.as_vec()[1] == "text/json" or tag.as_vec()[1] == "json":
+                    elif output_format == "text/json" or output_format == "json":
                         #result = json.dumps(json.loads(anno.data.to_json(orient="records")))
                         result = json.dumps(anno.data.tolist())
                         return result
@@ -1271,12 +1152,22 @@ def post_process_result(anno, original_event):
                     else:
                         result = str(anno.data)
                         return result
+
                 except Exception as e:
                     print(e)
                     result = str(anno.data)
                     return result
             else:
-                return anno.data
+                result = ""
+                for element in anno.data:
+                    element["name"] = str(element["name"]).lstrip()
+                    element["from"] = (format(float(element["from"]), '.2f')).lstrip()  # name
+                    element["to"] = (format(float(element["to"]), '.2f')).lstrip()  # name
+                    result = result +  "(" + str(element["from"]) + "," +  str(element["to"]) +")" + " " + str(element["name"]) + "\n"
+                    #result = result + str(element["name"]) + "\n"
+
+                print(result)
+                return result
     else:
         return anno
 
@@ -1296,7 +1187,7 @@ def get_bot_help_text():
             "-image-to-text urltofile \n\n"
             "Upscale the resolution of an Image 4x and improve quality (" + str(DVMConfig.COSTPERUNIT_IMAGEUPSCALING)
             + " Sats)\n -image-upscale urltofile \n\n"
-            "Transcribe Audio/Video/Youtube/Overcast from an URL with WhisperX large-v2 (" + str(
+            "Transcribe Audio/Video/Youtube/Overcast from an URL with WhisperX (" + str(
             DVMConfig.COSTPERUNIT_SPEECHTOTEXT) + " Sats)\n"
             "-speech-to-text urltofile \nAdditional parameters:\n-from timeinseconds -to timeinseconds\n\n"
             "Get a List of inactive users you follow (" + str(DVMConfig.COSTPERUNIT_INACTIVE_FOLLOWING) + " Sats)\n"
@@ -1421,7 +1312,7 @@ def parse_bot_command_to_event(dec_text):
         url = split[0]
         start = "0"
         end = "0"
-        model = "large-v2"
+        model = "base" #"large-v2"
         if len(split) > 1:
             for i in split:
                 if i.startswith("from "):
@@ -1471,7 +1362,8 @@ def parse_bot_command_to_event(dec_text):
 
 
 def check_event_has_not_unifinished_job_input(nevent, append, client):
-    tasksupported, task = check_task_is_supported(nevent, client)
+
+    tasksupported, task, duration = check_task_is_supported(nevent, client, False)
     if not tasksupported:
         return False
 
@@ -1497,15 +1389,20 @@ def check_event_has_not_unifinished_job_input(nevent, append, client):
 
 
 # CHECK INPUTS/TASK AVAILABLE
-def check_task_is_supported(event, client):
+def check_task_is_supported(event, client, get_duration = False):
 
     input_value = ""
     input_type = ""
+    duration = 1
+    start = "0"
+    end = "0"
+
+
     for tag in event.tags():
         if tag.as_vec()[0] == 'i':
             if len(tag.as_vec()) < 3:
                 print("Job Event missing/malformed i tag, skipping..")
-                return False, ""
+                return False, "", 0
             else:
                 input_value = tag.as_vec()[1]
                 input_type = tag.as_vec()[2]
@@ -1513,36 +1410,252 @@ def check_task_is_supported(event, client):
                    evt = get_event_by_id(input_value)
                    if evt == None:
                        print("Event not found")
-                       return False, ""
+                       return False, "", 0
 
         elif tag.as_vec()[0] == 'output':
                 output = tag.as_vec()[1]
-                if not (output == "text/plain" or output == "text/json" or output == "json"):
+                if not (output == "text/plain" or output == "text/json" or output == "json" or output == ""):
                     print("Output format not supported, skipping..")
-                    return False, ""
+                    return False, "", 0
+
+        elif tag.as_vec()[0] == 'param':
+            if get_duration:
+                param = tag.as_vec()[1]
+                if param == "range":  # check for paramtype
+                    try:
+                        t = time.strptime(tag.as_vec()[2], "%H:%M:%S")
+                        seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
+                        start = str(seconds)
+                    except:
+                        try:
+                            t = time.strptime(tag.as_vec()[2], "%M:%S")
+                            seconds = t.tm_min * 60 + t.tm_sec
+                            start = str(seconds)
+                        except:
+                            start = tag.as_vec()[2]
+                    try:
+                        t = time.strptime(tag.as_vec()[3], "%H:%M:%S")
+                        seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
+                        end = str(seconds)
+                    except:
+                        try:
+                            t = time.strptime(tag.as_vec()[3], "%M:%S")
+                            seconds = t.tm_min * 60 + t.tm_sec
+                            end = str(seconds)
+                        except:
+                            end = tag.as_vec()[3]
 
     task = get_task(event, client=client)
     if task not in DVMConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
-        return False, task
+        return False, task, duration
     elif task == "translation" and (
             input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
-        return False, task
+        return False, task, duration
     if task == "translation" and input_type != "text" and len(event.content()) > 4999:  # Google Services have a limit of 5000 signs
-        return False, task
+        return False, task, duration
     elif task == "summarization" and (
             input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
-        return False, task
+        return False, task, duration
 
     elif task == "speech-to-text" and (
             input_type != "event" and input_type != "job" and input_type != "url"):  # The input types per task
-        return False, task
+            return False, task, duration
+
+
+
     elif task == "image-upscale" and (input_type != "event" and input_type != "job" and input_type != "url"):
-        return False, task
+        return False, task, duration
     if input_type == 'url' and check_url_is_readable(input_value) is None:
-        return False, task
+        return False, task, duration
 
-    return True, task
+    if task == 'speech-to-text' and get_duration:
+        duration = check_media_length(input_value, input_type, event.id().to_hex(), start, end)
+        return True, task, duration
 
+
+    return True, task, duration
+
+
+def get_overcast(input_value, request_form):
+    filename = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form["sessions"] + '\\' + \
+               request_form[
+                   "roles"] + ".originalaudio.mp3"
+    print("Found overcast.fm Link.. downloading")
+    download_podcast(input_value, filename)
+    finaltag = str(input_value).replace("https://overcast.fm/", "").split('/')
+    if float(request_form["startTime"]) == 0.0:
+        if len(finaltag) > 1:
+            t = time.strptime(finaltag[1], "%H:%M:%S")
+            seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
+            start = str(seconds)  # overwrite from link.. why not..
+            print("Setting start time automatically to " + start)
+            if float(request_form["endTime"]) > 0.0:
+                end = seconds + float(request_form["endTime"])
+                print("Moving end time automatically to " + end)
+
+    return filename, start, end
+
+
+def get_youtube(input_value, request_form):
+    filepath = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form["sessions"] + '\\'
+    start = request_form["startTime"]
+    end = request_form["startTime"]
+    try:
+        filename = downloadYouTube(input_value, filepath)
+
+    except Exception as e:
+        print(e)
+        return filename, start, end
+    try:
+        o = urlparse(input_value)
+        q = urllib.parse.parse_qs(o.query)
+        if float(request_form["startTime"]) == 0.0:
+            if o.query.find('?t=') != -1:
+                start = q['t'][0]  # overwrite from link.. why not..
+                print("Setting start time automatically to " + start)
+                if float(request_form["endTime"]) > 0.0:
+                    end = str(float(q['t'][0]) + float(request_form["endTime"]))
+                    print("Moving end time automatically to " + end)
+
+    except Exception as e:
+        print(e)
+        return filename, start, end
+
+    return filename, start, end
+
+
+def get_media_link(input_value, request_form):
+    req = requests.get(input_value)
+    content_type = req.headers['content-type']
+    print(content_type)
+    if content_type == 'audio/x-wav' or str(input_value).lower().endswith(".wav"):
+        ext = "wav"
+        file_type = "audio"
+    elif content_type == 'audio/mpeg' or str(input_value).lower().endswith(".mp3"):
+        ext = "mp3"
+        file_type = "audio"
+    elif content_type == 'audio/ogg' or str(input_value).lower().endswith(".ogg"):
+        ext = "ogg"
+        file_type = "audio"
+    elif content_type == 'video/mp4' or str(input_value).lower().endswith(".mp4"):
+        ext = "mp4"
+        file_type = "video"
+    elif content_type == 'video/avi' or str(input_value).lower().endswith(".avi"):
+        ext = "avi"
+        file_type = "video"
+    elif content_type == 'video/quicktime' or str(input_value).lower().endswith(".mov"):
+        ext = "mov"
+        file_type = "video"
+
+    else:
+        print(str(input_value).lower())
+        return None
+    filename = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form[
+        "sessions"] + '\\' + request_form["roles"] + '.original' + file_type + '.' + ext
+    print(filename)
+
+    try:
+        if not os.path.exists(filename):
+            file = open(filename, 'wb')
+            for chunk in req.iter_content(100000):
+                file.write(chunk)
+            file.close()
+    except Exception as e:
+        print(e)
+
+    return filename
+
+
+def organize_input_data(input_value, input_type, request_form, process=True):
+    filename = ""
+    if input_type == "event":  # NIP94 event
+        evt = get_event_by_id(input_value)
+        if evt is not None:
+            if evt.kind() == 1063:
+                for tag in evt.tags():
+                    if tag.as_vec()[0] == 'url':
+                        input_type = "url"
+                        input_value = tag.as_vec()[1]
+
+    if input_type == "url":
+        if not os.path.exists(
+                os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form["sessions"]):
+            os.mkdir(os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form["sessions"])
+
+        # We can support some services that don't use default media links, like overcastfm for podcasts
+        if str(input_value).startswith("https://overcast.fm/"):
+            filename, start, end = get_overcast(input_value, request_form)
+            request_form["startTime"] = str(start)
+            request_form["endTime"] = str(end)
+        # or youtube links..
+        elif str(input_value).replace("http://", "").replace("https://", "").replace(
+                "www.", "").replace("youtu.be/", "youtube.com?v=")[0:11] == "youtube.com":
+
+            filename, start, end = get_youtube(input_value, request_form)
+            request_form["startTime"] = str(start)
+            request_form["endTime"] = str(end)
+
+        else:
+            filename = get_media_link(input_value, request_form)
+
+        try:
+
+            file_reader = AudioReader(filename, ctx=cpu(0), mono=False)
+            duration = file_reader.duration()
+        except Exception as e:
+            print(e)
+            return None, 0
+
+        print("Duration of the Media file: " + str(duration))
+        if float(request_form['endTime']) == 0.0:
+            end_time = float(duration)
+        elif float(request_form['endTime']) > duration:
+            end_time = float(duration)
+        else:
+            end_time = float(request_form['endTime'])
+        if float(request_form['startTime']) < 0.0 or float(request_form['startTime']) > end_time:
+            start_time = 0.0
+        else:
+            start_time = float(request_form['startTime'])
+
+        duration = end_time - start_time
+
+    if process:
+        print("Converting from " + str(start_time) + " until " + str(end_time))
+        # for now we cut and convert all files to mp3
+        finalfilename = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form[
+            "sessions"] + '\\' + request_form[
+                            "roles"] + '.' + request_form["streamName"] + '.mp3'
+        fs, x = ffmpegio.audio.read(filename, ss=start_time, to=end_time, sample_fmt='dbl', ac=1)
+        ffmpegio.audio.write(finalfilename, fs, x)
+
+        if not db_entry_exists(request_form, request_form["sessions"], "name", "Sessions"):
+            add_new_session_to_db(request_form, duration)
+    else:
+        os.remove(filename)
+
+    return True, duration
+def check_media_length(input_value, input_type, id, start, end):
+    if input_type == "url":
+        request_form = {"database": "nostr_test",
+                        "roles": "nostr",
+                        "sessions": id,  "startTime": start, "endTime": end}
+
+        if float(end) - float(start) > 0.0:
+            return float(end) - float(start)
+        success, duration = organize_input_data(input_value, input_type, request_form, process=False)
+        return duration
+    elif input_type == "text":
+        return len(input_value)
+    elif input_type == "job":
+        evt = get_referenced_event_by_id(input_value)
+        return 1
+    elif input_type == "event":
+        evt = get_event_by_id(input_value)
+        return 1
+
+
+    return 1
 
 def check_url_is_readable(url):
     if not str(url).startswith("http"):
@@ -1814,7 +1927,7 @@ def update_user_balance(sender, sats):
         print("NEW USER: " + sender + " Zap amount: " + str(sats) + " Sats.")
     else:
         user = get_from_sql_table(sender)
-        print(sats)
+        print(str(sats))
         update_sql_table(sender, (user[1] + sats), user[2], user[3], user[4], user[5], user[6],
                          Timestamp.now().as_secs())
         print("UPDATE USER BALANCE: " + user[6] + " Zap amount: " + str(sats) + " Sats.")
@@ -1839,7 +1952,7 @@ def admin_make_database_updates():
     cleardb = False
     listdatabase = False
     deleteuser = False
-    whitelistuser = False
+    whitelistuser = True
     unwhitelistuser = False
     blacklistuser = False
     addbalance = False
@@ -1847,13 +1960,16 @@ def admin_make_database_updates():
 
 
 
-    publickey = PublicKey.from_bech32("npub19jkj3lf4gh53qnp70uupvv3k3pyl39fzu52ygkhhszd5083yd36qpyu0dy").to_hex()
+    #publickey = PublicKey.from_bech32("npub19jkj3lf4gh53qnp70uupvv3k3pyl39fzu52ygkhhszd5083yd36qpyu0dy").to_hex()
     # use this if you have the npub
-    #publickey = "2cad28fd3545e9104c3e7f381632368849f89522e514445af7809b479e246c74"
+    publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
 
     if whitelistuser:
         user = get_from_sql_table(publickey)
         update_sql_table(user[0], user[1], True, False, user[4], user[5], user[6], user[7])
+        user = get_from_sql_table(publickey)
+        print(str(user[6]) + " is whitelisted: " + str(user[2]))
+
 
     if unwhitelistuser:
         user = get_from_sql_table(publickey)
@@ -1909,7 +2025,7 @@ def nip89_announce_tasks():
     k65002_tag = Tag.parse(["k", "65002"])
     d_tag = Tag.parse(["d", "0wllfdaxzp624bji"])
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "{\"name\":\"NostrAI DVM Text Extractor\",\"image\":\"https://cdn.nostr.build/i/38f36583552828a0961b01cddc6a3f4cd3ed8250dc5f73ab22ed7ed03eceaed9.jpg\",\"about\":\"Providing results using WhisperX model for the input formats: wav, mp3, mp4, ogg, avi, mov, as well as youtube, and overcast links. \\nPossible outputs: text/plain,  empty output format will provide timestamped labels with granularity depending on alignment parameters (word, segment, raw).\\nDefault model: large-v2, Default alignment: raw\\n\\nFurther allows text extraction from images with tesseract OCR for jpgs.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"tiny\",\"base\",\"small\",\"large-v1\",\"large-v2\",\"tiny.en\",\"base.en\",\"small.en\"]},\"alignment\":{\"required\":false,\"values\":[\"word\",\"segment\",\"raw\"]}}}"
+    content = "{\"name\":\"NostrAI DVM Text Extractor\",\"image\":\"https://cdn.nostr.build/i/38f36583552828a0961b01cddc6a3f4cd3ed8250dc5f73ab22ed7ed03eceaed9.jpg\",\"about\":\"Providing results using WhisperX model for the input formats: wav, mp3, mp4, ogg, avi, mov, as well as youtube, and overcast links. \\nPossible outputs: text/plain,  empty output format will provide timestamped labels with granularity depending on alignment parameters (word, segment, raw).\\nDefault model: base, Default alignment: raw\\n\\nFurther allows text extraction from images with tesseract OCR for jpgs.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"tiny\",\"base\",\"small\",\"tiny.en\",\"base.en\",\"small.en\"]},\"alignment\":{\"required\":false,\"values\":[\"word\",\"segment\",\"raw\"]}}}"
     event = EventBuilder(31990, content, [k65002_tag, d_tag]).to_event(keys)
     send_event(event)
 
