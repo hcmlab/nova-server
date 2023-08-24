@@ -479,7 +479,7 @@ def nostr_server():
 
         elif task == "image-to-text":
             request_form["mode"] = "PREDICT_STATIC"
-            request_form["trainerFilePath"] = 'image-to-text'
+            request_form["trainerFilePath"] = task
             input_type = "url"
             url = ""
             for tag in event.tags():
@@ -496,7 +496,7 @@ def nostr_server():
 
         elif task == "image-to-image":
             request_form["mode"] = "PREDICT_STATIC"
-            request_form["trainerFilePath"] = 'image-to-image'
+            request_form["trainerFilePath"] = task
             prompt = "surprise me"
             url = " "
             negative_prompt = " "
@@ -536,7 +536,7 @@ def nostr_server():
 
         elif task == "text-to-image":
             request_form["mode"] = "PREDICT_STATIC"
-            request_form["trainerFilePath"] = 'text-to-image'
+            request_form["trainerFilePath"] = task
             prompt = ""
             extra_prompt = ""
             negative_prompt = ""
@@ -567,7 +567,7 @@ def nostr_server():
                             if len(promptarr) > 1:
                                 prompt = promptarr[1].lstrip("\n").replace("\n", ",").replace("*", "")
                             else:
-                                prompt = promptarr[0].replace("\n", ",").repalce("*","")
+                                prompt = promptarr[0].replace("\n", ",").replace("*","")
 
                         else:
                             prompt = ""
@@ -599,7 +599,7 @@ def nostr_server():
 
         elif task == "image-upscale":
             request_form["mode"] = "PREDICT_STATIC"
-            request_form["trainerFilePath"] = 'image-upscale'
+            request_form["trainerFilePath"] = task
             upscale = "4"
             url = ""
             for tag in event.tags():
@@ -622,7 +622,7 @@ def nostr_server():
 
         elif task == "chat":
             request_form["mode"] = "PREDICT_STATIC"
-            request_form["trainerFilePath"] = 'chat'
+            request_form["trainerFilePath"] = task
             text = ""
             user = event.pubkey().to_hex()
             for tag in event.tags():
@@ -636,7 +636,7 @@ def nostr_server():
         elif task == "summarization":
             pattern = r"[^a-zA-Z0-9.!?'\s]"
             request_form["mode"] = "PREDICT_STATIC"
-            request_form["trainerFilePath"] = 'summarization'
+            request_form["trainerFilePath"] = task
             text = ""
             all_texts = ""
             user = event.pubkey().to_hex()
@@ -659,9 +659,22 @@ def nostr_server():
 
         elif task == "inactive-following":
             request_form["mode"] = "PREDICT_STATIC"
-            request_form["trainerFilePath"] = 'inactive-following'
+            request_form["trainerFilePath"] = task
             days = "30"
             number = "10"
+            user = event.pubkey().to_hex()
+            for tag in event.tags():
+                if tag.as_vec()[0] == 'y':
+                    user = tag.as_vec()[1]
+                if tag.as_vec()[0] == 'param':
+                    if tag.as_vec()[1] == 'since':
+                        days = tag.as_vec()[2]
+            request_form["optStr"] = 'user=' + user + ';since=' + days + ';is_bot=' + str(is_bot)
+
+        elif task == "note-recommendation":
+            request_form["mode"] = "PREDICT_STATIC"
+            request_form["trainerFilePath"] = task
+            days = "1"
             user = event.pubkey().to_hex()
             for tag in event.tags():
                 if tag.as_vec()[0] == 'y':
@@ -1025,7 +1038,7 @@ def get_task(event, client):
         else:
             return "text-to-image"
     elif event.kind() == 65006:
-        return "event-list-generation"
+        return "note-recommendation"
     elif event.kind() == 65007:
         return "inactive-following"
     else:
@@ -1054,6 +1067,8 @@ def get_amount_per_task(task):
         amount = DVMConfig.COSTPERUNIT_IMAGEGENERATION
     elif task == "inactive-following":
         amount = DVMConfig.COSTPERUNIT_INACTIVE_FOLLOWING
+    elif task == "note-recommendation":
+        amount = DVMConfig.COSTPERUNIT_NOTE_RECOMMENDATION
     else:
         print("[Nostr] Task " + task + " is currently not supported by this instance, skipping")
         return None
@@ -1430,6 +1445,19 @@ def parse_bot_command_to_event(dec_text):
 
         param_tag_since = Tag.parse(["param", "since", since_days])
         j_tag = Tag.parse(["j", "inactive-following"])
+        return [j_tag, param_tag_since]
+
+    elif str(dec_text).startswith("-note-recommendation"):
+        since_days = "1"
+        command = dec_text.replace("-note-recommendation", "")
+        split = command.split(" -")
+        for i in split:
+            if i.startswith("sincedays "):
+                since_days = i.replace("sincedays ", "")
+                print("Since days: " + str(since_days))
+
+        param_tag_since = Tag.parse(["param", "since", since_days])
+        j_tag = Tag.parse(["j", "note-recommendation"])
         return [j_tag, param_tag_since]
     else:
         text = dec_text
