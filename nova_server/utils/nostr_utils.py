@@ -1190,8 +1190,8 @@ def get_bot_help_text():
             "-image-to-text urltofile \n\n"
             "Upscale the resolution of an Image 4x and improve quality (" + str(DVMConfig.COSTPERUNIT_IMAGEUPSCALING)
             + " Sats)\n -image-upscale urltofile \n\n"
-            "Transcribe Audio/Video/Youtube/Overcast from an URL with WhisperX (" + str(
-            DVMConfig.COSTPERUNIT_SPEECHTOTEXT) + " Sats)\n"
+            "Transcribe Audio/Video/Youtube/Overcast from an URL with WhisperX (" +
+            str(get_amount_per_task("speech-to-text")) + " Sats)\n"
             "-speech-to-text urltofile \nAdditional parameters:\n-from timeinseconds -to timeinseconds\n\n"
             "Get a List of inactive users you follow (" + str(DVMConfig.COSTPERUNIT_INACTIVE_FOLLOWING) + " Sats)\n"
             "-inactive-following\nAdditional parameters:\n-sincedays days (e.g. 60), default 30\n\n"
