@@ -577,22 +577,20 @@ def OCRtesseract(url):
     return str(result)
 
 def extract_text_from_pdf(url):
-    import PyPDF2
+    from pypdf import PdfReader
     from pathlib import Path
     import requests
     file_path = Path('temp.pdf')
     response = requests.get(url)
     file_path.write_bytes(response.content)
 
-    pdf_file_obj = open(file_path, 'rb')
-    pdf_reader = PyPDF2.PdfFileReader(pdf_file_obj)
-
+    reader = PdfReader(file_path)
+    number_of_pages = len(reader.pages)
     text = ""
-    for page_num in range(pdf_reader.numPages):
-        page_obj = pdf_reader.getPage(page_num)
-        text += page_obj.extractText()
+    for page_num in range(number_of_pages):
+        page = reader.pages[page_num]
+        text = text + page.extract_text()
 
-    pdf_file_obj.close()
 
     return text
 
