@@ -1300,7 +1300,7 @@ def get_bot_help_text():
             "Get a List of inactive users you follow (" + str(DVMConfig.COSTPERUNIT_INACTIVE_FOLLOWING) + " Sats)\n"
             "-inactive-following\nAdditional parameters:\n-sincedays days (e.g. 60), default 30\n\n"
             "To show your current balance\n -balance \n\n"
-            "You can zap any of my notes/dms or my profile to top up your balance. I also understand Zapplepay.  bg##")
+            "You can zap any of my notes/dms or my profile to top up your balance. I also understand Zapplepay.")
 
 
 def parse_bot_command_to_event(dec_text):
