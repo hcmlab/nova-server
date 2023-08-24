@@ -481,7 +481,7 @@ def nostr_server():
                         text = evt.content()
                         break
 
-            request_form["optStr"] = 'text=' + text.replace('\U0001f919', "") + ';translation_lang=' + translation_lang
+            request_form["optStr"] = 'translation_lang=' + translation_lang + ';text=' + text.replace('\U0001f919', "").replace("=", "equals").replace(";", ",")
 
         elif task == "image-to-text":
             request_form["mode"] = "PREDICT_STATIC"
@@ -664,7 +664,8 @@ def nostr_server():
                     all_texts = all_texts + text
                 elif tag.as_vec()[0] == 'p':
                     user = tag.as_vec()[1]
-                request_form["optStr"] = 'user=' + user + ';system_prompt=' + "return a summarization of the given input, no smalltalk. input might contain mutliple articles, separated by three new lines" + ';message=' + all_texts
+                request_form["optStr"] = 'user=' + user + ';system_prompt=' + "return a summarization of the given input, no smalltalk. input might contain mutliple articles, separated by three new lines" + ';message=' + all_texts.replace('\U0001f919', "").replace("=", "equals").replace(";", ",")
+
 
         elif task == "inactive-following":
             request_form["mode"] = "PREDICT_STATIC"
