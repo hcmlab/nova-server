@@ -1955,7 +1955,7 @@ def admin_make_database_updates():
     cleardb = False
     listdatabase = False
     deleteuser = False
-    whitelistuser = True
+    whitelistuser = False
     unwhitelistuser = False
     blacklistuser = False
     addbalance = False
