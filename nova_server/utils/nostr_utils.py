@@ -460,6 +460,8 @@ def nostr_server():
                     param = tag.as_vec()[1]
                     if param == "language":  # check for paramtype
                         translation_lang = str(tag.as_vec()[2]).split('-')[0]
+                    elif param == "lang":  # check for paramtype
+                        translation_lang = str(tag.as_vec()[2]).split('-')[0]
 
             if input_type == "event":
                 for tag in event.tags():
