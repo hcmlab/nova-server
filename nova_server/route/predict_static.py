@@ -74,7 +74,7 @@ def predict_static_data(request_form):
     try:
         if task == "text-to-image":
             anno = textToImage(options["prompt"], options["extra_prompt"], options["negative_prompt"], options["width"],
-                               options["height"], options["upscale"], options["model"],  options["ratiow"], options["ratioh"])
+                               options["height"], options["upscale"], options["model"],  options["ratiow"], options["ratioh"], options["lora"])
         elif task == "image-to-image":
             anno = imageToImage(options["url"], options["prompt"], options["negative_prompt"], options["strength"],
                                 options["guidance_scale"], options["model"])
@@ -143,17 +143,14 @@ def uploadToHoster(filepath):
 
 # SCRIPTS (TO BE MOVED TO FILES)
 def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heightst="512", upscale="1",
-                model="stabilityai/stable-diffusion-xl-base-1.0", ratiow="1", ratioh="1"):
+                model="stabilityai/stable-diffusion-xl-base-1.0", ratiow="1", ratioh="1", lora=""):
     import torch
     from diffusers import DiffusionPipeline
     from diffusers import StableDiffusionPipeline
 
-    if model.__contains__("gta"):
-        model = "GTA5_Artwork_Diffusion_gtav_style"
-    elif model.__contains__("realistic"):
+
+    if model.__contains__("realistic"):
         model = "realisticVisionV51_v51VAE"
-    elif model.__contains__("sdxl"):
-        model = "stabilityai/stable-diffusion-xl-base-1.0"
     elif model.__contains__("sd15"):
         model = "runwayml/stable-diffusion-v1-5"
     elif model.__contains__("sd21"):
@@ -196,8 +193,44 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
 
         base = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
         base.to("cuda")
-        loramodelsfolder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
-        # base.load_lora_weights(loramodelsfolder + "cyborg_style_xl-alpha.safetensors")
+
+        existing_lora = False
+        if lora != "":
+            loramodelsfolder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
+            if lora == "cyborg_style_xl":
+                prompt = " cyborg style, " + prompt + " <lora:cyborg_style_xl:.8>"
+                existing_lora = True
+
+            if lora == "3d_render_style_xl":
+                prompt = "3d style, 3d render, " + prompt + " <lora:3d_render_style_xl:1>"
+                existing_lora = True
+
+            if lora == "psychedelic_noir_xl":
+                prompt = prompt + " <lora:Psychedelic_Noir__sdxl:1.0>"
+                existing_lora = True
+
+            if lora == "wojak_xl":
+                prompt = "<lora:wojak_big:1>, " + prompt + ", wojak"
+                existing_lora = True
+
+            if lora == "dreamarts_xl":
+                prompt = "<lora:DreamARTSDXL:1>, " + prompt
+                existing_lora = True
+
+            if lora == "voxel_xl":
+                prompt = "voxel style, " + prompt + " <lora:last:1>"
+                existing_lora = True
+
+            if lora == "kru3ger_xl":
+                prompt = "kru3ger_style, " + prompt + "<lora:sebastiankrueger-kru3ger_style-000007:1>"
+                existing_lora = True
+
+
+            if existing_lora:
+                lora_weights = loramodelsfolder + lora + ".safetensors"
+                base.load_lora_weights(lora_weights)
+
+
         # base.unet = torch.compile(base.unet, mode="reduce-overhead", fullgraph=True)
         refiner = DiffusionPipeline.from_pretrained(
             "stabilityai/stable-diffusion-xl-refiner-1.0",
@@ -208,7 +241,6 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
             variant="fp16",
         )
 
-        #refiner.load_lora_weights(loramodelsfolder + "AndreiTarkovskyStyle.safetensors")
         #refiner.unet = torch.compile(refiner.unet, mode="reduce-overhead", fullgraph=True)
         # Define how many steps and what % of steps to be run on each experts (80/20) here
 
@@ -250,28 +282,23 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
         if len(split) > 1:
             model = split[1]
         else:
-            model = "ghibli"
+            model = "inks"
         from diffusers import StableDiffusionPipeline
         import torch
 
         loramodelsfolder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
         base_model = os.environ[
                          'TRANSFORMERS_CACHE'] + "stablediffusionmodels/anyloraCheckpoint_bakedvaeBlessedFp16.safetensors"
+        base_model = os.environ[
+                         'TRANSFORMERS_CACHE'] + "stablediffusionmodels/dreamshaper_8.safetensors"
 
 
-        if model == "ghibli" or model == "monster" or model == "chad" or model == "inks" or model == "reubenwu":
+        if model == "inks":
             # local lora models
-            if model == "ghibli":
-                model_path = loramodelsfolder + "ghibli_style_offset.safetensors"
-            elif model == "monster":
-                model_path = loramodelsfolder + "m0nst3rfy3(0.5-1)M.safetensors"
-            elif model == "chad":
-                model_path = loramodelsfolder + "Gigachadv1.safetensors"
-            elif model == "inks":
-                model_path = loramodelsfolder + "Inkscenery.safetensors"
-            elif model == "reubenwu":
-                model_path = loramodelsfolder + "ReubenWu.safetensors"
-                #base_model =  "stabilityai/stable-diffusion-2-1"
+            if model == "inks":
+                model_path = loramodelsfolder + "ink_scenery.safetensors"
+                prompt = "white background, scenery, ink, mountains, water, trees, " + prompt + " <lora:ink-0.1-3-b28-bf16-D128-A1-1-ep64-768-DAdaptation-cosine:1>"
+
 
 
 

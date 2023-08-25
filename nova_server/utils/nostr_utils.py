@@ -324,7 +324,6 @@ def nostr_server():
         user = get_or_add_user(event.pubkey().to_hex())
         is_whitelisted = user[2]
         is_blacklisted = user[3]
-        print("Is whitelisted: " + str(is_whitelisted))
         if is_whitelisted:
             task_supported, task, duration = check_task_is_supported(event, client=client, get_duration=False)
         else:
@@ -555,6 +554,7 @@ def nostr_server():
             height = "1024"
             ratio_width = "1"
             ratio_height = "1"
+            lora = ""
 
             for tag in event.tags():
                 if tag.as_vec()[0] == 'i':
@@ -571,14 +571,18 @@ def nostr_server():
                         if evt is not None:
                             try:
                                 llamalist = LLAMA2(evt.content(), ""
-                                                   ,"Give me the keywords for the given text. Reply only with comma-seperated lists, no smalltak")
+                                                   ,"Give me maxium 25 keywords for the given text. Reply only with comma-seperated lists, no smalltak")
                                 promptarr = llamalist.split(":")
                                 if len(promptarr) > 1:
                                     prompt = promptarr[1].lstrip("\n").replace("\n", ",").replace("*", ",")
                                 else:
                                     prompt = promptarr[0].replace("\n", ",").replace("*","")
+
+                                pattern = r"[^a-zA-Z'\s]"
+                                prompt = re.sub(pattern, "", prompt)
+                                prompt = prompt.replace("  ", ",")
                             except:
-                                prompt = evt.content().replace("\n", ",")
+                                prompt = evt.content().replace("\n", "")
 
                         else:
                             prompt = ""
@@ -587,6 +591,8 @@ def nostr_server():
                         extra_prompt = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "negative_prompt":
                         negative_prompt = tag.as_vec()[2]
+                    elif tag.as_vec()[1] == "lora":
+                        lora = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "size":
                         width = tag.as_vec()[2]
                         height = tag.as_vec()[3]
@@ -606,7 +612,7 @@ def nostr_server():
             request_form["optStr"] = ('prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt='
                                       + negative_prompt + ';width=' + str(width) + ';height=' + str(height)
                                       + ';upscale=' + str(upscale) + ';model=' + model + ';ratiow=' + str(ratio_width)
-                                      + ';ratioh=' + str(ratio_height))
+                                      + ';ratioh=' + str(ratio_height)) + ';lora=' + str(lora)
 
         elif task == "image-upscale":
             request_form["mode"] = "PREDICT_STATIC"
@@ -1186,9 +1192,10 @@ def get_bot_help_text():
             " for you. Currently I can do the following jobs:\n\n"
             "Generate an Image with Stable Diffusion XL (" + str(DVMConfig.COSTPERUNIT_IMAGEGENERATION) + " Sats)\n"
             "-text-to-image someprompt\nAdditional parameters:\n-negative some negative prompt\n-ratio width:height "
-            "(e.g. 3:4), default 1:1\n-model anothermodel\nOther Models are: realistic, wild, sd15, lora_ghibli, "
-            "lora_monster, lora_inks, lora_t4, lora_pokemon\n\n"
-            "Transform an existing Image with Stable Diffusion XL (" + str(DVMConfig.COSTPERUNIT_IMAGETRANSFORMING)
+            "(e.g. 3:4), default 1:1\n-lora specific weights (only default model): "
+            "3d_render_style_xl, cyborg_style_xl, psychedelic_noir_xl, dreamarts_xl, voxel_xl, kru3ger_xl, wojak_xl\n"
+            "-model anothermodel\nOther Models are: realistic, wild, lora_inks\n\n"
+            "Transform an existing Image with pix2pix (" + str(DVMConfig.COSTPERUNIT_IMAGETRANSFORMING)
             + " Sats)\n" "-image-to-image urltoimage -prompt someprompt\n\n"
             "Parse text from an Image (make sure text is well readable) (" + str(DVMConfig.COSTPERUNIT_OCR) + " Sats)\n"
             "-image-to-text urltofile \n\n"
@@ -1213,6 +1220,7 @@ def parse_bot_command_to_event(dec_text):
         height = "1024"
         ratiow = "1"
         ratioh = "1"
+        lora = ""
         j_tag = Tag.parse(["j", "text-to-image"])
         i_tag = Tag.parse(["i", prompt, "text"])
         tags = [j_tag, i_tag]
@@ -1229,6 +1237,10 @@ def parse_bot_command_to_event(dec_text):
                 elif i.startswith("upscale "):
                     upscale_factor = i.replace("upscale ", "")
                     param_tag = Tag.parse(["param", "upscale", upscale_factor])
+                    tags.append(param_tag)
+                elif i.startswith("lora "):
+                    lora = i.replace("lora ", "")
+                    param_tag = Tag.parse(["param", "lora", lora])
                     tags.append(param_tag)
                 elif i.startswith("model "):
                     model = i.replace("model ", "")
@@ -2045,7 +2057,7 @@ def nip89_announce_tasks():
     k65005_tag = Tag.parse(["k", "65005"])
     d_tag = Tag.parse(["d", "06sfjfp9frr3ubcq"])
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "{\"name\":\"NostrAI DVM Artist\",\"image\":\"https://cdn.nostr.build/i/2c9ff28899732291fdcde742747b533a12c56185a345ce94c0b9e5ae9f5460f8.jpg\",\"about\":\"Generate an Image based on a prompt. Supports various models. By default uses Stable Diffusion XL 1.0. \\nPossible Inputs are text, events or jobs.\\nAn optional negative prompt can help the model avoid things it shouldn't do.\\nImages are upscaled  4x by default.\\n\\nAdditionally supports Image2Image conversion. Requires as input url of an image/previous job/event and a second text input containing the prompt. By default, uses instruct-pix2pix model, alternative is sdxl (Stable Diffusion XL) model.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"sdxl\",\"sd15\",\"sd21\",\"wild\",\"dreamshaper\",\"realistic\",\"pix2pix\",\"lora_ghibli\",\"lora_inks\",\"lora_t4\"]},\"ratio\":{\"required\":false,\"values\":[\"1:1\",\"4:3\",\"16:9\",\"16:10\",\"3:4\",\"9:16\",\"10:16\"]},\"negative_prompt\":{\"required\":false,\"values\":[]},\"extra_prompt\":{\"required\":false,\"values\":[]},\"upscale\":{\"required\":false,\"values\":[\"1\",\"2\",\"3\",\"4\"]}}}"
+    content = "{\"name\":\"NostrAI DVM Artist\",\"image\":\"https://cdn.nostr.build/i/2c9ff28899732291fdcde742747b533a12c56185a345ce94c0b9e5ae9f5460f8.jpg\",\"about\":\"Generate an Image based on a prompt. Supports various models. By default uses Stable Diffusion XL 1.0. \\nPossible Inputs are text, events or jobs. Lora (Specific weights) param only works for SDXL.\\nAn optional negative prompt can help the model avoid things it shouldn't do.\\nImages are upscaled  4x by default.\\n\\nAdditionally supports Image2Image conversion. Requires as input url of an image/previous job/event and a second text input containing the prompt. By default, uses instruct-pix2pix model, alternative is sdxl (Stable Diffusion XL) model.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"sdxl\",\"wild\",\"dreamshaper\",\"realistic\",\"pix2pix\",\"lora_inks\"]},\"ratio\":{\"required\":false,\"values\":[\"1:1\",\"4:3\",\"16:9\",\"16:10\",\"3:4\",\"9:16\",\"10:16\"]},\"negative_prompt\":{\"required\":false,\"values\":[]},\"extra_prompt\":{\"required\":false,\"values\":[]},\"upscale\":{\"required\":false,\"values\":[\"1\",\"2\",\"3\",\"4\"]},\"lora\":{\"required\":false,\"values\":[\"3d_render_style_xl\",\"cyborg_style_xl\",\"psychedelic_noir_xl\",\"dreamarts_xl\",\"voxel_xl\",\"kru3ger_xl\",\"wojak_xl\"]}}}"
     event = EventBuilder(31990, content, [k65005_tag, d_tag]).to_event(keys)
     send_event(event)
 
