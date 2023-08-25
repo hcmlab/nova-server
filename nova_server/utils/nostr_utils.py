@@ -572,7 +572,7 @@ def nostr_server():
                                                    ,"Give me the keywords for the given text. Reply only with comma-seperated lists, no smalltak")
                                 promptarr = llamalist.split(":")
                                 if len(promptarr) > 1:
-                                    prompt = promptarr[1].lstrip("\n").replace("\n", ",").replace("*", "")
+                                    prompt = promptarr[1].lstrip("\n").replace("\n", ",").replace("*", ",")
                                 else:
                                     prompt = promptarr[0].replace("\n", ",").replace("*","")
                             except:
@@ -674,6 +674,7 @@ def nostr_server():
             number = "10"
             user = event.pubkey().to_hex()
             for tag in event.tags():
+
                 if tag.as_vec()[0] == 'y':
                     user = tag.as_vec()[1]
                 if tag.as_vec()[0] == 'param':
@@ -1418,7 +1419,7 @@ def check_task_is_supported(event, client, get_duration = False):
 
         elif tag.as_vec()[0] == 'output':
                 output = tag.as_vec()[1]
-                if not (output == "text/plain" or output == "text/json" or output == "json" or output == ""):
+                if not (output == "text/plain" or output == "text/json" or output == "json" or output == "image/png" or "image/jpg" or output == ""):
                     print("Output format not supported, skipping..")
                     return False, "", 0
 
@@ -2007,7 +2008,7 @@ def nip89_announce_tasks():
     k65004_tag = Tag.parse(["k", "65004"])
     d_tag = Tag.parse(["d", "dpsu1wsh7ubsioy2"])
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "{\"name\":\"NostrAI DVM Translator\",\"image\":\"https://cdn.nostr.build/i/feb98d8700abe7d6c67d9106a72a20354bf50805af79869638f5a32d24a5ac2a.jpg\",\"about\":\"Translates Text from given text/event/job, currently using Google Translation Services into language defined in param. A maximum of 5000 characters can be translated. \",\"nip90Params\":{\"language\":{\"required\":true,\"values\":[\"af\",\"am\",\"ar\",\"az\",\"be\",\"bg\",\"bn\",\"bs\",\"ca\",\"ceb\",\"co\",\"cs\",\"cy\",\"da\",\"de\",\"el\",\"eo\",\"es\",\"et\",\"eu\",\"fa\",\"fi\",\"fr\",\"fy\",\"ga\",\"gd\",\"gl\",\"gu\",\"ha\",\"haw\",\"hi\",\"hmn\",\"hr\",\"ht\",\"hu\",\"hy\",\"id\",\"ig\",\"is\",\"it\",\"he\",\"ja\",\"jv\",\"ka\",\"kk\",\"km\",\"kn\",\"ko\",\"ku\",\"ky\",\"la\",\"lb\",\"lo\",\"lt\",\"lv\",\"mg\",\"mi\",\"mk\",\"ml\",\"mn\",\"mr\",\"ms\",\"mt\",\"my\",\"ne\",\"nl\",\"no\",\"ny\",\"or\",\"pa\",\"pl\",\"ps\",\"pt\",\"ro\",\"ru\",\"sd\",\"si\",\"sk\",\"sl\",\"sm\",\"sn\",\"so\",\"sq\",\"sr\",\"st\",\"su\",\"sv\",\"sw\",\"ta\",\"te\",\"tg\",\"th\",\"tl\",\"tr\",\"ug\",\"uk\",\"ur\",\"uz\",\"vi\",\"xh\",\"yi\",\"yo\",\"zh\",\"zu\"]}}}"
+    content = "{\"name\":\"NostrAI DVM Translator\",\"image\":\"https://cdn.nostr.build/i/feb98d8700abe7d6c67d9106a72a20354bf50805af79869638f5a32d24a5ac2a.jpg\",\"about\":\"Translates Text from given text/event/job, currently using Google Translation Services into language defined in param.  \",\"nip90Params\":{\"language\":{\"required\":true,\"values\":[\"af\",\"am\",\"ar\",\"az\",\"be\",\"bg\",\"bn\",\"bs\",\"ca\",\"ceb\",\"co\",\"cs\",\"cy\",\"da\",\"de\",\"el\",\"eo\",\"es\",\"et\",\"eu\",\"fa\",\"fi\",\"fr\",\"fy\",\"ga\",\"gd\",\"gl\",\"gu\",\"ha\",\"haw\",\"hi\",\"hmn\",\"hr\",\"ht\",\"hu\",\"hy\",\"id\",\"ig\",\"is\",\"it\",\"he\",\"ja\",\"jv\",\"ka\",\"kk\",\"km\",\"kn\",\"ko\",\"ku\",\"ky\",\"la\",\"lb\",\"lo\",\"lt\",\"lv\",\"mg\",\"mi\",\"mk\",\"ml\",\"mn\",\"mr\",\"ms\",\"mt\",\"my\",\"ne\",\"nl\",\"no\",\"ny\",\"or\",\"pa\",\"pl\",\"ps\",\"pt\",\"ro\",\"ru\",\"sd\",\"si\",\"sk\",\"sl\",\"sm\",\"sn\",\"so\",\"sq\",\"sr\",\"st\",\"su\",\"sv\",\"sw\",\"ta\",\"te\",\"tg\",\"th\",\"tl\",\"tr\",\"ug\",\"uk\",\"ur\",\"uz\",\"vi\",\"xh\",\"yi\",\"yo\",\"zh\",\"zu\"]}}}"
     event = EventBuilder(31990, content, [k65004_tag, d_tag]).to_event(keys)
     send_event(event)
 
@@ -2036,7 +2037,7 @@ def nip89_announce_tasks():
     k65005_tag = Tag.parse(["k", "65005"])
     d_tag = Tag.parse(["d", "06sfjfp9frr3ubcq"])
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "{\"name\":\"NostrAI DVM Artist\",\"image\":\"https://cdn.nostr.build/i/2c9ff28899732291fdcde742747b533a12c56185a345ce94c0b9e5ae9f5460f8.jpg\",\"about\":\"Generate an Image based on a prompt. Supports various models. By default uses Stable Diffusion XL 1.0. \\nPossible Inputs are text, events or jobs.\\nAn optional negative prompt can help the model avoid things it shouldn't do.\\nImages are upscaled  4x by default.\\n\\nAdditionally supports Image2Image conversion. Requires as input url of an image/previous job/event and a second text input containing the prompt. By default, uses instruct-pix2pix model, alternative is sdxl (Stable Diffusion XL) model. \\nWill return an url to the generated Image.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"sdxl\",\"sd15\",\"sd21\",\"wild\",\"dreamshaper\",\"realistic\",\"pix2pix\",\"lora_ghibli\",\"lora_inks\",\"lora_t4\"]},\"ratio\":{\"required\":false,\"values\":[\"1:1\",\"4:3\",\"16:9\",\"16:10\",\"3:4\",\"9:16\",\"10:16\"]},\"negative_prompt\":{\"required\":false,\"values\":[]},\"extra_prompt\":{\"required\":false,\"values\":[]},\"upscale\":{\"required\":false,\"values\":[\"1\",\"2\",\"3\",\"4\"]}}}"
+    content = "{\"name\":\"NostrAI DVM Artist\",\"image\":\"https://cdn.nostr.build/i/2c9ff28899732291fdcde742747b533a12c56185a345ce94c0b9e5ae9f5460f8.jpg\",\"about\":\"Generate an Image based on a prompt. Supports various models. By default uses Stable Diffusion XL 1.0. \\nPossible Inputs are text, events or jobs.\\nAn optional negative prompt can help the model avoid things it shouldn't do.\\nImages are upscaled  4x by default.\\n\\nAdditionally supports Image2Image conversion. Requires as input url of an image/previous job/event and a second text input containing the prompt. By default, uses instruct-pix2pix model, alternative is sdxl (Stable Diffusion XL) model.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"sdxl\",\"sd15\",\"sd21\",\"wild\",\"dreamshaper\",\"realistic\",\"pix2pix\",\"lora_ghibli\",\"lora_inks\",\"lora_t4\"]},\"ratio\":{\"required\":false,\"values\":[\"1:1\",\"4:3\",\"16:9\",\"16:10\",\"3:4\",\"9:16\",\"10:16\"]},\"negative_prompt\":{\"required\":false,\"values\":[]},\"extra_prompt\":{\"required\":false,\"values\":[]},\"upscale\":{\"required\":false,\"values\":[\"1\",\"2\",\"3\",\"4\"]}}}"
     event = EventBuilder(31990, content, [k65005_tag, d_tag]).to_event(keys)
     send_event(event)
 

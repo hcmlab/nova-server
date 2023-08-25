@@ -40,3 +40,4 @@ pytesseract
 pycryptodome
 bech32
 opencv-python
+pypdf

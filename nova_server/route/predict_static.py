@@ -537,12 +537,36 @@ def imageUpscale4x(url):
 def GoogleTranslate(text, translation_lang):
     from translatepy.translators.google import GoogleTranslate
     gtranslate = GoogleTranslate()
-    text = text[:4999]
-    try:
-        translated_text = str(gtranslate.translate(text, translation_lang))
-        print("Translated Text: " + translated_text)
-    except:
-        translated_text = "An error occured"
+    length = len(text)
+
+    step = 0
+    translated_text = ""
+    if length > 4999:
+        while step+5000 < length:
+            textpart = text[step:step+5000]
+            step = step + 5000
+            try:
+                translated_text_part = str(gtranslate.translate(textpart, translation_lang))
+                print("Translated Text part:\n\n " + translated_text_part)
+            except:
+                translated_text_part = "An error occured"
+
+            translated_text = translated_text + translated_text_part
+        #go back to where we really are
+        #step = step - 5000
+
+
+    if step < length:
+        textpart = text[step:length]
+        try:
+            translated_text_part = str(gtranslate.translate(textpart, translation_lang))
+            print("Translated Text part:\n\n " + translated_text_part)
+        except:
+            translated_text_part = "An error occured"
+
+        translated_text = translated_text + translated_text_part
+
+
     return translated_text
 
 
@@ -695,14 +719,14 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
     cleared = cleared.replace("\n", " ")
     #res = re.sub(r"[^ a-zA-Z0-9.!?/\\:,]+", '', all)
     #print(cleared)
-    answer = LLAMA2("Give me the 10 most important substantives as keywords of the following input: " + cleared, "nostruser",
+    answer = LLAMA2("Give me the 15 most important substantives as keywords of the following input: " + cleared, "nostruser",
                        "Reply only with a comma-seperated keywords. return topics starting with a *", clear=True)
 
 
     promptarr = answer.split(":")
     if len(promptarr) > 1:
         #print(promptarr[1])
-        prompt = promptarr[1].lstrip("\n").replace("\n", ",").replace("*", "").replace("•", "")
+        prompt = promptarr[1].lstrip("\n").replace("\n", ",").replace("*", ",").replace("•", ",")
     else:
         prompt = promptarr[0].replace("\n", ",").replace("*", "")
 
