@@ -108,7 +108,7 @@ def nostr_server():
                     if name == None:
                         name = ""
                     # Get nip05,lud16 and name from profile and store them in db.
-                    if str(nip05) == "" or nip05 is None:
+                    if str(nip05) == "" or str(name) == "":
                         try:
                             profile_filter = Filter().kind(0).author(event.pubkey().to_hex()).limit(1)
                             events = client.get_events_of([profile_filter], timedelta(seconds=3))
@@ -1927,11 +1927,17 @@ def update_user_balance(sender, sats):
     user = get_from_sql_table(sender)
     if user is None:
         add_to_sql_table(sender, (sats + DVMConfig.NEW_USER_BALANCE), False, False,
-                         None, None, None, Timestamp.now().as_secs())
+                         "", "", "", Timestamp.now().as_secs())
         print("NEW USER: " + sender + " Zap amount: " + str(sats) + " Sats.")
     else:
         user = get_from_sql_table(sender)
         print(str(sats))
+        if user[4] is None:
+            user[4] = ""
+        if user[5] is None:
+            user[5] = ""
+        if user[6] is None:
+            user[6] = ""
         update_sql_table(sender, (user[1] + sats), user[2], user[3], user[4], user[5], user[6],
                          Timestamp.now().as_secs())
         print("UPDATE USER BALANCE: " + user[6] + " Zap amount: " + str(sats) + " Sats.")
