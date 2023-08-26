@@ -2,7 +2,7 @@ import os
 
 
 class DVMConfig:
-    #SUPPORTED_TASKS = ["inactive-following", "speech-to-text", "summarization", "translation"]
+    #SUPPORTED_TASKS = ["inactive-following", "note-recommendation", "speech-to-text", "summarization", "translation"]
     SUPPORTED_TASKS = ["text-to-image", "image-to-image", "image-upscale","image-to-text"]
     PASSIVE_MODE: bool = False  # instance should only do tasks set in SUPPORTED_TASKS, no bot chatting, manage zaps etc
     USERDB = "W:\\nova\\tools\\AnnoDBbackup\\nostrzaps.db"
@@ -18,12 +18,13 @@ class DVMConfig:
     SHOWRESULTBEFOREPAYMENT: bool = True  # if this is true show results even when not paid right after autoprocess
     NEW_USER_BALANCE: int = 250  # Free credits for new users
 
-    COSTPERUNIT_TRANSLATION: int = 20  # Still need to multiply this by duration
-    COSTPERUNIT_SPEECHTOTEXT: int = 100  # Still need to multiply this by duration
+    COSTPERUNIT_TRANSLATION: int = 50  # Still need to multiply this by duration
+    COSTPERUNIT_SPEECHTOTEXT: int = 1  # Still need to multiply this by duration
     COSTPERUNIT_IMAGEGENERATION: int = 50  # Generate / Transform one image
     COSTPERUNIT_IMAGETRANSFORMING: int = 50  # Generate / Transform one image
     COSTPERUNIT_IMAGEUPSCALING: int = 25  # This takes quite long..
-    COSTPERUNIT_INACTIVE_FOLLOWING: int = 100  # This takes quite long..
+    COSTPERUNIT_INACTIVE_FOLLOWING: int = 500  # This takes quite long..
+    COSTPERUNIT_NOTE_RECOMMENDATION: int = 0  # testing
     COSTPERUNIT_OCR: int = 20
 
 

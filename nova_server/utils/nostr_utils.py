@@ -2,16 +2,12 @@ import json
 
 import os
 import re
-import string
 import urllib
 from dataclasses import dataclass
 from datetime import timedelta
-import random
 from sqlite3 import Error
 from urllib.parse import urlparse
 
-import numpy as np
-import pandas as pd
 from bech32 import bech32_decode, convertbits
 
 import requests
@@ -23,6 +19,7 @@ from Crypto.Cipher import AES
 from decord import AudioReader, cpu
 from nostr_sdk import PublicKey, Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, \
     nip04_decrypt, EventId, Metadata, nostr_sdk, Alphabet
+
 import time
 
 from nova_utils.ssi_utils.ssi_anno_utils import Anno
@@ -180,6 +177,7 @@ def nostr_server():
                                       "Your Job is now scheduled. As you are whitelisted, your balance remains at "
                                       + str(balance) + " Sats.\nI will DM you once I'm done processing.",
                                       event.id()).to_event(keys)
+                            print("Replied with confirmation")
 
                             send_event(evt, client)
                             tags = parse_bot_command_to_event(dec_text)
@@ -192,6 +190,7 @@ def nostr_server():
                                 JobToWatch(event_id=evt.id().to_hex(), timestamp=event.created_at().as_secs(),
                                            amount=required_amount, is_paid=True, status="processing", result="",
                                            is_processed=False, bolt11="", payment_hash="", expires=expires, from_bot=True))
+                            print("Do work..")
                             do_work(evt, is_from_bot=True)
 
                         else:
@@ -729,11 +728,11 @@ def nostr_server():
                 if success is None:
                     respond_to_error("Error processing video", job_event.as_json(), is_from_bot)
                     return
-            elif task == "event-list-generation" or task.startswith("unknown"):
+            elif task.startswith("unknown"):
                 print("Task not (yet) supported")
                 return
             else:
-                print("[Nostr] Adding " + task + " Job event: " + job_event.as_json())
+                print("[Nostr] Sheduling " + task + " Job event: " + job_event.as_json())
 
             url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(
                 request_form["mode"]).lower()
@@ -1196,8 +1195,8 @@ def get_bot_help_text():
             "(e.g. 3:4), default 1:1\n-lora specific weights (only XL models): "
             "3d_render_style_xl, cyborg_style_xl, psychedelic_noir_xl, dreamarts_xl, voxel_xl, kru3ger_xl, wojak_xl\n"
             "-model anothermodel\nOther Models are: \"dreamshaper\",\"nightvision\",\"protovision\",\"dynavision\",\"sdvn\", non-xl models are: \"wild\",\"realistic\",\"lora_inks\",\"lora_pepe\"\n\n"
-            "Transform an existing Image with Stable Diffusion XL (" + str(DVMConfig.COSTPERUNIT_IMAGETRANSFORMING)
-            + " Sats)\n" "-image-to-image urltoimage -prompt someprompt\n\n"
+            #"Transform an existing Image with Stable Diffusion XL (" + str(DVMConfig.COSTPERUNIT_IMAGETRANSFORMING)
+            #+ " Sats)\n" "-image-to-image urltoimage -prompt someprompt\n\n"
             "Parse text from an Image (make sure text is well readable) (" + str(DVMConfig.COSTPERUNIT_OCR) + " Sats)\n"
             "-image-to-text urltofile \n\n"
             "Upscale the resolution of an Image 4x and improve quality (" + str(DVMConfig.COSTPERUNIT_IMAGEUPSCALING)
@@ -1986,9 +1985,9 @@ def admin_make_database_updates():
 
 
 
-    #publickey = PublicKey.from_bech32("npub19jkj3lf4gh53qnp70uupvv3k3pyl39fzu52ygkhhszd5083yd36qpyu0dy").to_hex()
+    publickey = PublicKey.from_bech32("npub1v78gpgfqdcf5nykdxwgsft9katl3p6ghzudrnx9l0fg7g4m04j8s882vgz").to_hex()
     # use this if you have the npub
-    publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
+    #publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
 
     if whitelistuser:
         user = get_from_sql_table(publickey)
