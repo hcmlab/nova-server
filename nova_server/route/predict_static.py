@@ -148,7 +148,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
     from diffusers import DiffusionPipeline
     from diffusers import StableDiffusionPipeline
 
-
+    model = model.rstrip(" ")
     if model.__contains__("realistic"):
         model = "realisticVisionV51_v51VAE"
     elif model.__contains__("sd15"):
@@ -157,8 +157,8 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
         model = "stabilityai/stable-diffusion-2-1"
     elif model.__contains__("wild"):
         model = "stablydiffusedsWild_351"
-    elif model.__contains__("dreamshaper"):
-        model = "dreamshaper_8"
+
+
     elif model.__contains__("lora"):
         model = model
     else:
@@ -189,14 +189,31 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
         width = height
 
 
-    if model == "stabilityai/stable-diffusion-xl-base-1.0":
+    if model == "stabilityai/stable-diffusion-xl-base-1.0" or  model.__contains__("dreamshaper") or model.__contains__("nightvision") or model.__contains__("protovision") or model.__contains__("dynavision") or model.__contains__("sdvn"):
+
+        if model.__contains__("dreamshaper"):
+            model = os.environ[
+                        'TRANSFORMERS_CACHE'] + "stablediffusionmodels/dreamshaperXL.safetensors"
+        elif model.__contains__("nightvision"):
+            model = os.environ[
+                        'TRANSFORMERS_CACHE'] + "stablediffusionmodels/nightvisionXL.safetensors"
+        elif model.__contains__("protovision"):
+            model = os.environ[
+                        'TRANSFORMERS_CACHE'] + "stablediffusionmodels/protovisionXL.safetensors"
+        elif model.__contains__("dynavision"):
+            model = os.environ[
+                        'TRANSFORMERS_CACHE'] + "stablediffusionmodels/dynavisionXL.safetensors"
+        elif model.__contains__("sdvn"):
+            model = os.environ[
+                    'TRANSFORMERS_CACHE'] + "stablediffusionmodels/sdvn6Realxl_detailface.safetensors"
+
 
         base = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
         base.to("cuda")
 
         existing_lora = False
         if lora != "":
-            loramodelsfolder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
+            lora_models_folder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
             if lora == "cyborg_style_xl":
                 prompt = " cyborg style, " + prompt + " <lora:cyborg_style_xl:.8>"
                 existing_lora = True
@@ -226,8 +243,9 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
                 existing_lora = True
 
 
+
             if existing_lora:
-                lora_weights = loramodelsfolder + lora + ".safetensors"
+                lora_weights = lora_models_folder + lora + ".safetensors"
                 base.load_lora_weights(lora_weights)
 
 
@@ -286,51 +304,44 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
         from diffusers import StableDiffusionPipeline
         import torch
 
-        loramodelsfolder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
+        lora_models_folder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
         base_model = os.environ[
                          'TRANSFORMERS_CACHE'] + "stablediffusionmodels/anyloraCheckpoint_bakedvaeBlessedFp16.safetensors"
-        base_model = os.environ[
-                         'TRANSFORMERS_CACHE'] + "stablediffusionmodels/dreamshaper_8.safetensors"
 
-
-        if model == "inks":
-            # local lora models
+        model_path = lora_models_folder + "ink_scenery.safetensors"
+        if model == "inks" or model == "pepe":
             if model == "inks":
-                model_path = loramodelsfolder + "ink_scenery.safetensors"
+                # local lora models
+                model_path = lora_models_folder + "ink_scenery.safetensors"
+                base_model = os.environ[
+                                 'TRANSFORMERS_CACHE'] + "stablediffusionmodels/dreamshaper_8.safetensors"
                 prompt = "white background, scenery, ink, mountains, water, trees, " + prompt + " <lora:ink-0.1-3-b28-bf16-D128-A1-1-ep64-768-DAdaptation-cosine:1>"
 
-
-
+            if model == "pepe":
+                model_path = lora_models_folder + "pepe_frog_v2.safetensors"
+                base_model = os.environ[
+                                 'TRANSFORMERS_CACHE'] + "stablediffusionmodels/deliberate_v2.safetensors"
+                prompt = "pepe_frog, " + prompt + "  <lora:pepe_frog_v2:1>"
+                negative_prompt = "rz-neg-15-foranalog verybadimagenegative_v1., " + negative_prompt
 
             pipe = StableDiffusionPipeline.from_single_file(base_model, torch_dtype=torch.float16,
                                                             safety_checker = None, requires_safety_checker = False)
+            pipe.safety_checker = None
+            pipe.requires_safety_checker = False
             pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
             pipe.to("cuda")
-
+            #pipe.unet.load_attn_procs(model_path)
             pipe.load_lora_weights(model_path)
-        else:
-            # huggingface repo lora models
-            if model == "t4":
-                model_path = "sayakpaul/sd-model-finetuned-lora-t4"
-            elif model == "pokemon":
-                model_path = "pcuenq/pokemon-lora"
 
-            info = model_info(model_path)
-            base_model = info.cardData["base_model"]
-            pipe = StableDiffusionPipeline.from_pretrained(base_model, torch_dtype=torch.float16)
-            pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
-            pipe.to("cuda")
-            pipe.unet.load_attn_procs(model_path)
 
-        image = pipe(prompt, num_inference_steps=30,  width=width,
-            height=height, guidance_scale=7.5, cross_attention_kwargs={"scale": 1.0}).images[
-            0]
+            image = pipe(prompt, negative_prompt=negative_prompt, num_inference_steps=30,  width=width,
+                height=height, guidance_scale=7.5, cross_attention_kwargs={"scale": 1.0}).images[0]
 
-        if torch.cuda.is_available():
-            del pipe
-            gc.collect()
-            torch.cuda.empty_cache()
-            torch.cuda.ipc_collect()
+            if torch.cuda.is_available():
+                del pipe
+                gc.collect()
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
 
     else:
         if model == "runwayml/stable-diffusion-v1-5":

@@ -610,6 +610,7 @@ def nostr_server():
                     elif tag.as_vec()[1] == "model":
                         model = tag.as_vec()[2]
 
+            prompt =  prompt.replace(";",",")
             request_form["optStr"] = ('prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt='
                                       + negative_prompt + ';width=' + str(width) + ';height=' + str(height)
                                       + ';upscale=' + str(upscale) + ';model=' + model + ';ratiow=' + str(ratio_width)
@@ -1204,10 +1205,10 @@ def get_bot_help_text():
             " for you. Currently I can do the following jobs:\n\n"
             "Generate an Image with Stable Diffusion XL (" + str(DVMConfig.COSTPERUNIT_IMAGEGENERATION) + " Sats)\n"
             "-text-to-image someprompt\nAdditional parameters:\n-negative some negative prompt\n-ratio width:height "
-            "(e.g. 3:4), default 1:1\n-lora specific weights (only default model): "
+            "(e.g. 3:4), default 1:1\n-lora specific weights (only XL models): "
             "3d_render_style_xl, cyborg_style_xl, psychedelic_noir_xl, dreamarts_xl, voxel_xl, kru3ger_xl, wojak_xl\n"
-            "-model anothermodel\nOther Models are: realistic, wild, lora_inks\n\n"
-            "Transform an existing Image with pix2pix (" + str(DVMConfig.COSTPERUNIT_IMAGETRANSFORMING)
+            "-model anothermodel\nOther Models are: \"dreamshaper\",\"nightvision\",\"protovision\",\"dynavision\",\"sdvn\", non-xl models are: \"wild\",\"realistic\",\"lora_inks\",\"lora_pepe\"\n\n"
+            "Transform an existing Image with Stable Diffusion XL (" + str(DVMConfig.COSTPERUNIT_IMAGETRANSFORMING)
             + " Sats)\n" "-image-to-image urltoimage -prompt someprompt\n\n"
             "Parse text from an Image (make sure text is well readable) (" + str(DVMConfig.COSTPERUNIT_OCR) + " Sats)\n"
             "-image-to-text urltofile \n\n"
@@ -2076,7 +2077,7 @@ def nip89_announce_tasks():
     k65005_tag = Tag.parse(["k", "65005"])
     d_tag = Tag.parse(["d", "06sfjfp9frr3ubcq"])
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "{\"name\":\"NostrAI DVM Artist\",\"image\":\"https://cdn.nostr.build/i/2c9ff28899732291fdcde742747b533a12c56185a345ce94c0b9e5ae9f5460f8.jpg\",\"about\":\"Generate an Image based on a prompt. Supports various models. By default uses Stable Diffusion XL 1.0. \\nPossible Inputs are text, events or jobs. Lora (Specific weights) param only works for SDXL.\\nAn optional negative prompt can help the model avoid things it shouldn't do.\\nImages are upscaled  4x by default.\\n\\nAdditionally supports Image2Image conversion. Requires as input url of an image/previous job/event and a second text input containing the prompt. By default, uses instruct-pix2pix model, alternative is sdxl (Stable Diffusion XL) model.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"sdxl\",\"wild\",\"dreamshaper\",\"realistic\",\"pix2pix\",\"lora_inks\"]},\"ratio\":{\"required\":false,\"values\":[\"1:1\",\"4:3\",\"16:9\",\"16:10\",\"3:4\",\"9:16\",\"10:16\"]},\"negative_prompt\":{\"required\":false,\"values\":[]},\"extra_prompt\":{\"required\":false,\"values\":[]},\"upscale\":{\"required\":false,\"values\":[\"1\",\"2\",\"3\",\"4\"]},\"lora\":{\"required\":false,\"values\":[\"3d_render_style_xl\",\"cyborg_style_xl\",\"psychedelic_noir_xl\",\"dreamarts_xl\",\"voxel_xl\",\"kru3ger_xl\",\"wojak_xl\"]}}}"
+    content = "{\"name\":\"NostrAI DVM Artist\",\"image\":\"https://cdn.nostr.build/i/2c9ff28899732291fdcde742747b533a12c56185a345ce94c0b9e5ae9f5460f8.jpg\",\"about\":\"Generate an Image based on a prompt. Supports various models. By default uses Stable Diffusion XL 1.0. \\nPossible Inputs are text, events or jobs. Lora (Specific weights) param only works for SDXL.\\nAn optional negative prompt can help the model avoid things it shouldn't do.\\nImages are upscaled  4x by default.\\n\\nAdditionally supports Image2Image conversion. Requires as input url of an image/previous job/event and a second text input containing the prompt. By default, uses instruct-pix2pix model, alternative is sdxl (Stable Diffusion XL) model.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"sdxl\",\"dreamshaper\",\"nightvision\",\"protovision\",\"dynavision\",\"sdvn\",\"wild\",\"realistic\",\"lora_inks\",\"lora_pepe\"]},\"ratio\":{\"required\":false,\"values\":[\"1:1\",\"4:3\",\"16:9\",\"16:10\",\"3:4\",\"9:16\",\"10:16\"]},\"negative_prompt\":{\"required\":false,\"values\":[]},\"extra_prompt\":{\"required\":false,\"values\":[]},\"upscale\":{\"required\":false,\"values\":[\"1\",\"2\",\"3\",\"4\"]},\"lora\":{\"required\":false,\"values\":[\"3d_render_style_xl\",\"cyborg_style_xl\",\"psychedelic_noir_xl\",\"dreamarts_xl\",\"voxel_xl\",\"kru3ger_xl\",\"wojak_xl\"]}}}"
     event = EventBuilder(31990, content, [k65005_tag, d_tag]).to_event(keys)
     send_event(event)
 
