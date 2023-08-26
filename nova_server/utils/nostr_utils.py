@@ -296,6 +296,7 @@ def nostr_server():
                                         elif not (job_list[index]).is_processed:
                                             # If payment-required appears before processing
                                             job_list.pop(index)
+                                            print("Starting work...")
                                             do_work(job_event, is_from_bot=False)
                                 else:
                                     send_job_status_reaction(job_event, "payment-rejected",
@@ -724,7 +725,9 @@ def nostr_server():
                         input_value = tag.as_vec()[1]
                         input_type = tag.as_vec()[2]
                         break
+                print("Organizing input..")
                 success, duration = organize_input_data(input_value, input_type, request_form)
+                print("Organizing input..done.")
                 if success is None:
                     respond_to_error("Error processing video", job_event.as_json(), is_from_bot)
                     return
@@ -737,6 +740,7 @@ def nostr_server():
             url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(
                 request_form["mode"]).lower()
             headers = {'Content-type': 'application/x-www-form-urlencoded'}
+            print("Sending job to NOVA-Server")
             requests.post(url, headers=headers, data=request_form)
 
     client.handle_notifications(NotificationHandler())
@@ -943,9 +947,9 @@ def get_amount_per_task(task, duration = 0):
         amount = DVMConfig.COSTPERUNIT_TRANSLATION
     elif task == "speech-to-text":
         if duration == 0:
-            amount = DVMConfig.COSTPERUNIT_SPEECHTOTEXT * 100 #if we dont have a duration make it rate x 100.
+            amount = DVMConfig.COSTPERUNIT_SPEECHTOTEXT * 1000 #if we dont have a duration make it rate x 100.
         else:
-            amount = DVMConfig.COSTPERUNIT_SPEECHTOTEXT * duration
+            amount = 50 + int(DVMConfig.COSTPERUNIT_SPEECHTOTEXT * duration)
     elif task == "text-to-image":
         amount = DVMConfig.COSTPERUNIT_IMAGEGENERATION
     elif task == "image-to-image":
@@ -1154,36 +1158,44 @@ def post_process_result(anno, original_event):
                             name = element["name"] #name
                             cleared_name = str(name).lstrip("\'").rstrip("\'")
                             result = result + cleared_name + "\n"
-                        result = str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None)
+                        result = replace_broken_words(str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None))
                         return result
 
                     elif output_format == "text/json" or output_format == "json":
                         #result = json.dumps(json.loads(anno.data.to_json(orient="records")))
-                        result = json.dumps(anno.data.tolist())
+                        result =  replace_broken_words(json.dumps(anno.data.tolist()))
                         return result
                     # TODO add more
                     else:
-                        result = str(anno.data)
+                        result =  replace_broken_words(str(anno.data))
                         return result
 
                 except Exception as e:
                     print(e)
-                    result = str(anno.data)
+                    result =  replace_broken_words(str(anno.data))
                     return result
-            else:
-                result = ""
-                for element in anno.data:
-                    element["name"] = str(element["name"]).lstrip()
-                    element["from"] = (format(float(element["from"]), '.2f')).lstrip()  # name
-                    element["to"] = (format(float(element["to"]), '.2f')).lstrip()  # name
-                    result = result +  "(" + str(element["from"]) + "," +  str(element["to"]) +")" + " " + str(element["name"]) + "\n"
-                    #result = result + str(element["name"]) + "\n"
+        else:
+            result = ""
+            for element in anno.data:
+                element["name"] = str(element["name"]).lstrip()
+                element["from"] = (format(float(element["from"]), '.2f')).lstrip()  # name
+                element["to"] = (format(float(element["to"]), '.2f')).lstrip()  # name
+                result = result +  "(" + str(element["from"]) + "," +  str(element["to"]) +")" + " " + str(element["name"]) + "\n"
 
-                print(result)
-                return result
+                #result = result + str(element["name"]) + "\n"
+
+            print(result)
+            result =  replace_broken_words(result)
+            return result
     else:
-        return anno
+        result = replace_broken_words(anno)
+        return result
 
+
+def replace_broken_words(text):
+    result = (text.replace("Noster", "Nostr").replace("Nostra", "Nostr").replace("no stir", "Nostr").
+              replace("Nostro", "Nostr").replace("Impub", "npub").replace("sets", "Sats"))
+    return result
 
 # BOT FUNCTIONS
 def get_bot_help_text():
@@ -1382,9 +1394,9 @@ def parse_bot_command_to_event(dec_text):
 
 def check_event_has_not_unifinished_job_input(nevent, append, client):
 
-    tasksupported, task, duration = check_task_is_supported(nevent, client, False)
-    if not tasksupported:
-        return False
+    #tasksupported, task, duration = check_task_is_supported(nevent, client, False)
+    #if not tasksupported:
+    #    return False
 
     for tag in nevent.tags():
         if tag.as_vec()[0] == 'i':
@@ -1415,7 +1427,7 @@ def check_task_is_supported(event, client, get_duration = False):
     duration = 1
     start = "0"
     end = "0"
-
+    output_is_set = True
 
     for tag in event.tags():
         if tag.as_vec()[0] == 'i':
@@ -1433,9 +1445,13 @@ def check_task_is_supported(event, client, get_duration = False):
 
         elif tag.as_vec()[0] == 'output':
                 output = tag.as_vec()[1]
+                output_is_set = True
                 if not (output == "text/plain" or output == "text/json" or output == "json" or output == "image/png" or "image/jpg" or output == ""):
                     print("Output format not supported, skipping..")
                     return False, "", 0
+                else:
+                    print("Output Format: " + output)
+
 
         elif tag.as_vec()[0] == 'param':
             if get_duration:
@@ -1465,6 +1481,8 @@ def check_task_is_supported(event, client, get_duration = False):
                             end = tag.as_vec()[3]
 
     task = get_task(event, client=client)
+    if not output_is_set:
+        print("No output set")
     if task not in DVMConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
         return False, task, duration
     elif task == "translation" and (
@@ -1660,8 +1678,9 @@ def check_media_length(input_value, input_type, id, start, end):
                         "roles": "nostr",
                         "sessions": id,  "startTime": start, "endTime": end}
 
+        print(end + " " + start)
         if float(end) - float(start) > 0.0:
-            return float(end) - float(start)
+            return int(float(end) - float(start))
         success, duration = organize_input_data(input_value, input_type, request_form, process=False)
         return duration
     elif input_type == "text":
