@@ -99,16 +99,14 @@ def predict_static_data(request_form):
             anno = NoteRecommendations(options["user"], int(options["since"]), str2bool(options["is_bot"]))
 
 
-        if "nostrEvent" in request_form:
-            if request_form["nostrEvent"] is not None :
-                nostr_dvm.check_event_status(anno, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]),
-                                                                request_form["dvmkey"])
+
         logger.info("...done")
         logger.info("Prediction completed!")
         status_utils.update_status(key, status_utils.JobStatus.FINISHED)
         if "nostrEvent" in request_form:
-            if request_form["nostrEvent"] is not None :
-                nostr_utils.check_event_status(anno, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
+            if request_form["nostrEvent"] is not None:
+                nostr_dvm.check_event_status(anno, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]),
+                                             request_form["dvmkey"])
 
     except Exception  as e:
         if "nostrEvent" in request_form:

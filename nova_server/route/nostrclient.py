@@ -15,7 +15,7 @@ from nostr_sdk import Keys, Client, Tag, Event, EventBuilder, Filter, HandleNoti
 
 from flask import Blueprint, request, jsonify
 
-from nova_server.utils.nostr_utils import send_event
+from nova_server.utils.nostr_dvm import send_event
 from nova_server.utils.thread_utils import THREADS
 
 from nova_server.utils.key_utils import get_key_from_request_form, get_random_name
@@ -25,7 +25,6 @@ from nova_server.utils import (
     log_utils,
     dataset_utils,
     import_utils,
-    nostr_utils,
 )
 
 
