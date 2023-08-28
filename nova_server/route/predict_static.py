@@ -440,7 +440,8 @@ def ImageToPrompt(url):
     init_image = load_image(url).convert("RGB")
 
     from clip_interrogator import Config, Interrogator
-    ci = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
+    ci = Interrogator(Config(clip_model_name=os.environ[
+                                 'TRANSFORMERS_CACHE'] + "ViT-L-14/openai"))
     detected = ci.interrogate(init_image)
     print(detected)
     return  str(detected)
@@ -473,25 +474,10 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
 
     init_image = load_image(url).convert("RGB")
 
-    #from clip_interrogator import Config, Interrogator
-    #ci = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
-    #detected = ci.interrogate(init_image)
-    #print(detected)
-    #prompt = prompt + ", " + str(detected)
-
     if  model == "dreamshaper_8" or model == "stabilityai/stable-diffusion-xl-refiner-1.0":
         mwidth = 1024
         mheight = 1024
 
-
-    #width, height = init_image.size  # Get dimensions
-
-    #left = (width - mwidth) / 2
-    #top = (height - mheight) / 2
-    #right = (width + mwidth) / 2
-    #bottom = (height + mheight) / 2
-
-    # Crop the center of the image
 
 
     w = mwidth
@@ -589,7 +575,8 @@ def imageUpscaleRealESRGAN(filepath, upscale="4"):
     import subprocess
     uniquefilepath = uniquify("outputs/sd.jpg")
     if upscale == "4":
-        model = "realesrgan-x4plus"
+        #model = "realesrgan-x4plus"
+        model= "4x-UltraSharp-opt-fp16"
     else:
         model = "realesr-animevideov3"
     FNULL = open(os.devnull, 'w')  # use this if you want to suppress output to stdout from the subprocess
