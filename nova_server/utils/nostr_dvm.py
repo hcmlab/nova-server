@@ -143,8 +143,9 @@ def nostr_server(config):
         client.subscribe([dm_zap_filter])
 
     else:
+        dm_zap_filter = Filter().pubkey(pk).kinds([9735]).since(Timestamp.now())
         dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005, 65007]).since(Timestamp.now()))
-        client.subscribe([dvm_filter])
+        client.subscribe([dm_zap_filter, dvm_filter])
 
 
     create_sql_table()
@@ -202,9 +203,9 @@ def nostr_server(config):
                                         return
                         except Exception as e:
                             if not user[2]: #whitelisted
-                                update_sql_table(sender, user[1] + get_amount_per_task(get_task(event, client)), user[2], user[3], user[4],
+                                update_sql_table(sender, user[1] + get_amount_per_task(get_task(event, client), config=dvmconfig), user[2], user[3], user[4],
                                                  user[5], user[6],
-                                                 Timestamp.now().as_secs(), config=dvmconfig)
+                                                 Timestamp.now().as_secs())
                                 message = "There was the following error : " + str(e) + ". Credits have been reimbursed"
                             else:
                                 # User didn't pay, so no reimbursement
@@ -245,7 +246,7 @@ def nostr_server(config):
                                       event.id()).to_event(keys)
 
                             print("Replying with scheduled confirmation")
-                            send_event(evt)
+                            send_event(evt, key=keys)
 
                             #build temp event to work with
                             tags = parse_bot_command_to_event(dec_text)
@@ -943,7 +944,7 @@ def send_event(event, client=None, key=None):
         if key is None:
             key = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
         opts = Options().wait_for_ok(False)
-        client = Client.with_opts(keys, opts)
+        client = Client.with_opts(key, opts)
         for relay in dvmconfig.RELAY_LIST:
             client.add_relay(relay)
         client.connect()
@@ -1718,7 +1719,7 @@ def check_event_has_not_unifinished_job_input(nevent, append, client):
                             end = tag.as_vec()[3]
 
     task = get_task(event, client=client)
-    if task not in DVMConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
+    if task not in dvmconfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
         print("Not in supported tasks")
         return False, task, duration
     elif task == "translation" and (
