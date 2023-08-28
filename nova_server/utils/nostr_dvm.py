@@ -43,7 +43,7 @@ import sqlite3
 class DVMConfig:
     SUPPORTED_TASKS = [] # ["inactive-following", "note-recommendation", "speech-to-text", "summarization", "translation", "text-to-image", "image-to-image", "image-upscale","image-to-text", "image-reimagine"]
     PRIVATE_KEY: str
-    PRIVATE_KEY_BOT: str
+
 
     IS_HYBRID: bool = False  # Once instance serves as both bot, and dvm
     IS_BOT: bool = False  # This should act as Bot, not NIP90 DVM
@@ -311,16 +311,18 @@ def nostr_server(config):
                 except Exception as e:
                     print(f"Error during content decryption: {e}")
             elif event.kind() == 9735:
+
                 zapped_event = None
                 invoice_amount = 0
                 anon = False
                 sender = event.pubkey()
+
                 try:
                     for tag in event.tags():
                         if tag.as_vec()[0] == 'bolt11':
                             invoice_amount = parse_bolt11_invoice(tag.as_vec()[1])
                         elif tag.as_vec()[0] == 'e':
-                            zapped_event = get_event_by_id(tag.as_vec()[1])
+                            zapped_event = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
                         elif tag.as_vec()[0] == 'description':
                             zap_request_event = Event.from_json(tag.as_vec()[1])
                             sender = check_for_zapplepay(zap_request_event.pubkey().to_hex(),
@@ -352,7 +354,8 @@ def nostr_server(config):
                                 if tag.as_vec()[0] == 'amount':
                                     amount = int(float(tag.as_vec()[1]) / 1000)
                                 elif tag.as_vec()[0] == 'e':
-                                    job_event = get_event_by_id(tag.as_vec()[1])
+                                    job_event = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
+
                             task_supported, task, duration = check_task_is_supported(job_event, client=client, get_duration=False, config=dvmconfig)
                             if job_event is not None and task_supported:
                                 if amount <= invoice_amount:
@@ -365,7 +368,7 @@ def nostr_server(config):
                                     if index > -1:
                                         if job_list[index].is_processed:  # If payment-required appears after processing
                                             job_list[index].is_paid = True
-                                            check_event_status(job_list[index].result, str(job_event.as_json()))
+                                            check_event_status(job_list[index].result, str(job_event.as_json()), dvm_key=dvmconfig.PRIVATE_KEY)
                                         elif not (job_list[index]).is_processed:
                                             # If payment-required appears before processing
                                             job_list.pop(index)
@@ -544,7 +547,7 @@ def nostr_server(config):
             if input_type == "event":
                 for tag in event.tags():
                     if tag.as_vec()[0] == 'i':
-                        evt = get_event_by_id(tag.as_vec()[1])
+                        evt = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
                         text = evt.content()
                         break
 
@@ -557,7 +560,7 @@ def nostr_server(config):
             elif input_type == "job":
                 for tag in event.tags():
                     if tag.as_vec()[0] == 'i':
-                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
                         text = evt.content()
                         break
 
@@ -573,10 +576,10 @@ def nostr_server(config):
                     if input_type == "url":
                         url = tag.as_vec()[1]
                     elif input_type == "event":
-                        evt = get_event_by_id(tag.as_vec()[1])
+                        evt = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
                     elif input_type == "job":
-                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
             request_form["optStr"] = 'url=' + url
 
@@ -599,10 +602,10 @@ def nostr_server(config):
                     elif input_type == "text":
                         prompt = tag.as_vec()[1]
                     elif input_type == "event":
-                        evt = get_event_by_id(tag.as_vec()[1])
+                        evt = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
                     elif input_type == "job":
-                         evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
+                         evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
                          if evt is not None:
                              url = evt.content()
                 elif tag.as_vec()[0] == 'param':
@@ -645,12 +648,12 @@ def nostr_server(config):
                     if input_type == "text":
                         prompt = tag.as_vec()[1]
                     elif input_type == "event":
-                        evt = get_event_by_id(tag.as_vec()[1])
+                        evt = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
                         llamalist = LLAMA2("Give me the keywords of the following input: "  + evt.content(), "",
                                            "Reply only with comma-seperated lists, no smalltalk")
                         prompt = llamalist.replace("\n", ",")
                     elif input_type == "job":
-                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
                         if evt is not None:
                             try:
                                 llamalist = LLAMA2(evt.content(), ""
@@ -708,7 +711,7 @@ def nostr_server(config):
                     if input_type == "url":
                         url = tag.as_vec()[1]
                     elif input_type == "job":
-                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
                         if evt is not None:
                             url = evt.content()
 
@@ -729,10 +732,10 @@ def nostr_server(config):
                         url = tag.as_vec()[1]
                         print(url)
                     elif input_type == "event":
-                        evt = get_event_by_id(tag.as_vec()[1])
+                        evt = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
                     elif input_type == "job":
-                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
                         url = evt.content()
                 elif tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == "upscale":
@@ -766,10 +769,10 @@ def nostr_server(config):
                     if input_type == "text":
                         text = re.sub(pattern, "", tag.as_vec()[1]).replace("\n", "")
                     elif input_type == "event":
-                        evt = get_event_by_id(tag.as_vec()[1])
+                        evt = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
                         text = re.sub(pattern, "", evt.content()).replace("\n", "")
                     elif input_type == "job":
-                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
                         if evt is not None:
                             text = evt.content().replace(";", "")
                     all_texts = all_texts + text
@@ -852,8 +855,9 @@ def nostr_server(config):
             if job.bolt11 != "" and job.payment_hash != "" and not job.is_paid:
                 if str(check_bolt11_ln_bits_is_paid(job.payment_hash)) == "True":
                     job.is_paid = True
-                    event = get_event_by_id(job.event_id)
+                    event = get_event_by_id(job.event_id, config=dvmconfig)
                     if event != None:
+                        print(dvmconfig.PRIVATE_KEY)
                         send_job_status_reaction(event, "processing", True, 0, client=client,  config=dvmconfig)
                         do_work(event, is_from_bot=False)
                 elif check_bolt11_ln_bits_is_paid(job.payment_hash) is None: #invoice expired
@@ -880,7 +884,8 @@ def nostr_server(config):
 
 
 # SEND AND RECEIVE EVENTS
-def get_event_by_id(event_id, client=None):
+def get_event_by_id(event_id, client=None, config=None):
+    dvmconfig = config
     is_new_client = False
     if client is None:
         keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
@@ -904,8 +909,9 @@ def get_event_by_id(event_id, client=None):
     else:
         return None
 
-def get_referenced_event_by_id(event_id, kinds=None, client=None):
+def get_referenced_event_by_id(event_id, kinds=None, client=None, config=None):
     #return the event this event is referred in
+    dvmconfig = config
     if kinds is None:
         kinds = []
     is_new_client = False
@@ -997,7 +1003,7 @@ def get_task(event, client):
                     else:
                         return "unknown job"
                 elif tag.as_vec()[2] == "event":
-                    evt = get_event_by_id(tag.as_vec()[1])
+                    evt = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
                     if evt is not None:
                         if evt.kind() == 1063:
                             for tag in evt.tags():
@@ -1028,7 +1034,7 @@ def get_task(event, client):
                         has_image_tag = True
                         print("found image tag")
                 elif tag.as_vec()[2] == "job":
-                    evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
+                    evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
                     if evt is not None:
                         file_type = check_url_is_readable(evt.content())
                         if file_type == "image":
@@ -1068,7 +1074,7 @@ def check_task_is_supported(event, client, get_duration = False, config=None):
                 input_value = tag.as_vec()[1]
                 input_type = tag.as_vec()[2]
                 if input_type == "event":
-                   evt = get_event_by_id(input_value)
+                   evt = get_event_by_id(input_value, config=dvmconfig)
                    if evt == None:
                        print("Event not found")
                        return False, "", 0
@@ -1183,12 +1189,9 @@ def get_amount_per_task(task, duration = 0, config=None):
 
 
 # DECIDE TO RETURN RESULT
-def check_event_status(data, original_event_str: str, use_bot=False, dvm_key=None):
+def check_event_status(data, original_event_str: str, dvm_key="", use_bot=False):
     original_event = Event.from_json(original_event_str)
-    if dvm_key is None:
-        keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
-    else:
-        keys = Keys.from_sk_str(dvm_key)
+    keys = Keys.from_sk_str(dvm_key)
 
     for x in job_list:
         if x.event_id == original_event.id().to_hex():
@@ -1654,7 +1657,7 @@ def check_event_has_not_unifinished_job_input(nevent, append, client, dvmconfig)
                 input = tag.as_vec()[1]
                 input_type = tag.as_vec()[2]
                 if input_type == "job":
-                    evt = get_referenced_event_by_id(input, [65001], client)
+                    evt = get_referenced_event_by_id(input, [65001], client, config=dvmconfig)
                     if evt is None:
                         if append:
                             job = RequiredJobToWatch(event=nevent, timestamp=Timestamp.now().as_secs())
@@ -1683,7 +1686,7 @@ def check_event_has_not_unifinished_job_input(nevent, append, client, dvmconfig)
                 input_value = tag.as_vec()[1]
                 input_type = tag.as_vec()[2]
                 if input_type == "event":
-                   evt = get_event_by_id(input_value)
+                   evt = get_event_by_id(input_value, config=dvmconfig)
                    if evt == None:
                        print("Event not found")
                        return False, "", 0
@@ -1851,7 +1854,7 @@ def get_media_link(input_value, request_form):
 def organize_input_data(input_value, input_type, request_form, process=True):
     filename = ""
     if input_type == "event":  # NIP94 event
-        evt = get_event_by_id(input_value)
+        evt = get_event_by_id(input_value, config=dvmconfig)
         if evt is not None:
             if evt.kind() == 1063:
                 for tag in evt.tags():
@@ -1931,10 +1934,10 @@ def check_media_length(input_value, input_type, id, start, end):
     elif input_type == "text":
         return len(input_value)
     elif input_type == "job":
-        evt = get_referenced_event_by_id(input_value)
+        evt = get_referenced_event_by_id(input_value, config=dvmconfig)
         return 1
     elif input_type == "event":
-        evt = get_event_by_id(input_value)
+        evt = get_event_by_id(input_value, config=dvmconfig)
         return 1
 
 

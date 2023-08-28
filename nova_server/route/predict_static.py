@@ -105,8 +105,8 @@ def predict_static_data(request_form):
         status_utils.update_status(key, status_utils.JobStatus.FINISHED)
         if "nostrEvent" in request_form:
             if request_form["nostrEvent"] is not None:
-                nostr_dvm.check_event_status(anno, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]),
-                                             request_form["dvmkey"])
+                nostr_dvm.check_event_status(anno, str(request_form["nostrEvent"]), request_form["dvmkey"],
+                                             str2bool(request_form["isBot"]))
 
     except Exception  as e:
         if "nostrEvent" in request_form:
