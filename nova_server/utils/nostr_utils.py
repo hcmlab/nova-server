@@ -18,7 +18,7 @@ from Crypto.Cipher import AES
 
 from decord import AudioReader, cpu
 from nostr_sdk import PublicKey, Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, \
-    nip04_decrypt, EventId, Metadata, nostr_sdk, Alphabet
+    nip04_decrypt, EventId, Metadata, nostr_sdk, Alphabet, ClientMessage, Options
 
 import time
 
@@ -75,7 +75,9 @@ def nostr_server():
     pk = keys.public_key()
     print(f"Nostr Bot/DVM public key: {pk.to_bech32()}, Hex: {pk.to_hex()} ")
     print(f"Supported DVM Jobs: {DVMConfig.SUPPORTED_TASKS}")
+
     client = Client(keys)
+
     for relay in DVMConfig.RELAY_LIST:
         client.add_relay(relay)
     client.connect()
@@ -132,7 +134,7 @@ def nostr_server():
 
                                         evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), message,
                                                                                     event.id()).to_event(keys)
-                                        send_event(evt, client)
+                                        send_event(evt)
                                         return
                         except Exception as e:
                             if not user[2]: #whitelisted
@@ -145,7 +147,7 @@ def nostr_server():
                                 message = "There was the following error : " + str(e)
 
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), message, event.id()).to_event(keys)
-                            send_event(evt, client)
+                            send_event(evt)
                             print(e)
 
                     # update last active status
@@ -162,7 +164,7 @@ def nostr_server():
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
                                                                 "Your are currently blocked from all services.",
                                                                 None).to_event(keys)
-                            send_event(evt, client)
+                            send_event(evt)
                         elif is_whitelisted or balance >= required_amount:
                             time.sleep(3.0)
                             if not is_whitelisted:
@@ -177,21 +179,27 @@ def nostr_server():
                                       "Your Job is now scheduled. As you are whitelisted, your balance remains at "
                                       + str(balance) + " Sats.\nI will DM you once I'm done processing.",
                                       event.id()).to_event(keys)
-                            print("Replied with confirmation")
 
-                            send_event(evt, client)
+                            print("Replying with scheduled confirmation")
+                            send_event(evt)
+
+                            #build temp event to work with
                             tags = parse_bot_command_to_event(dec_text)
                             tags.append(Tag.parse(["p", event.pubkey().to_hex()]))
                             tags.append(Tag.parse(["y", event.pubkey().to_hex()]))
-                            evt = EventBuilder(4, "", tags).to_event(keys)
+                            jobevt = EventBuilder(4, "", tags).to_event(keys)
 
-                            expires = event.created_at().as_secs() + (60 * 60)
-                            job_list.append(
-                                JobToWatch(event_id=evt.id().to_hex(), timestamp=event.created_at().as_secs(),
-                                           amount=required_amount, is_paid=True, status="processing", result="",
-                                           is_processed=False, bolt11="", payment_hash="", expires=expires, from_bot=True))
+
+                            #expires = event.created_at().as_secs() + (60 * 60)
+                            #job_list.append(
+                            #    JobToWatch(event_id=evt.id().to_hex(), timestamp=event.created_at().as_secs(),
+                            #               amount=required_amount, is_paid=True, status="processing", result="",
+                            #               is_processed=False, bolt11="", payment_hash="", expires=expires, from_bot=True))
                             print("Do work..")
-                            do_work(evt, is_from_bot=True)
+                            do_work(jobevt, is_from_bot=True)
+
+
+
 
                         else:
                             print("payment-required")
@@ -200,7 +208,7 @@ def nostr_server():
                                 "Balance required, please zap me with at least " + str(required_amount)
                                 + " Sats, then try again.",
                                 event.id()).to_event(keys)
-                            send_event(evt, client)
+                            send_event(evt)
 
                     elif not DVMConfig.PASSIVE_MODE:
                         print("Request from " + str(name) + " (" +str (nip05) + ") Message: " + dec_text)
@@ -212,25 +220,25 @@ def nostr_server():
                                 "Your current balance is " + str(balance) + " Sats. Zap me to add to your balance. "
                                 "I support both public and private Zaps, as well as Zapplepay.",
                                  None).to_event(keys)
-                            send_event(evt, client)
+                            send_event(evt)
                         elif str(dec_text).startswith("-help") or str(dec_text).startswith("- help") or str(
                                 dec_text).startswith("help"):
                             time.sleep(3.0)
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), get_bot_help_text(),
                                                                         event.id()).to_event(keys)
-                            send_event(evt, client)
+                            send_event(evt)
                         elif str(dec_text).lower().__contains__("bitcoin"):
                             time.sleep(3.0)
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
                                  "#Bitcoin? There is no second best.\n\nhttps://cdn.nostr.build/p/mYLv.mp4",
                                   event.id()).to_event(keys)
-                            send_event(evt, client)
+                            send_event(evt)
                         elif not str(dec_text).startswith("-"):
                             # Contect LLAMA Server in parallel to cue.
                             answer = LLAMA2(dec_text, event.pubkey().to_hex())
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), answer,
                                                                         event.id()).to_event(keys)
-                            send_event(evt, client)
+                            send_event(evt)
 
                 except Exception as e:
                     print(f"Error during content decryption: {e}")
@@ -335,7 +343,6 @@ def nostr_server():
 
         elif task_supported:
             print("Received new Task: " + task)
-            print(duration)
             amount = get_amount_per_task(task, duration)
             if amount is None:
                 return
@@ -509,7 +516,8 @@ def nostr_server():
             negative_prompt = " "
             strength = 0.5
             guidance_scale = 7.5
-            model = "pix2pix"
+            model = "sdxl"
+            lora = ""
 
             for tag in event.tags():
                 if tag.as_vec()[0] == 'i':
@@ -536,10 +544,13 @@ def nostr_server():
                         guidance_scale = float(tag.as_vec()[2])
                     elif tag.as_vec()[1] == "model":
                         model = tag.as_vec()[2]
+                    elif tag.as_vec()[1] == "lora":
+                        lora = tag.as_vec()[2]
 
             request_form["optStr"] = ('url=' + url + ';prompt=' + prompt + ';negative_prompt=' + negative_prompt
                                      + ';strength=' + str(strength) + ';guidance_scale=' + str(guidance_scale)
-                                     + ';model=' + model)
+                                     + ';model=' + model
+                                     + ';lora=' + lora)
 
         elif task == "text-to-image":
             request_form["mode"] = "PREDICT_STATIC"
@@ -614,6 +625,25 @@ def nostr_server():
                                       + negative_prompt + ';width=' + str(width) + ';height=' + str(height)
                                       + ';upscale=' + str(upscale) + ';model=' + model + ';ratiow=' + str(ratio_width)
                                       + ';ratioh=' + str(ratio_height)) + ';lora=' + str(lora)
+
+
+        elif task == "image-reimagine":
+            request_form["mode"] = "PREDICT_STATIC"
+            request_form["trainerFilePath"] = task
+            for tag in event.tags():
+                if tag.as_vec()[0] == 'i':
+                    input_type = tag.as_vec()[2]
+                    if input_type == "url":
+                        url = tag.as_vec()[1]
+                    elif input_type == "job":
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
+                        if evt is not None:
+                            url = evt.content()
+
+
+            request_form["optStr"] = 'url=' + url
+
+
 
         elif task == "image-upscale":
             request_form["mode"] = "PREDICT_STATIC"
@@ -735,7 +765,7 @@ def nostr_server():
                 print("Task not (yet) supported")
                 return
             else:
-                print("[Nostr] Sheduling " + task + " Job event: " + job_event.as_json())
+                print("[Nostr] Scheduling " + task + " Job event: " + job_event.as_json())
 
             url = 'http://' + os.environ["NOVA_HOST"] + ':' + os.environ["NOVA_PORT"] + '/' + str(
                 request_form["mode"]).lower()
@@ -842,7 +872,8 @@ def send_event(event, client=None):
 
     if client is None:
         keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-        client = Client(keys)
+        opts = Options().wait_for_ok(False)
+        client = Client.with_opts(keys, opts)
         for relay in DVMConfig.RELAY_LIST:
             client.add_relay(relay)
         client.connect()
@@ -854,6 +885,7 @@ def send_event(event, client=None):
     client.connect()
 
     event_id = client.send_event(event)
+    #event_id = client.send_msg(ClientMessage.EV(event))
 
     for relay in relays:
         if relay not in DVMConfig.RELAY_LIST:
@@ -913,25 +945,29 @@ def get_task(event, client):
         return "translation"
     elif event.kind() == 65005:
         has_image_tag = False
+        has_text_tag = False
         for tag in event.tags():
             if tag.as_vec()[0] == "i":
                 if tag.as_vec()[2] == "url":
                     file_type = check_url_is_readable(tag.as_vec()[1])
                     if file_type == "image":
                         has_image_tag = True
+                        print("found image tag")
                 elif tag.as_vec()[2] == "job":
                     evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client)
                     if evt is not None:
                         file_type = check_url_is_readable(evt.content())
                         if file_type == "image":
                             has_image_tag = True
+                elif tag.as_vec()[2] == "text":
+                    has_text_tag = True
 
 
-
-
-        if has_image_tag:
+        if has_image_tag and not has_text_tag:
+            return "image-reimagine"
+        elif has_image_tag and has_text_tag:
             return "image-to-image"
-        else:
+        elif has_text_tag and not has_image_tag:
             return "text-to-image"
     elif event.kind() == 65006:
         return "note-recommendation"
@@ -953,6 +989,8 @@ def get_amount_per_task(task, duration = 0):
     elif task == "text-to-image":
         amount = DVMConfig.COSTPERUNIT_IMAGEGENERATION
     elif task == "image-to-image":
+        amount = DVMConfig.COSTPERUNIT_IMAGETRANSFORMING
+    elif task == "image-reimagine":
         amount = DVMConfig.COSTPERUNIT_IMAGETRANSFORMING
     elif task == "image-upscale":
         amount = DVMConfig.COSTPERUNIT_IMAGEUPSCALING
@@ -1078,14 +1116,14 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
     elif status == "payment-required":
 
         altdesc = "NIP90 DVM AI task " + task + " requires payment of min " + str(amount) + " Sats. "
-        if task == "speech-to-text":
-            altdesc = altdesc + (" Providing results with WhisperX. "
-                                 "Accepted input formats: wav,mp3,mp4,ogg,avi,mov,youtube,overcast. "
-                                 "Possible outputs: text/plain, timestamped labels depending on "
-                                 "alignment parameter (word,segment,raw) ")
-        elif task == "image-to-text":
-            altdesc = altdesc + (" Accepted input formats: jpg. Possible outputs: text/plain. "
-                                 "This is very experimental, make sure your text is well readable. ")
+        #if task == "speech-to-text":
+        #    altdesc = altdesc + (" Providing results with WhisperX. "
+        #                         "Accepted input formats: wav,mp3,mp4,ogg,avi,mov,youtube,overcast. "
+        #                         "Possible outputs: text/plain, timestamped labels depending on "
+        #                         "alignment parameter (word,segment,raw) ")
+        #elif task == "image-to-text":
+        #    altdesc = altdesc + (" Accepted input formats: jpg. Possible outputs: text/plain. "
+        #                         "This is very experimental, make sure your text is well readable. ")
         reaction = altdesc + emoji.emojize(":orange_heart:")
 
     elif status == "payment-rejected":
@@ -1137,7 +1175,7 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
     event = EventBuilder(65000, reaction, tags).to_event(keys)
 
-    send_event(event, client)
+    send_event(event)
     print("[Nostr] Sent Kind 65000 Reaction: " + status + " " + event.as_json())
     return event.as_json()
 
@@ -1174,6 +1212,18 @@ def post_process_result(anno, original_event):
                     print(e)
                     result =  replace_broken_words(str(anno.data))
                     return result
+            else:
+                result = ""
+                for element in anno.data:
+                    element["name"] = str(element["name"]).lstrip()
+                    element["from"] = (format(float(element["from"]), '.2f')).lstrip()  # name
+                    element["to"] = (format(float(element["to"]), '.2f')).lstrip()  # name
+                    result = result + "(" + str(element["from"]) + "," + str(element["to"]) + ")" + " " + str(
+                        element["name"]) + "\n"
+
+                print(result)
+                result = replace_broken_words(result)
+                return result
         else:
             result = ""
             for element in anno.data:
@@ -1182,10 +1232,8 @@ def post_process_result(anno, original_event):
                 element["to"] = (format(float(element["to"]), '.2f')).lstrip()  # name
                 result = result +  "(" + str(element["from"]) + "," +  str(element["to"]) +")" + " " + str(element["name"]) + "\n"
 
-                #result = result + str(element["name"]) + "\n"
-
             print(result)
-            result =  replace_broken_words(result)
+            result = replace_broken_words(result)
             return result
     else:
         result = replace_broken_words(anno)
@@ -1307,6 +1355,10 @@ def parse_bot_command_to_event(dec_text):
                     model = i.replace("model ", "")
                     param_tag = Tag.parse(["param", "model", model])
                     tags.append(param_tag)
+                elif i.startswith("lora "):
+                    lora = i.replace("lora ", "")
+                    param_tag = Tag.parse(["param", "lora", lora])
+                    tags.append(param_tag)
 
             param_size_tag = Tag.parse(["param", "size", width, height])
             tags.append(param_size_tag)
@@ -1326,6 +1378,16 @@ def parse_bot_command_to_event(dec_text):
                     upscale_factor = i.replace("upscale ", "")
                     param_tag = Tag.parse(["param", "upscale", upscale_factor])
                     tags.append(param_tag)
+        return tags
+
+    elif str(dec_text).startswith("-image-reimagine"):
+        command = dec_text.replace("-image-reimagine ", "")
+        split = command.split(" -")
+        url = str(split[0]).replace(' ', '')
+        j_tag = Tag.parse(["j", "image-reimagine"])
+        i_tag = Tag.parse(["i", url, "url"])
+        tags = [j_tag, i_tag]
+
         return tags
 
     elif str(dec_text).startswith("-image-to-text"):
@@ -1394,9 +1456,9 @@ def parse_bot_command_to_event(dec_text):
 
 def check_event_has_not_unifinished_job_input(nevent, append, client):
 
-    #tasksupported, task, duration = check_task_is_supported(nevent, client, False)
-    #if not tasksupported:
-    #    return False
+    tasksupported, task, duration = check_task_is_supported(nevent, client, False)
+    if not tasksupported:
+        return False
 
     for tag in nevent.tags():
         if tag.as_vec()[0] == 'i':
@@ -1427,7 +1489,6 @@ def check_task_is_supported(event, client, get_duration = False):
     duration = 1
     start = "0"
     end = "0"
-    output_is_set = True
 
     for tag in event.tags():
         if tag.as_vec()[0] == 'i':
@@ -1447,10 +1508,8 @@ def check_task_is_supported(event, client, get_duration = False):
                 output = tag.as_vec()[1]
                 output_is_set = True
                 if not (output == "text/plain" or output == "text/json" or output == "json" or output == "image/png" or "image/jpg" or output == ""):
-                    print("Output format not supported, skipping..")
                     return False, "", 0
-                else:
-                    print("Output Format: " + output)
+
 
 
         elif tag.as_vec()[0] == 'param':
@@ -1481,9 +1540,8 @@ def check_task_is_supported(event, client, get_duration = False):
                             end = tag.as_vec()[3]
 
     task = get_task(event, client=client)
-    if not output_is_set:
-        print("No output set")
     if task not in DVMConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
+        print("Not in supported tasks")
         return False, task, duration
     elif task == "translation" and (
             input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
@@ -1502,6 +1560,9 @@ def check_task_is_supported(event, client, get_duration = False):
 
     elif task == "image-upscale" and (input_type != "event" and input_type != "job" and input_type != "url"):
         return False, task, duration
+
+   # elif task == "image-reimagine" and input_type != "url":
+   #     return False, task, duration
     if input_type == 'url' and check_url_is_readable(input_value) is None:
         return False, task, duration
 
@@ -2000,11 +2061,11 @@ def admin_make_database_updates():
     unwhitelistuser = False
     blacklistuser = False
     addbalance = False
-    additional_balance = 500
+    additional_balance = 200
 
 
 
-    publickey = PublicKey.from_bech32("npub1v78gpgfqdcf5nykdxwgsft9katl3p6ghzudrnx9l0fg7g4m04j8s882vgz").to_hex()
+    publickey = PublicKey.from_bech32("npub1440t9up2je69n2taqsdyfjkpfn0luqu5efh6uj9hkd2wk8z04cvql4amll").to_hex()
     # use this if you have the npub
     #publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
 

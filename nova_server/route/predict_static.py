@@ -9,11 +9,12 @@ import random
 
 import numpy as np
 from diffusers import DiffusionPipeline, StableDiffusionXLImg2ImgPipeline, StableDiffusionInstructPix2PixPipeline, \
-    EulerAncestralDiscreteScheduler, DPMSolverMultistepScheduler
+    EulerAncestralDiscreteScheduler, DPMSolverMultistepScheduler, StableDiffusionXLInpaintPipeline
 from diffusers.utils import load_image
 from flask import Blueprint, request, jsonify
 from huggingface_hub import model_info
 from nostr_sdk import PublicKey, Timestamp, Tag, EventId
+from safetensors import torch
 
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
@@ -77,12 +78,15 @@ def predict_static_data(request_form):
                                options["height"], options["upscale"], options["model"],  options["ratiow"], options["ratioh"], options["lora"])
         elif task == "image-to-image":
             anno = imageToImage(options["url"], options["prompt"], options["negative_prompt"], options["strength"],
-                                options["guidance_scale"], options["model"])
+                                options["guidance_scale"], options["model"], options["lora"])
+        elif task == "image-reimagine":
+            anno = imageReimagine(options["url"])
         elif task == "image-upscale":
             anno = imageUpscaleRealESRGANUrl(options["url"], options["upscale"])
         elif task == "translation":
             anno = GoogleTranslate(options["text"], options["translation_lang"])
         elif task == "image-to-text":
+            #anno = ImageToPrompt(options["url"])
             anno = OCRtesseract(options["url"])
         elif task == "chat":
             anno = LLAMA2(options["message"], options["user"])
@@ -95,7 +99,6 @@ def predict_static_data(request_form):
             anno = NoteRecommendations(options["user"], int(options["since"]), str2bool(options["is_bot"]))
 
         logger.info("...done")
-
         logger.info("Prediction completed!")
         status_utils.update_status(key, status_utils.JobStatus.FINISHED)
         if "nostrEvent" in request_form:
@@ -170,7 +173,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
     mwidth = 768
     mheight = 768
 
-    if  model == "dreamshaper_8" or model == "stabilityai/stable-diffusion-xl-base-1.0":
+    if model == "stabilityai/stable-diffusion-xl-base-1.0" or  model.__contains__("dreamshaper") or model.__contains__("nightvision") or model.__contains__("protovision") or model.__contains__("dynavision") or model.__contains__("sdvn") or model.__contains__("fantastic") or model.__contains__("crystalclear"):
         mwidth = 1024
         mheight = 1024
 
@@ -189,7 +192,9 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
         width = height
 
 
-    if model == "stabilityai/stable-diffusion-xl-base-1.0" or  model.__contains__("dreamshaper") or model.__contains__("nightvision") or model.__contains__("protovision") or model.__contains__("dynavision") or model.__contains__("sdvn"):
+    if model == "stabilityai/stable-diffusion-xl-base-1.0" or  model.__contains__("dreamshaper") or model.__contains__("nightvision") or model.__contains__("protovision") or model.__contains__("dynavision") or model.__contains__("sdvn") or model.__contains__("fantastic") or model.__contains__("crystalclear"):
+        mwidth = 1024
+        mheight = 1024
 
         if model.__contains__("dreamshaper"):
             model = os.environ[
@@ -206,6 +211,17 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
         elif model.__contains__("sdvn"):
             model = os.environ[
                     'TRANSFORMERS_CACHE'] + "stablediffusionmodels/sdvn6Realxl_detailface.safetensors"
+        elif model.__contains__("fantastic"):
+            model = os.environ[
+                        'TRANSFORMERS_CACHE'] + "stablediffusionmodels/fantasticCharacters_v55.safetensors"
+        elif model.__contains__("chroma"):
+            model = os.environ[
+                        'TRANSFORMERS_CACHE'] + "stablediffusionmodels/zavychromaxl_v10.safetensors"
+        elif model.__contains__("crystalclear"):
+            model = os.environ[
+                        'TRANSFORMERS_CACHE'] + "stablediffusionmodels/crystalClearXL.safetensors"
+
+
 
 
         base = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
@@ -240,6 +256,10 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
 
             if lora == "kru3ger_xl":
                 prompt = "kru3ger_style, " + prompt + "<lora:sebastiankrueger-kru3ger_style-000007:1>"
+                existing_lora = True
+
+            if lora == "ink_punk_xl":
+                prompt = "inkpunk style, " + prompt + "  <lora:IPXL_v1:0.5>"
                 existing_lora = True
 
 
@@ -309,13 +329,18 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
                          'TRANSFORMERS_CACHE'] + "stablediffusionmodels/anyloraCheckpoint_bakedvaeBlessedFp16.safetensors"
 
         model_path = lora_models_folder + "ink_scenery.safetensors"
-        if model == "inks" or model == "pepe":
+        if model == "inks" or model == "pepe" or model == "journey":
             if model == "inks":
                 # local lora models
                 model_path = lora_models_folder + "ink_scenery.safetensors"
                 base_model = os.environ[
                                  'TRANSFORMERS_CACHE'] + "stablediffusionmodels/dreamshaper_8.safetensors"
                 prompt = "white background, scenery, ink, mountains, water, trees, " + prompt + " <lora:ink-0.1-3-b28-bf16-D128-A1-1-ep64-768-DAdaptation-cosine:1>"
+
+            if model == "journey":
+                # local lora models
+                model_path = lora_models_folder + "OpenJourney-LORA.safetensors"
+                prompt =  "<lora:openjourneyLora_v1:1> " + prompt
 
             if model == "pepe":
                 model_path = lora_models_folder + "pepe_frog_v2.safetensors"
@@ -371,9 +396,52 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
         uniquefilepath = imageUpscaleRealESRGAN(uniquefilepath, upscale)
 
     return uploadToHoster(uniquefilepath)
+def imageReimagine(url):
+    # pip install git+https://github.com/huggingface/diffusers.git transformers accelerate
+    import requests
+    import torch
+    from PIL import Image
+    from io import BytesIO
+
+    from diffusers import StableUnCLIPImg2ImgPipeline
+
+    # Start the StableUnCLIP Image variations pipeline
+    pipe = StableUnCLIPImg2ImgPipeline.from_pretrained(
+        "stabilityai/stable-diffusion-2-1-unclip", torch_dtype=torch.float16
+    )
+    pipe = pipe.to("cuda")
+
+    # Get image from URL
+    response = requests.get(url)
+    init_image = Image.open(BytesIO(response.content)).convert("RGB")
+
+    # Pipe to make the variation
+    images = pipe(init_image).images
+    uniquefilepath = uniquify("outputs/sd.jpg")
+    images[0].save(uniquefilepath)
+
+    if torch.cuda.is_available():
+        del pipe
+        gc.collect()
+        torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
+        print("Upscaling by factor " + "4" + " using RealESRGAN")
+        uniquefilepath = imageUpscaleRealESRGAN(uniquefilepath)
+    return uploadToHoster((uniquefilepath))
 
 
-def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="pix2pix"):
+def ImageToPrompt(url):
+    init_image = load_image(url).convert("RGB")
+
+    from clip_interrogator import Config, Interrogator
+    ci = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
+    detected = ci.interrogate(init_image)
+    print(detected)
+    return  str(detected)
+
+
+def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="pix2pix", lora=""):
     import requests
     import torch
     from PIL import Image
@@ -385,9 +453,7 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
     mheight = 768
 
 
-    if model.__contains__("gta"):
-        model = "GTA5_Artwork_Diffusion_gtav_style"
-    elif model.__contains__("realistic"):
+    if model.__contains__("realistic"):
         model = "realisticVisionV51_v51VAE"
     elif model.__contains__("sdxl"):
         model = "stabilityai/stable-diffusion-xl-refiner-1.0"
@@ -398,26 +464,49 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
         mheight = 768
         model = "timbrooks/instruct-pix2pix"
     else:
-        model = "timbrooks/instruct-pix2pix"
+        model = "stabilityai/stable-diffusion-xl-refiner-1.0"
 
     init_image = load_image(url).convert("RGB")
 
-
+    #from clip_interrogator import Config, Interrogator
+    #ci = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
+    #detected = ci.interrogate(init_image)
+    #print(detected)
+    #prompt = prompt + ", " + str(detected)
 
     if  model == "dreamshaper_8" or model == "stabilityai/stable-diffusion-xl-refiner-1.0":
         mwidth = 1024
         mheight = 1024
 
 
+    #width, height = init_image.size  # Get dimensions
 
+    #left = (width - mwidth) / 2
+    #top = (height - mheight) / 2
+    #right = (width + mwidth) / 2
+    #bottom = (height + mheight) / 2
+
+    # Crop the center of the image
+
+
+    w = mwidth
+    h = mheight
     if init_image.width > init_image.height:
         scale = float(init_image.height / init_image.width)
-        init_image = init_image.resize((mwidth,  int(mheight * scale)))
+        w = mwidth
+        h = int(mheight * scale)
     elif init_image.width < init_image.height:
         scale = float(init_image.width / init_image.height)
-        init_image = init_image.resize((int(mwidth * scale), mheight))
+        w = int(mwidth * scale)
+        h = mheight
     else:
-        init_image = init_image.resize((mwidth, mheight))
+        w = mwidth
+        h = mheight
+
+    init_image = init_image.resize((w, h))
+
+   # init_image = init_image.crop((left, top, right, bottom))
+
 
 
     if model == "stabilityai/stable-diffusion-xl-refiner-1.0":
@@ -426,12 +515,19 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
             model, torch_dtype=torch.float16, variant="fp16",
             use_safetensors=True
         )
-        n_steps = 35
-        high_noise_frac = 0.8
 
+        n_steps = 30
+        high_noise_frac = 0.75
+        transformation_strength = float(strength)
+        cfg_scale = float(guidance_scale)
+        transformation_strength = 0.58
+        cfg_scale = 11.0
+        negative_prompt = negative_prompt +  ' lowres, bad anatomy, bad hands, deformed face, weird eyes, error, missing fingers, cropped, worst quality, low quality, jpeg artifacts, signature, watermark, blurry'
+
+        #prompt = prompt + ", " + ImageToPrompt(url)
         pipe = pipe.to("cuda")
         image = pipe(prompt, image=init_image,
-                     negative_prompt=negative_prompt, ).images[0]
+                     negative_prompt=negative_prompt, num_inference_steps=n_steps, strength=transformation_strength, guidance_scale=cfg_scale).images[0]
 
 
 
@@ -442,8 +538,10 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
                                                                       safety_checker=None)
 
         pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(pipe.scheduler.config)
+
         pipe.to("cuda")
-        image = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image).images[0]
+        image = pipe(prompt, negative_prompt=negative_prompt, image=init_image, num_inference_steps=10, image_guidance_scale=1).images[0]
+        #image = pipe(prompt=prompt, negative_prompt=negative_prompt, image=init_image).images[0]
 
         # 'CompVis/stable-diffusion-v1-4'
     else:
