@@ -66,16 +66,13 @@ def download_podcast(source_url, target_location):
 
     if url is None or title is None:
         sys.exit("Could not find parse URL")
-
-    #output_format = url[-4:] if url[-4] == "." else ".mp3"
-    #output_file = "{}{}".format(target_location, output_format)
     if not os.path.exists(target_location):
         req = requests.get(url)
         file = open(target_location, 'wb')
         for chunk in req.iter_content(100000):
             file.write(chunk)
         file.close()
-    #urlretrieve(url, target_location)
+
 
 def downloadYouTube2(videourl, path):
 
