@@ -831,7 +831,7 @@ def nostr_server(config):
                         input_type = tag.as_vec()[2]
                         break
                 print("Organizing input..")
-                success, duration = organize_input_data(input_value, input_type, request_form)
+                success, duration = organize_input_data(input_value, input_type, request_form, config=dvmconfig)
                 print("Organizing input..done.")
                 if success is None:
                     respond_to_error("Error processing video", job_event.as_json(), is_from_bot)
@@ -1117,13 +1117,11 @@ def check_task_is_supported(event, client, get_duration = False, config=None):
                             end = tag.as_vec()[3]
 
     task = get_task(event, client=client)
-    print("IM HERE")
     if not output_is_set:
         print("No output set")
     print(task)
     print(str(dvmconfig.SUPPORTED_TASKS))
     if task not in dvmconfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
-        print("IM HERE 2")
         return False, task, duration
     elif task == "translation" and (
             input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
@@ -1766,9 +1764,11 @@ def get_overcast(input_value, request_form):
                request_form[
                    "roles"] + ".originalaudio.mp3"
     print("Found overcast.fm Link.. downloading")
+    start = request_form["startTime"]
+    end = request_form["endTime"]
     download_podcast(input_value, filename)
     finaltag = str(input_value).replace("https://overcast.fm/", "").split('/')
-    if float(request_form["startTime"]) == 0.0:
+    if int(request_form["startTime"]) == 0:
         if len(finaltag) > 1:
             t = time.strptime(finaltag[1], "%H:%M:%S")
             seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
@@ -1784,7 +1784,7 @@ def get_overcast(input_value, request_form):
 def get_youtube(input_value, request_form):
     filepath = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form["sessions"] + '\\'
     start = request_form["startTime"]
-    end = request_form["startTime"]
+    end = request_form["endTime"]
     try:
         filename = downloadYouTube(input_value, filepath)
 
@@ -1794,7 +1794,7 @@ def get_youtube(input_value, request_form):
     try:
         o = urlparse(input_value)
         q = urllib.parse.parse_qs(o.query)
-        if float(request_form["startTime"]) == 0.0:
+        if int(request_form["startTime"]) == 0:
             if o.query.find('?t=') != -1:
                 start = q['t'][0]  # overwrite from link.. why not..
                 print("Setting start time automatically to " + start)
@@ -1851,8 +1851,11 @@ def get_media_link(input_value, request_form):
     return filename
 
 
-def organize_input_data(input_value, input_type, request_form, process=True):
+def organize_input_data(input_value, input_type, request_form, process=True, config=None):
     filename = ""
+    dvmconfig = config
+
+
     if input_type == "event":  # NIP94 event
         evt = get_event_by_id(input_value, config=dvmconfig)
         if evt is not None:
@@ -1929,7 +1932,7 @@ def check_media_length(input_value, input_type, id, start, end):
         print(end + " " + start)
         if float(end) - float(start) > 0.0:
             return int(float(end) - float(start))
-        success, duration = organize_input_data(input_value, input_type, request_form, process=False)
+        success, duration = organize_input_data(input_value, input_type, request_form, process=False, config=dvmconfig)
         return duration
     elif input_type == "text":
         return len(input_value)
