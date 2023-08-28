@@ -147,7 +147,6 @@ def nostr_server(config):
         dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005, 65007]).since(Timestamp.now()))
         client.subscribe([dm_zap_filter, dvm_filter])
 
-
     create_sql_table()
     admin_make_database_updates()
 
@@ -157,7 +156,7 @@ def nostr_server(config):
         def handle(self, relay_url, event):
             if 65002 <= event.kind() <= 66000:
                 print(f"[Nostr] Received new NIP90 Job Request from {relay_url}: {event.as_json()}")
-                if check_event_has_not_unifinished_job_input(event,True, client):
+                if check_event_has_not_unifinished_job_input(event,True, client, dvmconfig):
                     handle_nip90_job_event(event)
 
             elif event.kind() == 4:
@@ -199,7 +198,7 @@ def nostr_server(config):
 
                                         evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), message,
                                                                                     event.id()).to_event(keys)
-                                        send_event(evt)
+                                        send_event(evt, key=keys)
                                         return
                         except Exception as e:
                             if not user[2]: #whitelisted
@@ -212,7 +211,7 @@ def nostr_server(config):
                                 message = "There was the following error : " + str(e)
 
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), message, event.id()).to_event(keys)
-                            send_event(evt)
+                            send_event(evt, key=keys)
                             print(e)
 
                     # update last active status
@@ -229,7 +228,7 @@ def nostr_server(config):
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
                                                                 "Your are currently blocked from all services.",
                                                                 None).to_event(keys)
-                            send_event(evt)
+                            send_event(evt, key=keys)
                         elif is_whitelisted or balance >= required_amount:
                             time.sleep(3.0)
                             if not is_whitelisted:
@@ -273,7 +272,7 @@ def nostr_server(config):
                                 "Balance required, please zap me with at least " + str(required_amount)
                                 + " Sats, then try again.",
                                 event.id()).to_event(keys)
-                            send_event(evt)
+                            send_event(evt, key=keys)
 
                     elif not dvmconfig.PASSIVE_MODE:
                         print("Request from " + str(name) + " (" +str (nip05) + ") Message: " + dec_text)
@@ -285,13 +284,13 @@ def nostr_server(config):
                                 "Your current balance is " + str(balance) + " Sats. Zap me to add to your balance. "
                                 "I support both public and private Zaps, as well as Zapplepay.",
                                  None).to_event(keys)
-                            send_event(evt)
+                            send_event(evt, key=keys)
                         elif str(dec_text).startswith("-help") or str(dec_text).startswith("- help") or str(
                                 dec_text).startswith("help"):
                             time.sleep(3.0)
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), get_bot_help_text(),
                                                                         event.id()).to_event(keys)
-                            send_event(evt)
+                            send_event(evt, key=keys)
                         elif str(dec_text).lower().__contains__("bitcoin"):
                             time.sleep(3.0)
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
@@ -303,7 +302,7 @@ def nostr_server(config):
                             answer = LLAMA2(dec_text, event.pubkey().to_hex())
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), answer,
                                                                         event.id()).to_event(keys)
-                            send_event(evt)
+                            send_event(evt, key=keys)
 
                 except Exception as e:
                     print(f"Error during content decryption: {e}")
@@ -354,7 +353,7 @@ def nostr_server(config):
                             if job_event is not None and task_supported:
                                 if amount <= invoice_amount:
                                     print("[Nostr] Payment-request fulfilled...")
-                                    send_job_status_reaction(job_event, "processing", client=client)
+                                    send_job_status_reaction(job_event, "processing", client=client, config=dvmconfig)
                                     indices = [i for i, x in enumerate(job_list) if x.event_id == job_event.id().to_hex()]
                                     index = -1
                                     if len(indices) > 0:
@@ -370,7 +369,7 @@ def nostr_server(config):
                                             do_work(job_event, is_from_bot=False)
                                 else:
                                     send_job_status_reaction(job_event, "payment-rejected",
-                                                             False, invoice_amount, client=client)
+                                                             False, invoice_amount, client=client, config=dvmconfig)
                                     print("[Nostr] Invoice was not paid sufficiently")
 
                             elif not anon and not dvmconfig.PASSIVE_MODE:
@@ -405,7 +404,7 @@ def nostr_server(config):
             print(task_supported)
 
         if is_blacklisted:
-            send_job_status_reaction(event, "error", client=client)
+            send_job_status_reaction(event, "error", client=client, config=dvmconfig)
             print("[Nostr] Request by blacklisted user, skipped")
 
         elif task_supported:
@@ -438,16 +437,16 @@ def nostr_server(config):
                         if bid_offer >= amount:
                             send_job_status_reaction(event, "payment-required", False,
                                                      bid_offer,
-                                                     client=client)
+                                                     client=client, config=dvmconfig)
                         else:
                             send_job_status_reaction(event, "payment-rejected", False,
                                                      amount,
-                                                     client=client)  # Reject and tell user minimum amount
+                                                     client=client, config=dvmconfig)  # Reject and tell user minimum amount
 
                 else:  # If there is no bid, just request server rate from user
                     print("[Nostr] Requesting payment for Event: " + event.id().to_hex())
                     send_job_status_reaction(event, "payment-required",
-                                             False, amount, client=client)
+                                             False, amount, client=client,  config=dvmconfig)
         else:
             print("Task not supported on this DVM, skipping..")
     # PREPARE REQUEST FORM AND DATA AND SEND TO PROCESSING
@@ -851,7 +850,7 @@ def nostr_server(config):
                     job.is_paid = True
                     event = get_event_by_id(job.event_id)
                     if event != None:
-                        send_job_status_reaction(event, "processing", True, 0, client=client)
+                        send_job_status_reaction(event, "processing", True, 0, client=client,  config=dvmconfig)
                         do_work(event, is_from_bot=False)
                 elif check_bolt11_ln_bits_is_paid(job.payment_hash) is None: #invoice expired
                     job_list.remove(job)
@@ -862,7 +861,7 @@ def nostr_server(config):
                 job_list.remove(job)
 
         for job in jobs_on_hold_list:
-            if check_event_has_not_unifinished_job_input(job.event, False, client=client):
+            if check_event_has_not_unifinished_job_input(job.event, False, client=client, dvmconfig=dvmconfig):
                 handle_nip90_job_event(job.event)
                 jobs_on_hold_list.remove(job)
 
@@ -1111,6 +1110,8 @@ def check_task_is_supported(event, client, get_duration = False, config=None):
     print("IM HERE")
     if not output_is_set:
         print("No output set")
+    print(task)
+    print(str(dvmconfig.SUPPORTED_TASKS))
     if task not in dvmconfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
         print("IM HERE 2")
         return False, task, duration
@@ -1180,6 +1181,11 @@ def get_amount_per_task(task, duration = 0, config=None):
 # DECIDE TO RETURN RESULT
 def check_event_status(data, original_event_str: str, use_bot=False, dvm_key=None):
     original_event = Event.from_json(original_event_str)
+    if dvm_key is None:
+        keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
+    else:
+        keys = Keys.from_sk_str(dvm_key)
+
     for x in job_list:
         if x.event_id == original_event.id().to_hex():
             is_paid = x.is_paid
@@ -1187,24 +1193,21 @@ def check_event_status(data, original_event_str: str, use_bot=False, dvm_key=Non
             x.result = data
             x.is_processed = True
             if dvmconfig.SHOWRESULTBEFOREPAYMENT and not is_paid:
-                send_nostr_reply_event(data, original_event_str)
-                send_job_status_reaction(original_event, "success", amount)  # or payment-required, or both?
+                send_nostr_reply_event(data, original_event_str, key=keys)
+                send_job_status_reaction(original_event, "success", amount, config=dvmconfig)  # or payment-required, or both?
             elif not dvmconfig.SHOWRESULTBEFOREPAYMENT and not is_paid:
-                send_job_status_reaction(original_event, "success", amount)  # or payment-required, or both?
+                send_job_status_reaction(original_event, "success", amount, config=dvmconfig)  # or payment-required, or both?
 
             if dvmconfig.SHOWRESULTBEFOREPAYMENT and is_paid:
                 job_list.remove(x)
             elif not dvmconfig.SHOWRESULTBEFOREPAYMENT and is_paid:
                 job_list.remove(x)
-                send_nostr_reply_event(data, original_event_str)
+                send_nostr_reply_event(data, original_event_str, key=keys)
             break
 
     post_processed_content = post_process_result(data, original_event)
     print(str(job_list))
-    if dvm_key is None:
-        keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
-    else:
-        keys = Keys.from_sk_str(dvm_key)
+
 
     if use_bot:
 
@@ -1232,7 +1235,7 @@ def respond_to_error(content, originaleventstr, is_from_bot=False, dvm_key=None 
     sender = ""
     task = ""
     if not is_from_bot:
-        send_job_status_reaction(original_event, "error", content=content)
+        send_job_status_reaction(original_event, "error", content=content, config=dvmconfig)
         # TODO Send Zap back
     else:
         for tag in original_event.tags():
@@ -1245,7 +1248,7 @@ def respond_to_error(content, originaleventstr, is_from_bot=False, dvm_key=None 
         is_whitelisted = user[2]
         if not is_whitelisted:
             update_sql_table(sender, user[1] + get_amount_per_task(task), user[2], user[3], user[4], user[5], user[6],
-                             Timestamp.now().as_secs(), config=dvmconfig)
+                             Timestamp.now().as_secs())
             message = "There was the following error : " + content + ". Credits have been reimbursed"
         else:
             # User didn't pay, so no reimbursement
@@ -1355,7 +1358,7 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
     keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
     event = EventBuilder(65000, reaction, tags).to_event(keys)
 
-    send_event(event)
+    send_event(event, key=keys)
     print("[Nostr] Sent Kind 65000 Reaction: " + status + " " + event.as_json())
     return event.as_json()
 
@@ -1634,9 +1637,9 @@ def parse_bot_command_to_event(dec_text):
 
 
 
-def check_event_has_not_unifinished_job_input(nevent, append, client):
+def check_event_has_not_unifinished_job_input(nevent, append, client, dvmconfig):
 
-    tasksupported, task, duration = check_task_is_supported(nevent, client, False)
+    tasksupported, task, duration = check_task_is_supported(nevent, client, False, config=dvmconfig)
     if not tasksupported:
         return False
 
@@ -1654,7 +1657,7 @@ def check_event_has_not_unifinished_job_input(nevent, append, client):
                         if append:
                             job = RequiredJobToWatch(event=nevent, timestamp=Timestamp.now().as_secs())
                             jobs_on_hold_list.append(job)
-                            send_job_status_reaction(nevent, "chain-scheduled", True, 0, client=client)
+                            send_job_status_reaction(nevent, "chain-scheduled", True, 0, client=client, config=dvmconfig)
 
                         return False
     else:
@@ -2288,7 +2291,7 @@ def nip89_announce_tasks():
         keys = Keys.from_sk_str(nip89.pk)
         content = nip89.content
         event = EventBuilder(31990, content, [k_tag, d_tag]).to_event(keys)
-        send_event(event)
+        send_event(event, key=keys)
 
     print("Announced NIP 89")
 
