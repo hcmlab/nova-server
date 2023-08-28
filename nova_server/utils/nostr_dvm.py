@@ -41,7 +41,7 @@ import sqlite3
 # Show preview of longer transcriptions, then ask for zap
 
 class DVMConfig:
-    SUPPORTED_TASKS = [] # ["inactive-following", "note-recommendation", "speech-to-text", "summarization", "translation", "text-to-image", "image-to-image", "image-upscale","image-to-text"]
+    SUPPORTED_TASKS = [] # ["inactive-following", "note-recommendation", "speech-to-text", "summarization", "translation", "text-to-image", "image-to-image", "image-upscale","image-to-text", "image-reimagine"]
     PRIVATE_KEY: str
     PRIVATE_KEY_BOT: str
 
