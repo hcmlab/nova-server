@@ -22,7 +22,7 @@ from nova_server.utils import (
     thread_utils,
     status_utils,
     log_utils,
-    nostr_utils
+    nostr_dvm
 )
 from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
     HcaiNovaDynamicIterable,
@@ -97,13 +97,16 @@ def predict_static_data(request_form):
 
         if "nostrEvent" in request_form:
             if request_form["nostrEvent"] is not None :
-                nostr_utils.check_event_status(anno, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
+                nostr_dvm.check_event_status(anno, str(request_form["nostrEvent"]), str2bool(request_form["isBot"]),
+                                                                request_form["dvmkey"])
         logger.info("...done")
 
         logger.info("Prediction completed!")
         status_utils.update_status(key, status_utils.JobStatus.FINISHED)
     except Exception  as e:
-        nostr_utils.respond_to_error(str(e), str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
+        if "nostrEvent" in request_form:
+            nostr_dvm.respond_to_error(str(e), str(request_form["nostrEvent"]), str2bool(request_form["isBot"]),
+                                                                request_form["dvmkey"])
 
 
 
@@ -428,6 +431,7 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
         )
         n_steps = 35
         high_noise_frac = 0.8
+        negative_prompt = negative_prompt +  'lowres, bad anatomy, bad hands, deformed face, weird eyes, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, jpeg artifacts, signature, watermark, blurry'
 
         pipe = pipe.to("cuda")
         image = pipe(prompt, image=init_image,

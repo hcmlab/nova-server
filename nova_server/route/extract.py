@@ -6,8 +6,7 @@ from nova_server.utils import (
     thread_utils,
     status_utils,
     log_utils,
-    import_utils,
-    nostr_utils,
+    import_utils
 )
 from nova_server.utils.key_utils import get_key_from_request_form
 from nova_server.utils.thread_utils import THREADS

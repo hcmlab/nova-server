@@ -2,16 +2,13 @@ import json
 
 import os
 import re
-import string
 import urllib
 from dataclasses import dataclass
 from datetime import timedelta
-import random
+
 from sqlite3 import Error
 from urllib.parse import urlparse
 
-import numpy as np
-import pandas as pd
 from bech32 import bech32_decode, convertbits
 
 import requests
@@ -30,7 +27,6 @@ from nova_utils.ssi_utils.ssi_anno_utils import Anno
 from nova_server.route.predict_static import LLAMA2
 from nova_server.utils.db_utils import db_entry_exists, add_new_session_to_db
 from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube
-from nova_server.utils.dvm_config import DVMConfig
 from configparser import ConfigParser
 import sqlite3
 
@@ -44,7 +40,44 @@ import sqlite3
 # purge database and files from time to time?
 # Show preview of longer transcriptions, then ask for zap
 
+class DVMConfig:
+    SUPPORTED_TASKS = [] # ["inactive-following", "note-recommendation", "speech-to-text", "summarization", "translation", "text-to-image", "image-to-image", "image-upscale","image-to-text"]
+    PRIVATE_KEY: str
+    PRIVATE_KEY_BOT: str
 
+    IS_HYBRID: bool = False  # Once instance serves as both bot, and dvm
+    IS_BOT: bool = False  # This should act as Bot, not NIP90 DVM
+    PASSIVE_MODE: bool = True  # Do not listen to zaps (So they are not registered twice, when in bot mode
+
+
+    USERDB = "W:\\nova\\tools\\AnnoDBbackup\\nostrzaps.db"
+    RELAY_LIST = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol",
+                  "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
+    RELAY_TIMEOUT = 1
+    LNBITS_INVOICE_KEY = 'bfdfb5ecfc0743daa08749ce58abea74'
+    LNBITS_URL = 'https://lnbits.novaannotation.com'
+    REQUIRES_NIP05: bool = False
+
+    AUTOPROCESS_MIN_AMOUNT: int = 1000000000000  # auto start processing if min Sat amount is given
+    AUTOPROCESS_MAX_AMOUNT: int = 0  # if this is 0 and min is very big, autoprocess will not trigger
+    SHOWRESULTBEFOREPAYMENT: bool = True  # if this is true show results even when not paid right after autoprocess
+    NEW_USER_BALANCE: int = 250  # Free credits for new users
+
+    COSTPERUNIT_TRANSLATION: int = 20  # Still need to multiply this by duration
+    COSTPERUNIT_SPEECHTOTEXT: float = 0.1  # Still need to multiply this by duration
+    COSTPERUNIT_IMAGEGENERATION: int = 50  # Generate / Transform one image
+    COSTPERUNIT_IMAGETRANSFORMING: int = 50  # Generate / Transform one image
+    COSTPERUNIT_IMAGEUPSCALING: int = 25  # This takes quite long..
+    COSTPERUNIT_INACTIVE_FOLLOWING: int = 100  # This takes quite long..
+    COSTPERUNIT_NOTE_RECOMMENDATION: int = 0  # testing
+    COSTPERUNIT_OCR: int = 20
+    NIP89s: list = []
+
+class NIP89Announcement:
+    kind: int
+    dtag: str
+    pk: str
+    content: str
 
 
 @dataclass
@@ -68,28 +101,58 @@ class RequiredJobToWatch:
 
 job_list = []
 jobs_on_hold_list = []
-
+dvmconfig = DVMConfig()
 
 # init_logger(LogLevel.DEBUG)
-def nostr_server():
+def nostr_server(config):
     global job_list
-    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    dvmconfig = config
+
+    keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
+
     sk = keys.secret_key()
     pk = keys.public_key()
-    print(f"Nostr Bot/DVM public key: {pk.to_bech32()}, Hex: {pk.to_hex()} ")
-    print(f"Supported DVM Jobs: {DVMConfig.SUPPORTED_TASKS}")
+
+    if dvmconfig.IS_HYBRID:
+        print(f"Nostr DVM/Bot hybrid public key: {pk.to_bech32()}, Hex: {pk.to_hex()} ")
+    elif dvmconfig.IS_BOT:
+        print(f"Nostr Bot public key: {pk.to_bech32()}, Hex: {pk.to_hex()} ")
+    else:
+        print(f"Nostr DVM public key: {pk.to_bech32()}, Hex: {pk.to_hex()} ")
+    print(f"Supported DVM tasks: {dvmconfig.SUPPORTED_TASKS}")
     client = Client(keys)
-    for relay in DVMConfig.RELAY_LIST:
+    for relay in dvmconfig.RELAY_LIST:
         client.add_relay(relay)
     client.connect()
-    dm_zap_filter = Filter().pubkey(pk).kinds([4, 9734, 9735]).since(Timestamp.now())
-    dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005, 65007]).since(Timestamp.now()))
-    client.subscribe([dm_zap_filter, dvm_filter])
+
+    if dvmconfig.IS_HYBRID:
+        kinds = [4]
+        if not dvmconfig.PASSIVE_MODE:
+            kinds = [4, 9735]
+
+        dm_zap_filter = Filter().pubkey(pk).kinds(kinds).since(Timestamp.now())
+        dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005, 65007]).since(Timestamp.now()))
+        client.subscribe([dm_zap_filter, dvm_filter])
+
+    elif dvmconfig.IS_BOT:
+        kinds = [4]
+        if not dvmconfig.PASSIVE_MODE:
+            kinds = [4, 9735]
+
+        dm_zap_filter = Filter().pubkey(pk).kinds(kinds).since(Timestamp.now())
+        client.subscribe([dm_zap_filter])
+
+    else:
+        dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005, 65007]).since(Timestamp.now()))
+        client.subscribe([dvm_filter])
+
 
     create_sql_table()
     admin_make_database_updates()
 
     class NotificationHandler(HandleNotification):
+
+
         def handle(self, relay_url, event):
             if 65002 <= event.kind() <= 66000:
                 print(f"[Nostr] Received new NIP90 Job Request from {relay_url}: {event.as_json()}")
@@ -125,10 +188,10 @@ def nostr_server():
                                 user = get_from_sql_table(user[0])
                                 if str(nip05) == "" or nip05 is None:
 
-                                    if DVMConfig.REQUIRES_NIP05 and user[1] <= DVMConfig.NEW_USER_BALANCE:
+                                    if dvmconfig.REQUIRES_NIP05 and user[1] <= dvmconfig.NEW_USER_BALANCE:
                                         time.sleep(1.0)
                                         message = (("In order to reduce misuse by bots, a NIP05 address or a balance "
-                                                    "higher than the free credits (") + str(DVMConfig.NEW_USER_BALANCE)
+                                                    "higher than the free credits (") + str(dvmconfig.NEW_USER_BALANCE)
                                                    + " Sats) is required to use this service. You can zap any of my "
                                                      "notes or my profile using public or private zaps. "
                                                      "Zapplepay is also supported")
@@ -141,7 +204,7 @@ def nostr_server():
                             if not user[2]: #whitelisted
                                 update_sql_table(sender, user[1] + get_amount_per_task(get_task(event, client)), user[2], user[3], user[4],
                                                  user[5], user[6],
-                                                 Timestamp.now().as_secs())
+                                                 Timestamp.now().as_secs(), config=dvmconfig)
                                 message = "There was the following error : " + str(e) + ". Credits have been reimbursed"
                             else:
                                 # User didn't pay, so no reimbursement
@@ -154,10 +217,10 @@ def nostr_server():
                     # update last active status
                     update_sql_table(user[0], user[1], user[2], user[3], user[4], user[5], user[6],
                                      Timestamp.now().as_secs())
-                    if any(dec_text.startswith("-" + s) for s in DVMConfig.SUPPORTED_TASKS):
+                    if any(dec_text.startswith("-" + s) for s in dvmconfig.SUPPORTED_TASKS):
                         task = str(dec_text).split(' ')[0].removeprefix('-')
                         print("Request from " + str(name) + " (" + str(nip05) + ") Task: " + str(task))
-                        required_amount = get_amount_per_task(task)
+                        required_amount = get_amount_per_task(task, config=dvmconfig)
                         balance = user[1]
                         is_whitelisted = user[2]
                         is_blacklisted = user[3]
@@ -203,7 +266,7 @@ def nostr_server():
                                 event.id()).to_event(keys)
                             send_event(evt, client)
 
-                    elif not DVMConfig.PASSIVE_MODE:
+                    elif not dvmconfig.PASSIVE_MODE:
                         print("Request from " + str(name) + " (" +str (nip05) + ") Message: " + dec_text)
                         if str(dec_text).startswith("-balance"):
                             user = get_or_add_user(sender)
@@ -235,8 +298,6 @@ def nostr_server():
 
                 except Exception as e:
                     print(f"Error during content decryption: {e}")
-            elif event.kind() == 9734:
-                print(event.as_json())
             elif event.kind() == 9735:
                 zapped_event = None
                 invoice_amount = 0
@@ -280,7 +341,7 @@ def nostr_server():
                                     amount = int(float(tag.as_vec()[1]) / 1000)
                                 elif tag.as_vec()[0] == 'e':
                                     job_event = get_event_by_id(tag.as_vec()[1])
-                            task_supported, task, duration = check_task_is_supported(job_event, client=client, get_duration=False)
+                            task_supported, task, duration = check_task_is_supported(job_event, client=client, get_duration=False, config=dvmconfig)
                             if job_event is not None and task_supported:
                                 if amount <= invoice_amount:
                                     print("[Nostr] Payment-request fulfilled...")
@@ -303,14 +364,14 @@ def nostr_server():
                                                              False, invoice_amount, client=client)
                                     print("[Nostr] Invoice was not paid sufficiently")
 
-                            elif not anon and not DVMConfig.PASSIVE_MODE:
+                            elif not anon and not dvmconfig.PASSIVE_MODE:
                                 update_user_balance(sender, invoice_amount)
                         elif zapped_event.kind() == 65001:
                             print("Someone zapped the result of an exisiting Task. Nice")
-                        elif not anon and not DVMConfig.PASSIVE_MODE:
+                        elif not anon and not dvmconfig.PASSIVE_MODE:
                             update_user_balance(sender, invoice_amount)
                             # a regular note
-                    elif not anon and not DVMConfig.PASSIVE_MODE:
+                    elif not anon and not dvmconfig.PASSIVE_MODE:
                         update_user_balance(sender, invoice_amount)
 
                 except Exception as e:
@@ -326,9 +387,13 @@ def nostr_server():
         is_whitelisted = user[2]
         is_blacklisted = user[3]
         if is_whitelisted:
-            task_supported, task, duration = check_task_is_supported(event, client=client, get_duration=False)
+            task_supported, task, duration = check_task_is_supported(event, client=client, get_duration=False, config=dvmconfig)
+            print(task)
         else:
-            task_supported, task, duration = check_task_is_supported(event, client=client, get_duration=True)
+            task_supported, task, duration = check_task_is_supported(event, client=client, get_duration=True, config=dvmconfig)
+            print(task)
+            print(duration)
+            print(task_supported)
 
         if is_blacklisted:
             send_job_status_reaction(event, "error", client=client)
@@ -337,13 +402,13 @@ def nostr_server():
         elif task_supported:
             print("Received new Task: " + task)
             print(duration)
-            amount = get_amount_per_task(task, duration)
+            amount = get_amount_per_task(task, duration, config=dvmconfig)
             if amount is None:
                 return
 
             if is_whitelisted or task == "chat":
                 print("[Nostr] Whitelisted for task " + task + ". Starting processing..")
-                send_job_status_reaction(event, "processing", True, 0, client=client)
+                send_job_status_reaction(event, "processing", True, 0, client=client, config=dvmconfig)
                 do_work(event, is_from_bot=False)
             # otherwise send payment request
             else:
@@ -355,8 +420,8 @@ def nostr_server():
                 print("[Nostr][Payment required] New Nostr " + task + " Job event: " + event.as_json())
                 if bid > 0:
                     bid_offer = int(bid / 1000)
-                    if (bid_offer > DVMConfig.AUTOPROCESS_MIN_AMOUNT or
-                            bid_offer < DVMConfig.AUTOPROCESS_MAX_AMOUNT):
+                    if (bid_offer > dvmconfig.AUTOPROCESS_MIN_AMOUNT or
+                            bid_offer < dvmconfig.AUTOPROCESS_MAX_AMOUNT):
                         print("[Nostr][Auto-processing: Payment suspended to end] Job event: " + str(
                             event.as_json()))
                         do_work(event, is_from_bot=False)
@@ -398,7 +463,8 @@ def nostr_server():
                         "roles": server_config["roles"], "annotator": server_config["annotator"],
                         "flattenSamples": "false", "jobID": event.id().to_hex(), "frameSize": 0, "stride": 0,
                         "leftContext": 0, "rightContext": 0, "nostrEvent": event.as_json(),
-                        "sessions": event.id().to_hex(), "isBot": str(is_bot), "startTime": "0", "endTime": "0"}
+                        "sessions": event.id().to_hex(), "isBot": str(is_bot), "dvmkey": dvmconfig.PRIVATE_KEY,
+                        "startTime": "0", "endTime": "0"}
 
         if task == "speech-to-text":
             # Declare specific model type e.g. whisperx_large-v2
@@ -782,9 +848,9 @@ def nostr_server():
 def get_event_by_id(event_id, client=None):
     is_new_client = False
     if client is None:
-        keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+        keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
         client = Client(keys)
-        for relay in DVMConfig.RELAY_LIST:
+        for relay in dvmconfig.RELAY_LIST:
             client.add_relay(relay)
         client.connect()
         is_new_client = True
@@ -792,10 +858,10 @@ def get_event_by_id(event_id, client=None):
     split = event_id.split(":")
     if len(split) == 3:
         id_filter = Filter().author(split[1]).custom_tag(Alphabet.D, [split[2]])
-        events = client.get_events_of([id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
+        events = client.get_events_of([id_filter], timedelta(seconds=dvmconfig.RELAY_TIMEOUT))
     else:
         id_filter = Filter().id(event_id).limit(1)
-        events = client.get_events_of([id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
+        events = client.get_events_of([id_filter], timedelta(seconds=dvmconfig.RELAY_TIMEOUT))
     if is_new_client:
         client.disconnect()
     if len(events) > 0:
@@ -809,9 +875,9 @@ def get_referenced_event_by_id(event_id, kinds=None, client=None):
         kinds = []
     is_new_client = False
     if client is None:
-        keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+        keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
         client = Client(keys)
-        for relay in DVMConfig.RELAY_LIST:
+        for relay in dvmconfig.RELAY_LIST:
             client.add_relay(relay)
         client.connect()
         is_new_client = True
@@ -824,7 +890,7 @@ def get_referenced_event_by_id(event_id, kinds=None, client=None):
 
 
 
-    events = client.get_events_of([job_id_filter], timedelta(seconds=DVMConfig.RELAY_TIMEOUT))
+    events = client.get_events_of([job_id_filter], timedelta(seconds=dvmconfig.RELAY_TIMEOUT))
 
     if is_new_client:
         client.disconnect()
@@ -833,7 +899,7 @@ def get_referenced_event_by_id(event_id, kinds=None, client=None):
     else:
         return None
 
-def send_event(event, client=None):
+def send_event(event, client=None, key=None):
     relays = []
     is_new_client = False
 
@@ -842,22 +908,23 @@ def send_event(event, client=None):
             relays = tag.as_vec()[1].split(',')
 
     if client is None:
-        keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-        client = Client(keys)
-        for relay in DVMConfig.RELAY_LIST:
+        if key is None:
+            key = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
+        client = Client(key)
+        for relay in dvmconfig.RELAY_LIST:
             client.add_relay(relay)
         client.connect()
         is_new_client = True
 
     for relay in relays:
-        if relay not in DVMConfig.RELAY_LIST:
+        if relay not in dvmconfig.RELAY_LIST:
             client.add_relay(relay)
     client.connect()
 
     event_id = client.send_event(event)
 
     for relay in relays:
-        if relay not in DVMConfig.RELAY_LIST:
+        if relay not in dvmconfig.RELAY_LIST:
             client.remove_relay(relay)
 
     if is_new_client:
@@ -941,32 +1008,128 @@ def get_task(event, client):
     else:
         return "unknown type"
 
+def check_task_is_supported(event, client, get_duration = False, config=None):
+    dvmconfig = config
+    input_value = ""
+    input_type = ""
+    duration = 1
+    start = "0"
+    end = "0"
+    output_is_set = True
+
+    for tag in event.tags():
+        if tag.as_vec()[0] == 'i':
+            if len(tag.as_vec()) < 3:
+                print("Job Event missing/malformed i tag, skipping..")
+                return False, "", 0
+            else:
+                input_value = tag.as_vec()[1]
+                input_type = tag.as_vec()[2]
+                if input_type == "event":
+                   evt = get_event_by_id(input_value)
+                   if evt == None:
+                       print("Event not found")
+                       return False, "", 0
+
+        elif tag.as_vec()[0] == 'output':
+                output = tag.as_vec()[1]
+                output_is_set = True
+                if not (output == "text/plain" or output == "text/json" or output == "json" or output == "image/png" or "image/jpg" or output == ""):
+                    print("Output format not supported, skipping..")
+                    return False, "", 0
+                else:
+                    print("Output Format: " + output)
 
 
-def get_amount_per_task(task, duration = 0):
+        elif tag.as_vec()[0] == 'param':
+            if get_duration:
+                param = tag.as_vec()[1]
+                if param == "range":  # check for paramtype
+                    try:
+                        t = time.strptime(tag.as_vec()[2], "%H:%M:%S")
+                        seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
+                        start = str(seconds)
+                    except:
+                        try:
+                            t = time.strptime(tag.as_vec()[2], "%M:%S")
+                            seconds = t.tm_min * 60 + t.tm_sec
+                            start = str(seconds)
+                        except:
+                            start = tag.as_vec()[2]
+                    try:
+                        t = time.strptime(tag.as_vec()[3], "%H:%M:%S")
+                        seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
+                        end = str(seconds)
+                    except:
+                        try:
+                            t = time.strptime(tag.as_vec()[3], "%M:%S")
+                            seconds = t.tm_min * 60 + t.tm_sec
+                            end = str(seconds)
+                        except:
+                            end = tag.as_vec()[3]
+
+    task = get_task(event, client=client)
+    print("IM HERE")
+    if not output_is_set:
+        print("No output set")
+    if task not in dvmconfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
+        print("IM HERE 2")
+        return False, task, duration
+    elif task == "translation" and (
+            input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
+        return False, task, duration
+    if task == "translation" and input_type != "text" and len(event.content()) > 4999:  # Google Services have a limit of 5000 signs
+        return False, task, duration
+    elif task == "summarization" and (
+            input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
+        return False, task, duration
+
+    elif task == "speech-to-text" and (
+            input_type != "event" and input_type != "job" and input_type != "url"):  # The input types per task
+            print("nope..")
+            return False, task, duration
+
+
+
+    elif task == "image-upscale" and (input_type != "event" and input_type != "job" and input_type != "url"):
+        return False, task, duration
+    if input_type == 'url' and check_url_is_readable(input_value) is None:
+        print("url not readable")
+        return False, task, duration
+
+    if task == 'speech-to-text' and get_duration:
+        print("getting duration..")
+        duration = check_media_length(input_value, input_type, event.id().to_hex(), start, end)
+        return True, task, duration
+
+
+    return True, task, duration
+
+def get_amount_per_task(task, duration = 0, config=None):
+    dvmconfig = config
     if task == "translation":
-        amount = DVMConfig.COSTPERUNIT_TRANSLATION
+        amount = dvmconfig.COSTPERUNIT_TRANSLATION
     elif task == "speech-to-text":
         if duration == 0:
-            amount = DVMConfig.COSTPERUNIT_SPEECHTOTEXT * 1000 #if we dont have a duration make it rate x 100.
+            amount = dvmconfig.COSTPERUNIT_SPEECHTOTEXT * 1000 #if we dont have a duration make it rate x 1000.
         else:
-            amount = 50 + int(DVMConfig.COSTPERUNIT_SPEECHTOTEXT * duration)
+            amount = 50 + int(dvmconfig.COSTPERUNIT_SPEECHTOTEXT * duration)
     elif task == "text-to-image":
-        amount = DVMConfig.COSTPERUNIT_IMAGEGENERATION
+        amount = dvmconfig.COSTPERUNIT_IMAGEGENERATION
     elif task == "image-to-image":
-        amount = DVMConfig.COSTPERUNIT_IMAGETRANSFORMING
+        amount = dvmconfig.COSTPERUNIT_IMAGETRANSFORMING
     elif task == "image-upscale":
-        amount = DVMConfig.COSTPERUNIT_IMAGEUPSCALING
+        amount = dvmconfig.COSTPERUNIT_IMAGEUPSCALING
     elif task == "chat":
         amount = 0
     elif task == "image-to-text":
-        amount = DVMConfig.COSTPERUNIT_IMAGEGENERATION
+        amount = dvmconfig.COSTPERUNIT_IMAGEGENERATION
     elif task == "summarization":
-        amount = DVMConfig.COSTPERUNIT_IMAGEGENERATION
+        amount = dvmconfig.COSTPERUNIT_IMAGEGENERATION
     elif task == "inactive-following":
-        amount = DVMConfig.COSTPERUNIT_INACTIVE_FOLLOWING
+        amount = dvmconfig.COSTPERUNIT_INACTIVE_FOLLOWING
     elif task == "note-recommendation":
-        amount = DVMConfig.COSTPERUNIT_NOTE_RECOMMENDATION
+        amount = dvmconfig.COSTPERUNIT_NOTE_RECOMMENDATION
     else:
         print("[Nostr] Task " + task + " is currently not supported by this instance, skipping")
         return None
@@ -974,7 +1137,7 @@ def get_amount_per_task(task, duration = 0):
 
 
 # DECIDE TO RETURN RESULT
-def check_event_status(data, original_event_str: str, use_bot=False):
+def check_event_status(data, original_event_str: str, use_bot=False, dvm_key=None):
     original_event = Event.from_json(original_event_str)
     for x in job_list:
         if x.event_id == original_event.id().to_hex():
@@ -982,38 +1145,48 @@ def check_event_status(data, original_event_str: str, use_bot=False):
             amount = x.amount
             x.result = data
             x.is_processed = True
-            if DVMConfig.SHOWRESULTBEFOREPAYMENT and not is_paid:
+            if dvmconfig.SHOWRESULTBEFOREPAYMENT and not is_paid:
                 send_nostr_reply_event(data, original_event_str)
                 send_job_status_reaction(original_event, "success", amount)  # or payment-required, or both?
-            elif not DVMConfig.SHOWRESULTBEFOREPAYMENT and not is_paid:
+            elif not dvmconfig.SHOWRESULTBEFOREPAYMENT and not is_paid:
                 send_job_status_reaction(original_event, "success", amount)  # or payment-required, or both?
 
-            if DVMConfig.SHOWRESULTBEFOREPAYMENT and is_paid:
+            if dvmconfig.SHOWRESULTBEFOREPAYMENT and is_paid:
                 job_list.remove(x)
-            elif not DVMConfig.SHOWRESULTBEFOREPAYMENT and is_paid:
+            elif not dvmconfig.SHOWRESULTBEFOREPAYMENT and is_paid:
                 job_list.remove(x)
                 send_nostr_reply_event(data, original_event_str)
             break
 
     post_processed_content = post_process_result(data, original_event)
     print(str(job_list))
+    if dvm_key is None:
+        keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
+    else:
+        keys = Keys.from_sk_str(dvm_key)
+
     if use_bot:
-        keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+
         receiver_key = PublicKey()
         for tag in original_event.tags():
             if tag.as_vec()[0] == "p": #TODO maybe use another tag, e.g y, as p might be overwritten in some events.
                 receiver_key = PublicKey.from_hex(tag.as_vec()[1])
         event = EventBuilder.new_encrypted_direct_msg(keys, receiver_key, post_processed_content, None).to_event(keys)
-        send_event(event)
+        #todo introduce botkey
+        send_event(event, key=keys)
 
     else:
-        send_nostr_reply_event(post_processed_content, original_event_str)
+        send_nostr_reply_event(post_processed_content, original_event_str, key=keys)
         #send_job_status_reaction(original_event, "success")
 
 
 # NIP90 REPLIES
-def respond_to_error(content, originaleventstr, is_from_bot=False):
-    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+def respond_to_error(content, originaleventstr, is_from_bot=False, dvm_key=None ):
+    if dvm_key is None:
+        keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
+    else:
+        keys = Keys.from_sk_str(dvm_key)
+
     original_event = Event.from_json(originaleventstr)
     sender = ""
     task = ""
@@ -1031,17 +1204,17 @@ def respond_to_error(content, originaleventstr, is_from_bot=False):
         is_whitelisted = user[2]
         if not is_whitelisted:
             update_sql_table(sender, user[1] + get_amount_per_task(task), user[2], user[3], user[4], user[5], user[6],
-                             Timestamp.now().as_secs())
+                             Timestamp.now().as_secs(), config=dvmconfig)
             message = "There was the following error : " + content + ". Credits have been reimbursed"
         else:
             # User didn't pay, so no reimbursement
             message = "There was the following error : " + content
 
         evt = EventBuilder.new_encrypted_direct_msg(keys, PublicKey.from_hex(sender), message, None).to_event(keys)
-        send_event(evt)
+        send_event(evt, key=keys)
 
 
-def send_nostr_reply_event(content, original_event_as_str):
+def send_nostr_reply_event(content, original_event_as_str, key=None):
     originalevent = Event.from_json(original_event_as_str)
     requesttag = Tag.parse(["request", original_event_as_str.replace("\\", "")])
     etag = Tag.parse(["e", originalevent.id().to_hex()])
@@ -1050,14 +1223,17 @@ def send_nostr_reply_event(content, original_event_as_str):
         originalevent.kind()) + ". The task was: " + originalevent.content()])
     statustag = Tag.parse(["status", "success"])
 
-    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    event = EventBuilder(65001, str(content), [requesttag, etag, ptag, alttag, statustag]).to_event(keys)
-    send_event(event)
+    if key is None:
+        key = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
+
+    event = EventBuilder(65001, str(content), [requesttag, etag, ptag, alttag, statustag]).to_event(key)
+    send_event(event, key=key)
     print("[Nostr] 65001 Job Response event sent: " + event.as_json())
     return event.as_json()
 
 
-def send_job_status_reaction(original_event, status, is_paid=True, amount=0, client=None, content=None):
+def send_job_status_reaction(original_event, status, is_paid=True, amount=0, client=None, content=None, config=None):
+    dvmconfig = config
     altdesc = "This is a reaction to a NIP90 DVM AI task. "
     task = get_task(original_event, client=client)
     if status == "processing":
@@ -1079,14 +1255,14 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
     elif status == "payment-required":
 
         altdesc = "NIP90 DVM AI task " + task + " requires payment of min " + str(amount) + " Sats. "
-        if task == "speech-to-text":
-            altdesc = altdesc + (" Providing results with WhisperX. "
-                                 "Accepted input formats: wav,mp3,mp4,ogg,avi,mov,youtube,overcast. "
-                                 "Possible outputs: text/plain, timestamped labels depending on "
-                                 "alignment parameter (word,segment,raw) ")
-        elif task == "image-to-text":
-            altdesc = altdesc + (" Accepted input formats: jpg. Possible outputs: text/plain. "
-                                 "This is very experimental, make sure your text is well readable. ")
+        # if task == "speech-to-text":
+            #altdesc = altdesc + (" Providing results with WhisperX. "
+            #                     "Accepted input formats: wav,mp3,mp4,ogg,avi,mov,youtube,overcast. "
+             #                    "Possible outputs: text/plain, timestamped labels depending on "
+             #                    "alignment parameter (word,segment,raw) ")
+        #elif task == "image-to-text":
+            #altdesc = altdesc + (" Accepted input formats: jpg. Possible outputs: text/plain. "
+             #                    "This is very experimental, make sure your text is well readable. ")
         reaction = altdesc + emoji.emojize(":orange_heart:")
 
     elif status == "payment-rejected":
@@ -1116,7 +1292,7 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
     payment_hash = ""
     expires = original_event.created_at().as_secs() + (60*60*24)
     if status == "payment-required" or (status == "processing" and not is_paid):
-        if DVMConfig.LNBITS_INVOICE_KEY != "":
+        if dvmconfig.LNBITS_INVOICE_KEY != "":
             try:
                 bolt11, payment_hash = create_bolt11_ln_bits(amount)
             except Exception as e:
@@ -1129,13 +1305,13 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
     if status == "payment-required" or status == "payment-rejected" or (status == "processing" and not is_paid) or (
             status == "success" and not is_paid):
 
-        if DVMConfig.LNBITS_INVOICE_KEY != "":
+        if dvmconfig.LNBITS_INVOICE_KEY != "":
             amount_tag = Tag.parse(["amount", str(amount * 1000), bolt11])
         else:
             amount_tag = Tag.parse(["amount", str(amount * 1000)])  # to millisats
         tags.append(amount_tag)
 
-    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+    keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
     event = EventBuilder(65000, reaction, tags).to_event(keys)
 
     send_event(event, client)
@@ -1203,21 +1379,21 @@ def get_bot_help_text():
     return (
             "Hi there. I'm a bot interface to the first NIP90 Data Vending Machine and I can perform several AI tasks"
             " for you. Currently I can do the following jobs:\n\n"
-            "Generate an Image with Stable Diffusion XL (" + str(DVMConfig.COSTPERUNIT_IMAGEGENERATION) + " Sats)\n"
+            "Generate an Image with Stable Diffusion XL (" + str(dvmconfig.COSTPERUNIT_IMAGEGENERATION) + " Sats)\n"
             "-text-to-image someprompt\nAdditional parameters:\n-negative some negative prompt\n-ratio width:height "
             "(e.g. 3:4), default 1:1\n-lora specific weights (only XL models): "
             "3d_render_style_xl, cyborg_style_xl, psychedelic_noir_xl, dreamarts_xl, voxel_xl, kru3ger_xl, wojak_xl\n"
             "-model anothermodel\nOther Models are: \"dreamshaper\",\"nightvision\",\"protovision\",\"dynavision\",\"sdvn\", non-xl models are: \"wild\",\"realistic\",\"lora_inks\",\"lora_pepe\"\n\n"
-            "Transform an existing Image with Stable Diffusion XL (" + str(DVMConfig.COSTPERUNIT_IMAGETRANSFORMING)
+            "Transform an existing Image with Stable Diffusion XL (" + str(dvmconfig.COSTPERUNIT_IMAGETRANSFORMING)
             + " Sats)\n" "-image-to-image urltoimage -prompt someprompt\n\n"
-            "Parse text from an Image (make sure text is well readable) (" + str(DVMConfig.COSTPERUNIT_OCR) + " Sats)\n"
+            "Parse text from an Image (make sure text is well readable) (" + str(dvmconfig.COSTPERUNIT_OCR) + " Sats)\n"
             "-image-to-text urltofile \n\n"
-            "Upscale the resolution of an Image 4x and improve quality (" + str(DVMConfig.COSTPERUNIT_IMAGEUPSCALING)
+            "Upscale the resolution of an Image 4x and improve quality (" + str(dvmconfig.COSTPERUNIT_IMAGEUPSCALING)
             + " Sats)\n -image-upscale urltofile \n\n"
             "Transcribe Audio/Video/Youtube/Overcast from an URL with WhisperX (" +
-            str(get_amount_per_task("speech-to-text")) + " Sats)\n"
+            str(get_amount_per_task("speech-to-text", config=dvmconfig)) + " Sats)\n"
             "-speech-to-text urltofile \nAdditional parameters:\n-from timeinseconds -to timeinseconds\n\n"
-            "Get a List of inactive users you follow (" + str(DVMConfig.COSTPERUNIT_INACTIVE_FOLLOWING) + " Sats)\n"
+            "Get a List of inactive users you follow (" + str(dvmconfig.COSTPERUNIT_INACTIVE_FOLLOWING) + " Sats)\n"
             "-inactive-following\nAdditional parameters:\n-sincedays days (e.g. 60), default 30\n\n"
             "To show your current balance\n -balance \n\n"
             "You can zap any of my notes/dms or my profile to top up your balance. I also understand Zapplepay.")
@@ -1421,97 +1597,7 @@ def check_event_has_not_unifinished_job_input(nevent, append, client):
 
 
 # CHECK INPUTS/TASK AVAILABLE
-def check_task_is_supported(event, client, get_duration = False):
 
-    input_value = ""
-    input_type = ""
-    duration = 1
-    start = "0"
-    end = "0"
-    output_is_set = True
-
-    for tag in event.tags():
-        if tag.as_vec()[0] == 'i':
-            if len(tag.as_vec()) < 3:
-                print("Job Event missing/malformed i tag, skipping..")
-                return False, "", 0
-            else:
-                input_value = tag.as_vec()[1]
-                input_type = tag.as_vec()[2]
-                if input_type == "event":
-                   evt = get_event_by_id(input_value)
-                   if evt == None:
-                       print("Event not found")
-                       return False, "", 0
-
-        elif tag.as_vec()[0] == 'output':
-                output = tag.as_vec()[1]
-                output_is_set = True
-                if not (output == "text/plain" or output == "text/json" or output == "json" or output == "image/png" or "image/jpg" or output == ""):
-                    print("Output format not supported, skipping..")
-                    return False, "", 0
-                else:
-                    print("Output Format: " + output)
-
-
-        elif tag.as_vec()[0] == 'param':
-            if get_duration:
-                param = tag.as_vec()[1]
-                if param == "range":  # check for paramtype
-                    try:
-                        t = time.strptime(tag.as_vec()[2], "%H:%M:%S")
-                        seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
-                        start = str(seconds)
-                    except:
-                        try:
-                            t = time.strptime(tag.as_vec()[2], "%M:%S")
-                            seconds = t.tm_min * 60 + t.tm_sec
-                            start = str(seconds)
-                        except:
-                            start = tag.as_vec()[2]
-                    try:
-                        t = time.strptime(tag.as_vec()[3], "%H:%M:%S")
-                        seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
-                        end = str(seconds)
-                    except:
-                        try:
-                            t = time.strptime(tag.as_vec()[3], "%M:%S")
-                            seconds = t.tm_min * 60 + t.tm_sec
-                            end = str(seconds)
-                        except:
-                            end = tag.as_vec()[3]
-
-    task = get_task(event, client=client)
-    if not output_is_set:
-        print("No output set")
-    if task not in DVMConfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
-        return False, task, duration
-    elif task == "translation" and (
-            input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
-        return False, task, duration
-    if task == "translation" and input_type != "text" and len(event.content()) > 4999:  # Google Services have a limit of 5000 signs
-        return False, task, duration
-    elif task == "summarization" and (
-            input_type != "event" and input_type != "job" and input_type != "text"):  # The input types per task
-        return False, task, duration
-
-    elif task == "speech-to-text" and (
-            input_type != "event" and input_type != "job" and input_type != "url"):  # The input types per task
-            return False, task, duration
-
-
-
-    elif task == "image-upscale" and (input_type != "event" and input_type != "job" and input_type != "url"):
-        return False, task, duration
-    if input_type == 'url' and check_url_is_readable(input_value) is None:
-        return False, task, duration
-
-    if task == 'speech-to-text' and get_duration:
-        duration = check_media_length(input_value, input_type, event.id().to_hex(), start, end)
-        return True, task, duration
-
-
-    return True, task, duration
 
 
 def get_overcast(input_value, request_form):
@@ -1770,9 +1856,9 @@ def parse_bolt11_invoice(invoice):
 
 
 def create_bolt11_ln_bits(sats):
-    url = DVMConfig.LNBITS_URL + "/api/v1/payments"
+    url = dvmconfig.LNBITS_URL + "/api/v1/payments"
     data = {'out': False, 'amount': sats, 'memo': "Nostr-DVM"}
-    headers = {'X-API-Key': DVMConfig.LNBITS_INVOICE_KEY, 'Content-Type': 'application/json', 'charset': 'UTF-8'}
+    headers = {'X-API-Key': dvmconfig.LNBITS_INVOICE_KEY, 'Content-Type': 'application/json', 'charset': 'UTF-8'}
     try:
         res = requests.post(url, json=data, headers=headers)
         obj = json.loads(res.text)
@@ -1782,8 +1868,8 @@ def create_bolt11_ln_bits(sats):
         return None
 
 def check_bolt11_ln_bits_is_paid(payment_hash):
-    url = DVMConfig.LNBITS_URL + "/api/v1/payments/" + payment_hash
-    headers = {'X-API-Key': DVMConfig.LNBITS_INVOICE_KEY, 'Content-Type': 'application/json', 'charset': 'UTF-8'}
+    url = dvmconfig.LNBITS_URL + "/api/v1/payments/" + payment_hash
+    headers = {'X-API-Key': dvmconfig.LNBITS_INVOICE_KEY, 'Content-Type': 'application/json', 'charset': 'UTF-8'}
     try:
         res = requests.get(url, headers=headers)
         obj = json.loads(res.text)
@@ -1844,7 +1930,7 @@ def decrypt_private_zap_message(msg, privkey, pubkey):
 # DATABASE LOGIC
 def create_sql_table():
     try:
-        con = sqlite3.connect(DVMConfig.USERDB)
+        con = sqlite3.connect(dvmconfig.USERDB)
         cur = con.cursor()
         cur.execute(""" CREATE TABLE IF NOT EXISTS users (
                                             npub text PRIMARY KEY,
@@ -1865,7 +1951,7 @@ def create_sql_table():
 
 def add_sql_table_column():
     try:
-        con = sqlite3.connect(DVMConfig.USERDB)
+        con = sqlite3.connect(dvmconfig.USERDB)
         cur = con.cursor()
         cur.execute(""" ALTER TABLE users ADD COLUMN lastactive 'integer' """)
         con.close()
@@ -1875,7 +1961,7 @@ def add_sql_table_column():
 
 def add_to_sql_table(npub, sats, iswhitelisted, isblacklisted, nip05, lud16, name, lastactive):
     try:
-        con = sqlite3.connect(DVMConfig.USERDB)
+        con = sqlite3.connect(dvmconfig.USERDB)
         cur = con.cursor()
         data = (npub, sats, iswhitelisted, isblacklisted, nip05, lud16, name, lastactive)
         cur.execute("INSERT or IGNORE INTO users VALUES(?, ?, ?, ?, ?, ?, ?, ?)", data)
@@ -1887,7 +1973,7 @@ def add_to_sql_table(npub, sats, iswhitelisted, isblacklisted, nip05, lud16, nam
 
 def update_sql_table(npub, sats, iswhitelisted, isblacklisted, nip05, lud16, name, lastactive):
     try:
-        con = sqlite3.connect(DVMConfig.USERDB)
+        con = sqlite3.connect(dvmconfig.USERDB)
         cur = con.cursor()
         data = (sats, iswhitelisted, isblacklisted, nip05, lud16, name, lastactive, npub)
 
@@ -1908,7 +1994,7 @@ def update_sql_table(npub, sats, iswhitelisted, isblacklisted, nip05, lud16, nam
 
 def get_from_sql_table(npub):
     try:
-        con = sqlite3.connect(DVMConfig.USERDB)
+        con = sqlite3.connect(dvmconfig.USERDB)
         cur = con.cursor()
         cur.execute("SELECT * FROM users WHERE npub=?", (npub,))
         row = cur.fetchone()
@@ -1921,7 +2007,7 @@ def get_from_sql_table(npub):
 
 def delete_from_sql_table(npub):
     try:
-        con = sqlite3.connect(DVMConfig.USERDB)
+        con = sqlite3.connect(dvmconfig.USERDB)
         cur = con.cursor()
         cur.execute("DELETE FROM users WHERE npub=?", (npub,))
         con.commit()
@@ -1932,7 +2018,7 @@ def delete_from_sql_table(npub):
 
 def clear_db():
     try:
-        con = sqlite3.connect(DVMConfig.USERDB)
+        con = sqlite3.connect(dvmconfig.USERDB)
         cur = con.cursor()
         cur.execute("SELECT * FROM users WHERE npub IS NULL OR npub = '' ")
         rows = cur.fetchall()
@@ -1947,7 +2033,7 @@ def clear_db():
 
 def list_db():
     try:
-        con = sqlite3.connect(DVMConfig.USERDB)
+        con = sqlite3.connect(dvmconfig.USERDB)
         cur = con.cursor()
         cur.execute("SELECT * FROM users ORDER BY sats DESC")
         rows = cur.fetchall()
@@ -1961,7 +2047,7 @@ def list_db():
 def update_user_balance(sender, sats):
     user = get_from_sql_table(sender)
     if user is None:
-        add_to_sql_table(sender, (sats + DVMConfig.NEW_USER_BALANCE), False, False,
+        add_to_sql_table(sender, (sats + dvmconfig.NEW_USER_BALANCE), False, False,
                          "", "", "", Timestamp.now().as_secs())
         print("NEW USER: " + sender + " Zap amount: " + str(sats) + " Sats.")
     else:
@@ -1981,7 +2067,7 @@ def update_user_balance(sender, sats):
 def get_or_add_user(sender):
     user = get_from_sql_table(sender)
     if user is None:
-        add_to_sql_table(sender, DVMConfig.NEW_USER_BALANCE, False, False, None,
+        add_to_sql_table(sender, dvmconfig.NEW_USER_BALANCE, False, False, None,
                          None, None, Timestamp.now().as_secs())
         user = get_from_sql_table(sender)
     return user
@@ -2043,51 +2129,24 @@ def admin_make_database_updates():
 
 def nip89_announce_tasks():
 
-
-
-    k65004_tag = Tag.parse(["k", "65004"])
-    d_tag = Tag.parse(["d", "dpsu1wsh7ubsioy2"])
-    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "{\"name\":\"NostrAI DVM Translator\",\"image\":\"https://cdn.nostr.build/i/feb98d8700abe7d6c67d9106a72a20354bf50805af79869638f5a32d24a5ac2a.jpg\",\"about\":\"Translates Text from given text/event/job, currently using Google Translation Services into language defined in param.  \",\"nip90Params\":{\"language\":{\"required\":true,\"values\":[\"af\",\"am\",\"ar\",\"az\",\"be\",\"bg\",\"bn\",\"bs\",\"ca\",\"ceb\",\"co\",\"cs\",\"cy\",\"da\",\"de\",\"el\",\"eo\",\"es\",\"et\",\"eu\",\"fa\",\"fi\",\"fr\",\"fy\",\"ga\",\"gd\",\"gl\",\"gu\",\"ha\",\"haw\",\"hi\",\"hmn\",\"hr\",\"ht\",\"hu\",\"hy\",\"id\",\"ig\",\"is\",\"it\",\"he\",\"ja\",\"jv\",\"ka\",\"kk\",\"km\",\"kn\",\"ko\",\"ku\",\"ky\",\"la\",\"lb\",\"lo\",\"lt\",\"lv\",\"mg\",\"mi\",\"mk\",\"ml\",\"mn\",\"mr\",\"ms\",\"mt\",\"my\",\"ne\",\"nl\",\"no\",\"ny\",\"or\",\"pa\",\"pl\",\"ps\",\"pt\",\"ro\",\"ru\",\"sd\",\"si\",\"sk\",\"sl\",\"sm\",\"sn\",\"so\",\"sq\",\"sr\",\"st\",\"su\",\"sv\",\"sw\",\"ta\",\"te\",\"tg\",\"th\",\"tl\",\"tr\",\"ug\",\"uk\",\"ur\",\"uz\",\"vi\",\"xh\",\"yi\",\"yo\",\"zh\",\"zu\"]}}}"
-    event = EventBuilder(31990, content, [k65004_tag, d_tag]).to_event(keys)
-    send_event(event)
-
-
-    k65003_tag = Tag.parse(["k", "65003"])
-    d_tag = Tag.parse(["d", "ns5x24xqm03vuiw4"])
-    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "{\"name\":\"NostrAI Summarizer\",\"image\":\"https://cdn.nostr.build/i/a177be1159da5aad8396a1188f686728d55647d3a7371549584daf2b5e50eec9.jpg\",\"about\":\"Uses a LLAMA2 instance to summarise the most important points of a given input (text, event, job). Can for example be applied on transcribed podcasts, Nostr Long form events, etc.\",\"nip90Params\":{}}"
-    event = EventBuilder(31990, content, [k65003_tag, d_tag]).to_event(keys)
-    send_event(event)
-
-    k65007_tag = Tag.parse(["k", "65007"])
-    d_tag = Tag.parse(["d", "ebfw1pwoe2cx2f7n"])
-    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "{\"name\":\"Nostr AI DVM Inactive Followings\",\"image\":\"https://cdn.nostr.build/i/fff3f825ff3aa20daf0cb6e099264dfd5b7a66b0922431d22810b33e8de13d36.jpg\",\"about\":\"Returns a list of inactive followings. This includes npubs of users who haven't posted or reacted within the last x days (default 30). Parameter since can be used to increase the search window, e.g. inactive in the last 60 days.\",\"nip90Params\":{\"since\":{\"required\":false,\"values\":[\"30\",\"60\",\"90\",\"120\",\"150\",\"180\"]}}}"
-    event = EventBuilder(31990, content, [k65007_tag, d_tag]).to_event(keys)
-    send_event(event)
-
-    k65002_tag = Tag.parse(["k", "65002"])
-    d_tag = Tag.parse(["d", "0wllfdaxzp624bji"])
-    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "{\"name\":\"NostrAI DVM Text Extractor\",\"image\":\"https://cdn.nostr.build/i/38f36583552828a0961b01cddc6a3f4cd3ed8250dc5f73ab22ed7ed03eceaed9.jpg\",\"about\":\"Providing results using WhisperX model for the input formats: wav, mp3, mp4, ogg, avi, mov, as well as youtube, and overcast links. \\nPossible outputs: text/plain,  empty output format will provide timestamped labels with granularity depending on alignment parameters (word, segment, raw).\\nDefault model: base, Default alignment: raw\\n\\nFurther allows text extraction from images with tesseract OCR for jpgs.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"tiny\",\"base\",\"small\",\"tiny.en\",\"base.en\",\"small.en\"]},\"alignment\":{\"required\":false,\"values\":[\"word\",\"segment\",\"raw\"]}}}"
-    event = EventBuilder(31990, content, [k65002_tag, d_tag]).to_event(keys)
-    send_event(event)
-
-    k65005_tag = Tag.parse(["k", "65005"])
-    d_tag = Tag.parse(["d", "06sfjfp9frr3ubcq"])
-    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    content = "{\"name\":\"NostrAI DVM Artist\",\"image\":\"https://cdn.nostr.build/i/2c9ff28899732291fdcde742747b533a12c56185a345ce94c0b9e5ae9f5460f8.jpg\",\"about\":\"Generate an Image based on a prompt. Supports various models. By default uses Stable Diffusion XL 1.0. \\nPossible Inputs are text, events or jobs. Lora (Specific weights) param only works for SDXL.\\nAn optional negative prompt can help the model avoid things it shouldn't do.\\nImages are upscaled  4x by default.\\n\\nAdditionally supports Image2Image conversion. Requires as input url of an image/previous job/event and a second text input containing the prompt. By default, uses instruct-pix2pix model, alternative is sdxl (Stable Diffusion XL) model.\",\"nip90Params\":{\"model\":{\"required\":false,\"values\":[\"sdxl\",\"dreamshaper\",\"nightvision\",\"protovision\",\"dynavision\",\"sdvn\",\"wild\",\"realistic\",\"lora_inks\",\"lora_pepe\"]},\"ratio\":{\"required\":false,\"values\":[\"1:1\",\"4:3\",\"16:9\",\"16:10\",\"3:4\",\"9:16\",\"10:16\"]},\"negative_prompt\":{\"required\":false,\"values\":[]},\"extra_prompt\":{\"required\":false,\"values\":[]},\"upscale\":{\"required\":false,\"values\":[\"1\",\"2\",\"3\",\"4\"]},\"lora\":{\"required\":false,\"values\":[\"3d_render_style_xl\",\"cyborg_style_xl\",\"psychedelic_noir_xl\",\"dreamarts_xl\",\"voxel_xl\",\"kru3ger_xl\",\"wojak_xl\"]}}}"
-    event = EventBuilder(31990, content, [k65005_tag, d_tag]).to_event(keys)
-    send_event(event)
-
-
+    for nip89 in dvmconfig.NIP89s:
+        k_tag = Tag.parse(["k", str(nip89.kind)])
+        d_tag = Tag.parse(["d", nip89.dtag])
+        keys = Keys.from_sk_str(nip89.pk)
+        content = nip89.content
+        event = EventBuilder(31990, content, [k_tag, d_tag]).to_event(keys)
+        send_event(event)
 
     print("Announced NIP 89")
 
 if __name__ == '__main__':
     os.environ["NOVA_DATA_DIR"] = "W:\\nova\\data"
-    os.environ["NOVA_NOSTR_KEY"] = "privkey"
     os.environ["NOVA_HOST"] = "127.0.0.1"
     os.environ["NOVA_PORT"] = "27017"
-    nostr_server()
+
+    dvmconfig = DVMConfig()
+    dvmconfig.PRIVATE_KEY = "privkey"
+    dvmconfig.SUPPORTED_TASKS = ["inactive-following", "note-recommendation", "speech-to-text", "summarization",
+                                 "translation"]
+    dvmconfig.PASSIVE_MODE = True
+    nostr_server(dvmconfig)

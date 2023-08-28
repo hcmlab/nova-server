@@ -15,7 +15,7 @@ from nova_server.utils import (
     log_utils,
     dataset_utils,
     import_utils,
-    nostr_utils
+    nostr_dvm
 )
 from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
     HcaiNovaDynamicIterable,
@@ -97,7 +97,7 @@ def predict_data(request_form):
         logger.error("Not able to load the data from the database!")
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         if request_form["nostrEvent"] is not None:
-            nostr_utils.respond_to_error(str(e), str(request_form["nostrEvent"]), str2bool(request_form["isBot"]))
+            nostr_dvm.respond_to_error(str(e), str(request_form["nostrEvent"]), str2bool(request_form["isBot"]), request_form["dvmkey"])
         return None
 
     # Load Trainer
@@ -137,30 +137,35 @@ def predict_data(request_form):
         try:
             data = predictor.process_data(ss_ds_iter)
             annos = predictor.to_anno(data)
+
+            logger.info("...done")
+
+            logger.info("Saving predictions to database...")
+
+            # TODO: Refactor to not use request form in upload
+            request_form_copy = copy.copy(request_form)
+            assert len(ss_ds_iter.sessions) == 1
+            request_form_copy['sessions'] = ss_ds_iter.sessions[0]
+
+            for anno in annos:
+                logger.info("Writing to database...")
+                db_utils.write_annotation_to_db(request_form_copy, anno, logger)
+                if "nostrEvent" in request_form:
+                    if request_form["nostrEvent"] is not None:
+                        nostr_dvm.check_event_status(anno, str(request_form["nostrEvent"]),
+                                                       str2bool(request_form["isBot"]),
+                                                                request_form["dvmkey"])
+            logger.info("...done")
+
+            logger.info("Prediction completed!")
+            status_utils.update_status(key, status_utils.JobStatus.FINISHED)
         except Exception as e:
             logger.error(str(e))
             status_utils.update_status(key, status_utils.JobStatus.ERROR)
-            raise e
-        logger.info("...done")
-
-        logger.info("Saving predictions to database...")
-
-        # TODO: Refactor to not use request form in upload
-        request_form_copy = copy.copy(request_form)
-        assert len(ss_ds_iter.sessions) == 1
-        request_form_copy['sessions'] = ss_ds_iter.sessions[0]
-
-        for anno in annos:
-            logger.info("Writing to database...")
-            db_utils.write_annotation_to_db(request_form_copy, anno, logger)
             if "nostrEvent" in request_form:
-                if request_form["nostrEvent"] is not None:
-                    nostr_utils.check_event_status(anno, str(request_form["nostrEvent"]),
-                                                   str2bool(request_form["isBot"]))
-        logger.info("...done")
-
-    logger.info("Prediction completed!")
-    status_utils.update_status(key, status_utils.JobStatus.FINISHED)
+                nostr_dvm.respond_to_error(str(e), str(request_form["nostrEvent"]), str2bool(request_form["isBot"]),
+                                           request_form["dvmkey"])
+            raise e
 
 '''Keep for later reference to implement polygons'''
     # model_script.ds_iter = ds_iter
