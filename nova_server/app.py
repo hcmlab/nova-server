@@ -13,11 +13,13 @@ from nova_server.route.cancel import cancel
 from nova_server.route.predict import predict
 from nova_server.route.predict_static import predict_static
 from nova_server.route.nostrclient import nostr, nostr_client
-from nova_server.utils.nostr_utils import nostr_server
+from nova_server.utils.nostr_dvm_local_config import run_nostr_dvm_with_local_config
+
 import argparse
 import os
 from pathlib import Path
 from waitress import serve
+
 
 
 print("Starting nova-backend server...")
@@ -145,9 +147,7 @@ print("...done")
 
 # if Nostr key is set, check for new NIP?? events
 if(os.environ["NOVA_NOSTR_KEY"] != "" and os.environ["NOVA_NOSTR_KEY"] != "none" ):
-    nostrserverthread = Thread(target=nostr_server)
-    nostrserverthread.start()
-
+    run_nostr_dvm_with_local_config()
     #only run when needed, this will show results from the webclient
     #nostrclientthread = Thread(target=nostr_client)
     #nostrclientthread.start()
