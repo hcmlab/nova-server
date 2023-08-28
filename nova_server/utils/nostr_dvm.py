@@ -115,11 +115,15 @@ def nostr_server(config):
 
     if dvmconfig.IS_HYBRID:
         print(f"Nostr DVM/Bot hybrid public key: {pk.to_bech32()}, Hex: {pk.to_hex()} ")
+        print(f"Supported tasks: {dvmconfig.SUPPORTED_TASKS}")
     elif dvmconfig.IS_BOT:
         print(f"Nostr Bot public key: {pk.to_bech32()}, Hex: {pk.to_hex()} ")
+        print(f"Supported Bot tasks: {dvmconfig.SUPPORTED_TASKS}")
     else:
         print(f"Nostr DVM public key: {pk.to_bech32()}, Hex: {pk.to_hex()} ")
-    print(f"Supported DVM tasks: {dvmconfig.SUPPORTED_TASKS}")
+        print(f"Supported DVM tasks: {dvmconfig.SUPPORTED_TASKS}")
+
+
     client = Client(keys)
     for relay in dvmconfig.RELAY_LIST:
         client.add_relay(relay)
@@ -1210,13 +1214,11 @@ def check_event_status(data, original_event_str: str, use_bot=False, dvm_key=Non
 
 
     if use_bot:
-
         receiver_key = PublicKey()
         for tag in original_event.tags():
             if tag.as_vec()[0] == "p": #TODO maybe use another tag, e.g y, as p might be overwritten in some events.
                 receiver_key = PublicKey.from_hex(tag.as_vec()[1])
         event = EventBuilder.new_encrypted_direct_msg(keys, receiver_key, post_processed_content, None).to_event(keys)
-        #todo introduce botkey
         send_event(event, key=keys)
 
     else:
@@ -1368,7 +1370,9 @@ def post_process_result(anno, original_event):
     print("post-processing...")
     if isinstance(anno, Anno): #if input is an anno we parse it to required output format
         for tag in original_event.tags():
+            print(tag.as_vec()[0])
             if tag.as_vec()[0] == "output":
+                print("HAS OUTPUT TAG")
                 output_format = tag.as_vec()[1]
                 print("requested output is " + str(tag.as_vec()[1]) + "...")
                 try:
@@ -1388,32 +1392,30 @@ def post_process_result(anno, original_event):
                         return result
                     # TODO add more
                     else:
-                        result =  replace_broken_words(str(anno.data))
+                        result = ""
+                        for element in anno.data:
+                            element["name"] = str(element["name"]).lstrip()
+                            element["from"] = (format(float(element["from"]), '.2f')).lstrip()  # name
+                            element["to"] = (format(float(element["to"]), '.2f')).lstrip()  # name
+                            result = result + "(" + str(element["from"]) + "," + str(element["to"]) + ")" + " " + str(
+                                element["name"]) + "\n"
+
+                        print(result)
+                        result = replace_broken_words(result)
                         return result
 
                 except Exception as e:
                     print(e)
                     result =  replace_broken_words(str(anno.data))
                     return result
-            else:
-                result = ""
-                for element in anno.data:
-                    element["name"] = str(element["name"]).lstrip()
-                    element["from"] = (format(float(element["from"]), '.2f')).lstrip()  # name
-                    element["to"] = (format(float(element["to"]), '.2f')).lstrip()  # name
-                    result = result + "(" + str(element["from"]) + "," + str(element["to"]) + ")" + " " + str(
-                        element["name"]) + "\n"
 
-                print(result)
-                result = replace_broken_words(result)
-                return result
         else:
             result = ""
             for element in anno.data:
                 element["name"] = str(element["name"]).lstrip()
                 element["from"] = (format(float(element["from"]), '.2f')).lstrip()  # name
                 element["to"] = (format(float(element["to"]), '.2f')).lstrip()  # name
-                result = result +  "(" + str(element["from"]) + "," +  str(element["to"]) +")" + " " + str(element["name"]) + "\n"
+                result = result + "(" + str(element["from"]) + "," +  str(element["to"]) +")" + " " + str(element["name"]) + "\n"
 
             print(result)
             result = replace_broken_words(result)
