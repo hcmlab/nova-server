@@ -636,8 +636,6 @@ def nostr_server(config):
             upscale = "4"
             model = "stabilityai/stable-diffusion-xl-base-1.0"
 
-            width = "1024"
-            height = "1024"
             ratio_width = "1"
             ratio_height = "1"
             lora = ""
@@ -679,9 +677,6 @@ def nostr_server(config):
                         negative_prompt = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "lora":
                         lora = tag.as_vec()[2]
-                    elif tag.as_vec()[1] == "size":
-                        width = tag.as_vec()[2]
-                        height = tag.as_vec()[3]
                     elif tag.as_vec()[1] == "ratio":
                         if len(tag.as_vec()) > 3:
                             ratio_width = (tag.as_vec()[2])
@@ -695,11 +690,10 @@ def nostr_server(config):
                     elif tag.as_vec()[1] == "model":
                         model = tag.as_vec()[2]
 
-            prompt =  prompt.replace(";",",")
+            prompt = prompt.replace(";",",")
             request_form["optStr"] = ('prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt='
-                                      + negative_prompt + ';width=' + str(width) + ';height=' + str(height)
-                                      + ';upscale=' + str(upscale) + ';model=' + model + ';ratiow=' + str(ratio_width)
-                                      + ';ratioh=' + str(ratio_height)) + ';lora=' + str(lora)
+                                      + negative_prompt + ';upscale=' + str(upscale) + ';model=' + model
+                                      + ';ratiow=' + str(ratio_width) + ';ratioh=' + str(ratio_height)) + ';lora=' + str(lora)
 
 
         elif task == "image-reimagine":
@@ -1119,8 +1113,6 @@ def check_task_is_supported(event, client, get_duration = False, config=None):
     task = get_task(event, client=client)
     if not output_is_set:
         print("No output set")
-    print(task)
-    print(str(dvmconfig.SUPPORTED_TASKS))
     if task not in dvmconfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
         return False, task, duration
     elif task == "translation" and (
@@ -1462,8 +1454,6 @@ def parse_bot_command_to_event(dec_text):
         command = dec_text.replace("-text-to-image ", "")
         split = command.split(" -")
         prompt = split[0]
-        width = "1024"
-        height = "1024"
         ratiow = "1"
         ratioh = "1"
         lora = ""
@@ -1492,10 +1482,6 @@ def parse_bot_command_to_event(dec_text):
                     model = i.replace("model ", "")
                     param_tag = Tag.parse(["param", "model", model])
                     tags.append(param_tag)
-                elif i.startswith("width "):
-                    width = i.replace("width ", "")
-                elif i.startswith("height "):
-                    height = i.replace("height ", "")
                 elif i.startswith("ratio "):
                     ratio = str(i.replace("ratio ", ""))
                     split = ratio.split(":")
@@ -1503,22 +1489,29 @@ def parse_bot_command_to_event(dec_text):
                     ratioh = split[1]
 
         param_ratio_tag = Tag.parse(["param", "ratio", ratiow, ratioh])
-        param_size_tag = Tag.parse(["param", "size", width, height])
         tags.append(param_ratio_tag)
-        tags.append(param_size_tag)
 
         return tags
 
     elif str(dec_text).startswith("-image-to-image"):
         dec_text = dec_text.replace("\n", " ")
+        prompt = ""
+
         command = dec_text.replace("-image-to-image ", "")
         split = command.split(" -")
-        url = str(split[0]).replace(' ', '')
-        width = "768"
-        height = "768"
+        urltemp = str(split[0]).split(" ")
+        url = urltemp[0]
         j_tag = Tag.parse(["j", "image-to-image"])
         i_tag = Tag.parse(["i", url, "url"])
         tags = [j_tag, i_tag]
+
+        if len(urltemp) > 1:
+            for j in range(1,len(urltemp)):
+                prompt = prompt + urltemp[j] + " "
+            i_tag_2 = Tag.parse(["i", prompt.rstrip(), "text"])
+            tags.append(i_tag_2)
+
+
         if len(split) > 1:
             for i in split:
                 if i.startswith("negative "):
@@ -1546,10 +1539,7 @@ def parse_bot_command_to_event(dec_text):
                     param_tag = Tag.parse(["param", "lora", lora])
                     tags.append(param_tag)
 
-            param_size_tag = Tag.parse(["param", "size", width, height])
-            tags.append(param_size_tag)
-
-            return tags
+        return tags
 
     elif str(dec_text).startswith("-image-upscale"):
         command = dec_text.replace("-image-upscale ", "")

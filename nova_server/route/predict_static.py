@@ -74,8 +74,8 @@ def predict_static_data(request_form):
     # TODO move these to separate files
     try:
         if task == "text-to-image":
-            anno = textToImage(options["prompt"], options["extra_prompt"], options["negative_prompt"], options["width"],
-                               options["height"], options["upscale"], options["model"],  options["ratiow"], options["ratioh"], options["lora"])
+            anno = textToImage(options["prompt"], options["extra_prompt"], options["negative_prompt"],
+                               options["upscale"], options["model"],  options["ratiow"], options["ratioh"], options["lora"])
         elif task == "image-to-image":
             anno = imageToImage(options["url"], options["prompt"], options["negative_prompt"], options["strength"],
                                 options["guidance_scale"], options["model"], options["lora"])
@@ -105,13 +105,13 @@ def predict_static_data(request_form):
         status_utils.update_status(key, status_utils.JobStatus.FINISHED)
         if "nostrEvent" in request_form:
             if request_form["nostrEvent"] is not None:
-                nostr_dvm.check_event_status(anno, str(request_form["nostrEvent"]), request_form["dvmkey"],
-                                             str2bool(request_form["isBot"]))
+                nostr_dvm.check_event_status(data=anno, original_event_str=str(request_form["nostrEvent"]), dvm_key=request_form["dvmkey"],
+                                             use_bot=str2bool(request_form["isBot"]))
 
     except Exception  as e:
         if "nostrEvent" in request_form:
-            nostr_dvm.respond_to_error(str(e), str(request_form["nostrEvent"]), str2bool(request_form["isBot"]),
-                                                                request_form["dvmkey"])
+            nostr_dvm.respond_to_error(content=str(e), originaleventstr=str(request_form["nostrEvent"]), is_from_bot=str2bool(request_form["isBot"]),
+                                                                dvm_key=request_form["dvmkey"])
 
 
 
@@ -150,7 +150,7 @@ def uploadToHoster(filepath):
 
 
 # SCRIPTS (TO BE MOVED TO FILES)
-def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heightst="512", upscale="1",
+def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
                 model="stabilityai/stable-diffusion-xl-base-1.0", ratiow="1", ratioh="1", lora=""):
     import torch
     from diffusers import DiffusionPipeline
@@ -165,26 +165,53 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
         model = "stabilityai/stable-diffusion-2-1"
     elif model.__contains__("wild"):
         model = "stablydiffusedsWild_351"
-
-
-    elif model.__contains__("lora"):
-        model = model
+    elif model.startswith("lora"):
+        model = model #handle sd15 lora models seperatley
+    elif model.__contains__("dreamshaper"):
+        model = os.environ[
+                    'TRANSFORMERS_CACHE'] + "stablediffusionmodels/dreamshaperXL.safetensors"
+    elif model.__contains__("nightvision"):
+        model = os.environ[
+                    'TRANSFORMERS_CACHE'] + "stablediffusionmodels/nightvisionXL.safetensors"
+    elif model.__contains__("protovision"):
+        model = os.environ[
+                    'TRANSFORMERS_CACHE'] + "stablediffusionmodels/protovisionXL.safetensors"
+    elif model.__contains__("dynavision"):
+        model = os.environ[
+                    'TRANSFORMERS_CACHE'] + "stablediffusionmodels/dynavisionXL.safetensors"
+    elif model.__contains__("sdvn"):
+        model = os.environ[
+                'TRANSFORMERS_CACHE'] + "stablediffusionmodels/sdvn6Realxl_detailface.safetensors"
+    elif model.__contains__("fantastic"):
+        model = os.environ[
+                    'TRANSFORMERS_CACHE'] + "stablediffusionmodels/fantasticCharacters_v55.safetensors"
+    elif model.__contains__("chroma"):
+        model = os.environ[
+                    'TRANSFORMERS_CACHE'] + "stablediffusionmodels/zavychromaxl_v10.safetensors"
+    elif model.__contains__("crystalclear"):
+        model = os.environ[
+                    'TRANSFORMERS_CACHE'] + "stablediffusionmodels/crystalClearXL.safetensors"
     else:
         model = "stabilityai/stable-diffusion-xl-base-1.0"
 
     if extra_prompt != "":
         prompt = prompt + "," + extra_prompt
 
+    print(model)
     mwidth = 768
     mheight = 768
 
-    if model == "stabilityai/stable-diffusion-xl-base-1.0" or  model.__contains__("dreamshaper") or model.__contains__("nightvision") or model.__contains__("protovision") or model.__contains__("dynavision") or model.__contains__("sdvn") or model.__contains__("fantastic") or model.__contains__("crystalclear"):
+    if model.startswith("lora"):
+        mwidth = 768
+        mheight = 768
+
+
+    if model == "stabilityai/stable-diffusion-xl-base-1.0" or  model.__contains__("dreamshaperXL") or model.__contains__("nightvisionXL") or model.__contains__("protovisionXL") or model.__contains__("dynavisionXL") or model.__contains__("sdvn6Realxl_detailface") or model.__contains__("fantasticCharacters_v55")  or model.__contains__("zavychromaxl_v10") or model.__contains__("crystalClearXL"):
         mwidth = 1024
         mheight = 1024
 
-
-    height = min(int(heightst), mheight)
-    width = min(int(widthst), mwidth)
+    height = mheight
+    width = mwidth
 
     ratiown = int(ratiow)
     ratiohn= int(ratioh)
@@ -192,48 +219,31 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
     if ratiown > ratiohn:
         height = int((ratiohn/ratiown) * float(width))
     elif ratiown < ratiohn:
-        width =  int((ratiown/ratiohn) * float(height))
+        width = int((ratiown/ratiohn) * float(height))
     elif ratiown == ratiohn:
         width = height
 
+    print("Output width: " + str(width) + " Output height: " + str(height))
 
-    if model == "stabilityai/stable-diffusion-xl-base-1.0" or  model.__contains__("dreamshaper") or model.__contains__("nightvision") or model.__contains__("protovision") or model.__contains__("dynavision") or model.__contains__("sdvn") or model.__contains__("fantastic") or model.__contains__("crystalclear"):
-        mwidth = 1024
-        mheight = 1024
+    if model == "stabilityai/stable-diffusion-xl-base-1.0" or model.__contains__("dreamshaperXL") or model.__contains__(
+            "nightvisionXL") or model.__contains__("protovisionXL") or model.__contains__(
+            "dynavisionXL") or model.__contains__("sdvn6Realxl_detailface") or model.__contains__(
+            "fantasticCharacters_v55") or model.__contains__("zavychromaxl_v10") or model.__contains__("crystalClearXL"):
+        print("Loading model...")
+        if model == "stabilityai/stable-diffusion-xl-base-1.0":
 
-        if model.__contains__("dreamshaper"):
-            model = os.environ[
-                        'TRANSFORMERS_CACHE'] + "stablediffusionmodels/dreamshaperXL.safetensors"
-        elif model.__contains__("nightvision"):
-            model = os.environ[
-                        'TRANSFORMERS_CACHE'] + "stablediffusionmodels/nightvisionXL.safetensors"
-        elif model.__contains__("protovision"):
-            model = os.environ[
-                        'TRANSFORMERS_CACHE'] + "stablediffusionmodels/protovisionXL.safetensors"
-        elif model.__contains__("dynavision"):
-            model = os.environ[
-                        'TRANSFORMERS_CACHE'] + "stablediffusionmodels/dynavisionXL.safetensors"
-        elif model.__contains__("sdvn"):
-            model = os.environ[
-                    'TRANSFORMERS_CACHE'] + "stablediffusionmodels/sdvn6Realxl_detailface.safetensors"
-        elif model.__contains__("fantastic"):
-            model = os.environ[
-                        'TRANSFORMERS_CACHE'] + "stablediffusionmodels/fantasticCharacters_v55.safetensors"
-        elif model.__contains__("chroma"):
-            model = os.environ[
-                        'TRANSFORMERS_CACHE'] + "stablediffusionmodels/zavychromaxl_v10.safetensors"
-        elif model.__contains__("crystalclear"):
-            model = os.environ[
-                        'TRANSFORMERS_CACHE'] + "stablediffusionmodels/crystalClearXL.safetensors"
+            base = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
+            print("Loaded model: " + model)
 
+        else:
+            base = StableDiffusionPipeline.from_single_file(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
+            print("Loaded model: " + model)
 
-
-
-        base = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
         base.to("cuda")
 
         existing_lora = False
         if lora != "":
+            print("Loading lora...")
             lora_models_folder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
             if lora == "cyborg_style_xl":
                 prompt = " cyborg style, " + prompt + " <lora:cyborg_style_xl:.8>"
@@ -272,6 +282,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
             if existing_lora:
                 lora_weights = lora_models_folder + lora + ".safetensors"
                 base.load_lora_weights(lora_weights)
+                print("Loaded Lora: " + lora_weights)
 
 
         # base.unet = torch.compile(base.unet, mode="reduce-overhead", fullgraph=True)
@@ -321,6 +332,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
             torch.cuda.ipc_collect()
 
     elif model.startswith("lora"):
+
         split = model.split("_")
         if len(split) > 1:
             model = split[1]
@@ -333,39 +345,53 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
         base_model = os.environ[
                          'TRANSFORMERS_CACHE'] + "stablediffusionmodels/anyloraCheckpoint_bakedvaeBlessedFp16.safetensors"
 
-        model_path = lora_models_folder + "ink_scenery.safetensors"
-        if model == "inks" or model == "pepe" or model == "journey":
+        model_path = lora_models_folder + "Inkscenery.safetensors"
+        if model == "inks" or model == "pepe" or model == "journey" or model == "ghibli" or model == "gigachad":
             if model == "inks":
                 # local lora models
-                model_path = lora_models_folder + "ink_scenery.safetensors"
-                base_model = os.environ[
-                                 'TRANSFORMERS_CACHE'] + "stablediffusionmodels/dreamshaper_8.safetensors"
-                prompt = "white background, scenery, ink, mountains, water, trees, " + prompt + " <lora:ink-0.1-3-b28-bf16-D128-A1-1-ep64-768-DAdaptation-cosine:1>"
+                model_path = lora_models_folder + "Inkscenery.safetensors"
+                #base_model = os.environ[
+                #                 'TRANSFORMERS_CACHE'] + "stablediffusionmodels/dreamshaper_8.safetensors"
+                prompt = "white background, scenery, ink, mountains, water, trees, " + str(prompt).lstrip() + " <lora:ink-0.1-3-b28-bf16-D128-A1-1-ep64-768-DAdaptation-cosine:1>"
 
-            if model == "journey":
+
+            elif model == "journey":
                 # local lora models
                 model_path = lora_models_folder + "OpenJourney-LORA.safetensors"
-                prompt =  "<lora:openjourneyLora_v1:1> " + prompt
+                prompt = "<lora:openjourneyLora_v1:1> " + prompt
 
-            if model == "pepe":
+            elif model == "ghibli":
+                # local lora models
+                model_path = lora_models_folder + "ghibli_style_offset.safetensors"
+                prompt = "<lora:ghibli_style_offset:1> " + prompt
+
+            elif model == "gigachad":
+                # local lora models
+                model_path = lora_models_folder + "Gigachadv1.safetensors"
+                prompt = "Gigachad, " + prompt + " <lora:Gigachadv1:0.8>"
+
+            elif model == "pepe":
                 model_path = lora_models_folder + "pepe_frog_v2.safetensors"
                 base_model = os.environ[
                                  'TRANSFORMERS_CACHE'] + "stablediffusionmodels/deliberate_v2.safetensors"
                 prompt = "pepe_frog, " + prompt + "  <lora:pepe_frog_v2:1>"
                 negative_prompt = "rz-neg-15-foranalog verybadimagenegative_v1., " + negative_prompt
 
-            pipe = StableDiffusionPipeline.from_single_file(base_model, torch_dtype=torch.float16,
-                                                            safety_checker = None, requires_safety_checker = False)
+            pipe = StableDiffusionPipeline.from_single_file(base_model, torch_dtype=torch.float16, safety_checker = None)
+
+            print("Loaded lora: " + model_path)
+            print("Loaded model: " + base_model)
             pipe.safety_checker = None
             pipe.requires_safety_checker = False
             pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
             pipe.to("cuda")
-            #pipe.unet.load_attn_procs(model_path)
+
             pipe.load_lora_weights(model_path)
+            #pipe.unet.load_attn_procs(model_path)
 
-
-            image = pipe(prompt, negative_prompt=negative_prompt, num_inference_steps=30,  width=width,
-                height=height, guidance_scale=7.5, cross_attention_kwargs={"scale": 1.0}).images[0]
+            print(prompt)
+            image = pipe(prompt, negative_prompt=negative_prompt, num_inference_steps=30, width=width,
+                         height=height, guidance_scale=7.5, cross_attention_kwargs={"scale": 1.0}).images[0]
 
             if torch.cuda.is_available():
                 del pipe
@@ -374,6 +400,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", widthst="512", heig
                 torch.cuda.ipc_collect()
 
     else:
+        print("entering else case")
         if model == "runwayml/stable-diffusion-v1-5":
             pipe = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16,
                                                      use_safetensors=True, variant="fp16"
@@ -433,7 +460,7 @@ def imageReimagine(url):
 
         print("Upscaling by factor " + "4" + " using RealESRGAN")
         uniquefilepath = imageUpscaleRealESRGAN(uniquefilepath)
-    return uploadToHoster((uniquefilepath))
+    return uploadToHoster(uniquefilepath)
 
 
 def ImageToPrompt(url):
