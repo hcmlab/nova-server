@@ -152,7 +152,7 @@ def uploadToHoster(filepath):
 
 # SCRIPTS (TO BE MOVED TO FILES)
 def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
-                model="stabilityai/stable-diffusion-xl-base-1.0", ratiow="1", ratioh="1", lora="", num_images_per_prompt=2):
+                model="stabilityai/stable-diffusion-xl-base-1.0", ratiow="1", ratioh="1", lora="", num_images_per_prompt=1):
     import torch
     from diffusers import DiffusionPipeline
     from diffusers import StableDiffusionPipeline
