@@ -857,7 +857,6 @@ def nostr_server(config):
                     job.is_paid = True
                     event = get_event_by_id(job.event_id, config=dvmconfig)
                     if event != None:
-                        print(dvmconfig.PRIVATE_KEY)
                         send_job_status_reaction(event, "processing", True, 0, client=client,  config=dvmconfig)
                         do_work(event, is_from_bot=False)
                 elif check_bolt11_ln_bits_is_paid(job.payment_hash) is None: #invoice expired
@@ -1120,7 +1119,6 @@ def check_task_is_supported(event, client, get_duration = False, config=None):
     if not output_is_set:
         print("No output set")
     print(task)
-    print(str(dvmconfig.SUPPORTED_TASKS))
     if task not in dvmconfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
         return False, task, duration
     elif task == "translation" and (
