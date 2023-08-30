@@ -152,7 +152,7 @@ def nostr_server(config):
         client.subscribe([dm_zap_filter, dvm_filter])
 
     create_sql_table()
-    admin_make_database_updates()
+    admin_make_database_updates(config=dvmconfig)
 
     class NotificationHandler(HandleNotification):
 
@@ -636,8 +636,6 @@ def nostr_server(config):
             upscale = "4"
             model = "stabilityai/stable-diffusion-xl-base-1.0"
 
-            width = "1024"
-            height = "1024"
             ratio_width = "1"
             ratio_height = "1"
             lora = ""
@@ -679,9 +677,6 @@ def nostr_server(config):
                         negative_prompt = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "lora":
                         lora = tag.as_vec()[2]
-                    elif tag.as_vec()[1] == "size":
-                        width = tag.as_vec()[2]
-                        height = tag.as_vec()[3]
                     elif tag.as_vec()[1] == "ratio":
                         if len(tag.as_vec()) > 3:
                             ratio_width = (tag.as_vec()[2])
@@ -695,11 +690,10 @@ def nostr_server(config):
                     elif tag.as_vec()[1] == "model":
                         model = tag.as_vec()[2]
 
-            prompt =  prompt.replace(";",",")
+            prompt = prompt.replace(";",",")
             request_form["optStr"] = ('prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt='
-                                      + negative_prompt + ';width=' + str(width) + ';height=' + str(height)
-                                      + ';upscale=' + str(upscale) + ';model=' + model + ';ratiow=' + str(ratio_width)
-                                      + ';ratioh=' + str(ratio_height)) + ';lora=' + str(lora)
+                                      + negative_prompt + ';upscale=' + str(upscale) + ';model=' + model
+                                      + ';ratiow=' + str(ratio_width) + ';ratioh=' + str(ratio_height)) + ';lora=' + str(lora)
 
 
         elif task == "image-reimagine":
@@ -1118,7 +1112,6 @@ def check_task_is_supported(event, client, get_duration = False, config=None):
     task = get_task(event, client=client)
     if not output_is_set:
         print("No output set")
-    print(task)
     if task not in dvmconfig.SUPPORTED_TASKS:  # The Tasks this DVM supports (can be extended)
         return False, task, duration
     elif task == "translation" and (
@@ -1236,7 +1229,7 @@ def respond_to_error(content, originaleventstr, is_from_bot=False, dvm_key=None 
     sender = ""
     task = ""
     if not is_from_bot:
-        send_job_status_reaction(original_event, "error", content=content, config=dvmconfig)
+        send_job_status_reaction(original_event, "error", content=content, key=dvm_key)
         # TODO Send Zap back
     else:
         for tag in original_event.tags():
@@ -1277,7 +1270,7 @@ def send_nostr_reply_event(content, original_event_as_str, key=None):
     return event.as_json()
 
 
-def send_job_status_reaction(original_event, status, is_paid=True, amount=0, client=None, content=None, config=None):
+def send_job_status_reaction(original_event, status, is_paid=True, amount=0, client=None, content=None, config=None, key=None):
     dvmconfig = config
     altdesc = "This is a reaction to a NIP90 DVM AI task. "
     task = get_task(original_event, client=client)
@@ -1355,8 +1348,10 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
         else:
             amount_tag = Tag.parse(["amount", str(amount * 1000)])  # to millisats
         tags.append(amount_tag)
-
-    keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
+    if key is not None:
+        keys = Keys.from_sk_str(key)
+    else:
+        keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
     event = EventBuilder(65000, reaction, tags).to_event(keys)
 
     send_event(event, key=keys)
@@ -1437,10 +1432,10 @@ def get_bot_help_text():
             "Generate an Image with Stable Diffusion XL (" + str(dvmconfig.COSTPERUNIT_IMAGEGENERATION) + " Sats)\n"
             "-text-to-image someprompt\nAdditional parameters:\n-negative some negative prompt\n-ratio width:height "
             "(e.g. 3:4), default 1:1\n-lora specific weights (only XL models): "
-            "3d_render_style_xl, cyborg_style_xl, psychedelic_noir_xl, dreamarts_xl, voxel_xl, kru3ger_xl, wojak_xl\n"
-            "-model anothermodel\nOther Models are: \"dreamshaper\",\"nightvision\",\"protovision\",\"dynavision\",\"sdvn\", non-xl models are: \"wild\",\"realistic\",\"lora_inks\",\"lora_pepe\"\n\n"
+            "\"3d_render_style_xl\", \"cyborg_style_xl\", \"psychedelic_noir_xl\", \"dreamarts_xl\", \"voxel_xl\", \"kru3ger_xl\", \"wojak_xl\", \"ink_punk_xl\"\n"
+            "-model anothermodel\nOther Models are: \"dreamshaper\",\"nightvision\",\"protovision\",\"dynavision\",\"sdvn\",\"fantastic\",\"chroma\",\"crystalclear\". Non-XL models are: \"wild\",\"realistic\",\"lora_inks\",\"lora_pepe\"\n\n"
             "Transform an existing Image with Stable Diffusion XL (" + str(dvmconfig.COSTPERUNIT_IMAGETRANSFORMING)
-            + " Sats)\n" "-image-to-image urltoimage -prompt someprompt\n\n"
+            + " Sats)\n" "-image-to-image urltoimagedotjpg in style of an oil painting by pablo picasso\n Alternative model is \"pix2pix\". E.g: -image-to-image urltoimagedotjpg turn him into a ghost -model pix2pix\n\n"
             "Parse text from an Image (make sure text is well readable) (" + str(dvmconfig.COSTPERUNIT_OCR) + " Sats)\n"
             "-image-to-text urltofile \n\n"
             "Upscale the resolution of an Image 4x and improve quality (" + str(dvmconfig.COSTPERUNIT_IMAGEUPSCALING)
@@ -1460,8 +1455,6 @@ def parse_bot_command_to_event(dec_text):
         command = dec_text.replace("-text-to-image ", "")
         split = command.split(" -")
         prompt = split[0]
-        width = "1024"
-        height = "1024"
         ratiow = "1"
         ratioh = "1"
         lora = ""
@@ -1490,10 +1483,6 @@ def parse_bot_command_to_event(dec_text):
                     model = i.replace("model ", "")
                     param_tag = Tag.parse(["param", "model", model])
                     tags.append(param_tag)
-                elif i.startswith("width "):
-                    width = i.replace("width ", "")
-                elif i.startswith("height "):
-                    height = i.replace("height ", "")
                 elif i.startswith("ratio "):
                     ratio = str(i.replace("ratio ", ""))
                     split = ratio.split(":")
@@ -1501,22 +1490,29 @@ def parse_bot_command_to_event(dec_text):
                     ratioh = split[1]
 
         param_ratio_tag = Tag.parse(["param", "ratio", ratiow, ratioh])
-        param_size_tag = Tag.parse(["param", "size", width, height])
         tags.append(param_ratio_tag)
-        tags.append(param_size_tag)
 
         return tags
 
     elif str(dec_text).startswith("-image-to-image"):
         dec_text = dec_text.replace("\n", " ")
+        prompt = ""
+
         command = dec_text.replace("-image-to-image ", "")
         split = command.split(" -")
-        url = str(split[0]).replace(' ', '')
-        width = "768"
-        height = "768"
+        urltemp = str(split[0]).split(" ")
+        url = urltemp[0]
         j_tag = Tag.parse(["j", "image-to-image"])
         i_tag = Tag.parse(["i", url, "url"])
         tags = [j_tag, i_tag]
+
+        if len(urltemp) > 1:
+            for j in range(1,len(urltemp)):
+                prompt = prompt + urltemp[j] + " "
+            i_tag_2 = Tag.parse(["i", prompt.rstrip(), "text"])
+            tags.append(i_tag_2)
+
+
         if len(split) > 1:
             for i in split:
                 if i.startswith("negative "):
@@ -1544,10 +1540,7 @@ def parse_bot_command_to_event(dec_text):
                     param_tag = Tag.parse(["param", "lora", lora])
                     tags.append(param_tag)
 
-            param_size_tag = Tag.parse(["param", "size", width, height])
-            tags.append(param_size_tag)
-
-            return tags
+        return tags
 
     elif str(dec_text).startswith("-image-upscale"):
         command = dec_text.replace("-image-upscale ", "")
@@ -2221,7 +2214,8 @@ def update_user_balance(sender, sats):
             user[5] = ""
         if user[6] is None:
             user[6] = ""
-        update_sql_table(sender, (user[1] + sats), user[2], user[3], user[4], user[5], user[6],
+        new_balance = int(user[1]) + sats
+        update_sql_table(sender, new_balance, user[2], user[3], user[4], user[5], user[6],
                          Timestamp.now().as_secs())
         print("UPDATE USER BALANCE: " + user[6] + " Zap amount: " + str(sats) + " Sats.")
 
@@ -2236,10 +2230,10 @@ def get_or_add_user(sender):
 
 
 # ADMINISTRARIVE DB MANAGEMENT
-def admin_make_database_updates():
+def admin_make_database_updates(config=None):
     # This is called on start of Server, Admin function to manually whitelist/blacklist/add balance/delete users
     # List all entries, why not.
-
+    dvmconfig = config
 
     rebroadcast_nip89 = False
     cleardb = False
@@ -2257,36 +2251,36 @@ def admin_make_database_updates():
     # use this if you have the npub
     #publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
 
-    if whitelistuser:
+    if whitelistuser and dvmconfig.IS_BOT:
         user = get_from_sql_table(publickey)
         update_sql_table(user[0], user[1], True, False, user[4], user[5], user[6], user[7])
         user = get_from_sql_table(publickey)
         print(str(user[6]) + " is whitelisted: " + str(user[2]))
 
 
-    if unwhitelistuser:
+    if unwhitelistuser and dvmconfig.IS_BOT:
         user = get_from_sql_table(publickey)
         update_sql_table(user[0], user[1], False, False, user[4], user[5], user[6], user[7])
 
-    if blacklistuser:
+    if blacklistuser and dvmconfig.IS_BOT:
         user = get_from_sql_table(publickey)
         update_sql_table(user[0], user[1], False, True, user[4], user[5], user[6], user[7])
 
-    if addbalance:
+    if addbalance and dvmconfig.IS_BOT:
 
         user = get_from_sql_table(publickey)
         update_sql_table(user[0], user[1] + additional_balance, user[2], user[3], user[4], user[5], user[6], user[7])
 
-    if deleteuser:
+    if deleteuser and dvmconfig.IS_BOT:
         delete_from_sql_table(publickey)
 
-    if cleardb:
+    if cleardb and dvmconfig.IS_BOT:
         clear_db()
 
     if listdatabase:
         list_db()
         
-    if rebroadcast_nip89:
+    if rebroadcast_nip89 and not dvmconfig.IS_BOT:
         nip89_announce_tasks()
 
 def nip89_announce_tasks():

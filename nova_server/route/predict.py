@@ -97,7 +97,7 @@ def predict_data(request_form):
         logger.error("Not able to load the data from the database!")
         status_utils.update_status(key, status_utils.JobStatus.ERROR)
         if request_form["nostrEvent"] is not None:
-            nostr_dvm.respond_to_error(str(e), str(request_form["nostrEvent"]), str2bool(request_form["isBot"]), request_form["dvmkey"])
+            nostr_dvm.respond_to_error(content=str(e), originaleventstr=str(request_form["nostrEvent"]), is_from_bot=str2bool(request_form["isBot"]), dvm_key = request_form["dvmkey"])
         return None
 
     # Load Trainer
@@ -152,8 +152,8 @@ def predict_data(request_form):
                 db_utils.write_annotation_to_db(request_form_copy, anno, logger)
                 if "nostrEvent" in request_form:
                     if request_form["nostrEvent"] is not None:
-                        nostr_dvm.check_event_status(anno, str(request_form["nostrEvent"]),  request_form["dvmkey"],
-                                                       str2bool(request_form["isBot"]))
+                        nostr_dvm.check_event_status(data=anno, original_event_str=str(request_form["nostrEvent"]),  dvm_key=request_form["dvmkey"],
+                                                       use_bot=str2bool(request_form["isBot"]))
             logger.info("...done")
 
             logger.info("Prediction completed!")
@@ -162,8 +162,8 @@ def predict_data(request_form):
             logger.error(str(e))
             status_utils.update_status(key, status_utils.JobStatus.ERROR)
             if "nostrEvent" in request_form:
-                nostr_dvm.respond_to_error(str(e), str(request_form["nostrEvent"]), str2bool(request_form["isBot"]),
-                                           request_form["dvmkey"])
+                nostr_dvm.respond_to_error(content=str(e), originaleventstr=str(request_form["nostrEvent"]), is_from_bot=str2bool(request_form["isBot"]),
+                                           dvm_key=request_form["dvmkey"])
             raise e
 
 '''Keep for later reference to implement polygons'''

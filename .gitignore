@@ -218,3 +218,9 @@ nova_server/ocr.jpg
 nova_server/ocr_procesed.jpg
 nova_server/nostrzaps.db
 nova_server/temp.pdf
+nova_server/cache/ViT-L-14_openai_trendings.safetensors
+nova_server/cache/ViT-L-14_openai_negative.safetensors
+nova_server/cache/ViT-L-14_openai_movements.safetensors
+nova_server/cache/ViT-L-14_openai_mediums.safetensors
+nova_server/cache/ViT-L-14_openai_flavors.safetensors
+nova_server/cache/ViT-L-14_openai_artists.safetensors
