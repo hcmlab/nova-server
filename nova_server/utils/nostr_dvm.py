@@ -443,12 +443,12 @@ def nostr_server(config):
                     else:
                         if bid_offer >= amount:
                             send_job_status_reaction(event, "payment-required", False,
-                                                     bid_offer,
-                                                     client=client, config=dvmconfig)
-                        else:
-                            send_job_status_reaction(event, "payment-rejected", False,
                                                      amount,
-                                                     client=client, config=dvmconfig)  # Reject and tell user minimum amount
+                                                     client=client, config=dvmconfig)
+                        #else:
+                        #    send_job_status_reaction(event, "payment-rejected", False,
+                        #                             amount,
+                        #                             client=client, config=dvmconfig)  # Reject and tell user minimum amount
 
                 else:  # If there is no bid, just request server rate from user
                     print("[Nostr] Requesting payment for Event: " + event.id().to_hex())
