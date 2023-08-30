@@ -1,5 +1,4 @@
 """This file contains the general logic for predicting annotations to the nova database"""
-import copy
 import gc
 import json
 import os
@@ -8,8 +7,10 @@ from datetime import timedelta
 import random
 
 import numpy as np
+from compel import ReturnedEmbeddingsType
 from diffusers import DiffusionPipeline, StableDiffusionXLImg2ImgPipeline, StableDiffusionInstructPix2PixPipeline, \
-    EulerAncestralDiscreteScheduler, DPMSolverMultistepScheduler, StableDiffusionXLInpaintPipeline
+    EulerAncestralDiscreteScheduler, DPMSolverMultistepScheduler, StableDiffusionXLInpaintPipeline, \
+    StableDiffusionXLPipeline
 from diffusers.utils import load_image
 from flask import Blueprint, request, jsonify
 from huggingface_hub import model_info
@@ -151,10 +152,17 @@ def uploadToHoster(filepath):
 
 # SCRIPTS (TO BE MOVED TO FILES)
 def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
-                model="stabilityai/stable-diffusion-xl-base-1.0", ratiow="1", ratioh="1", lora=""):
+                model="stabilityai/stable-diffusion-xl-base-1.0", ratiow="1", ratioh="1", lora="", num_images_per_prompt=2):
     import torch
     from diffusers import DiffusionPipeline
     from diffusers import StableDiffusionPipeline
+    from compel import Compel
+
+
+
+    if negative_prompt == "":
+        negative_prompt = 'bad anatomy, bad hands, deformed face, weird eyes, lowres, error, missing fingers, worst quality, low quality, jpeg artifacts, signature, watermark'
+
 
     model = model.rstrip(" ")
     if model.__contains__("realistic"):
@@ -225,21 +233,19 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
 
     print("Output width: " + str(width) + " Output height: " + str(height))
 
-    if model == "stabilityai/stable-diffusion-xl-base-1.0" or model.__contains__("dreamshaperXL") or model.__contains__(
+    if (model == "stabilityai/stable-diffusion-xl-base-1.0" or model.__contains__("dreamshaperXL") or model.__contains__(
             "nightvisionXL") or model.__contains__("protovisionXL") or model.__contains__(
-            "dynavisionXL") or model.__contains__("sdvn6Realxl_detailface") or model.__contains__(
-            "fantasticCharacters_v55") or model.__contains__("zavychromaxl_v10") or model.__contains__("crystalClearXL"):
+            "dynavisionXL") or model.__contains__("sdvn6Realxl_detailface") or model.__contains__("fantasticCharacters_v55")
+            or model.__contains__("zavychromaxl_v10") or model.__contains__("crystalClearXL")):
         print("Loading model...")
         if model == "stabilityai/stable-diffusion-xl-base-1.0":
 
-            base = DiffusionPipeline.from_pretrained(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
+            base = StableDiffusionXLPipeline.from_pretrained(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True).to("cuda")
             print("Loaded model: " + model)
 
         else:
-            base = StableDiffusionPipeline.from_single_file(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
+            base = StableDiffusionXLPipeline.from_single_file(model, torch_dtype=torch.float16, variant="fp16", use_safetensors=True).to("cuda")
             print("Loaded model: " + model)
-
-        base.to("cuda")
 
         existing_lora = False
         if lora != "":
@@ -286,7 +292,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
 
 
         # base.unet = torch.compile(base.unet, mode="reduce-overhead", fullgraph=True)
-        refiner = DiffusionPipeline.from_pretrained(
+        refiner = StableDiffusionXLImg2ImgPipeline.from_pretrained(
             "stabilityai/stable-diffusion-xl-refiner-1.0",
             text_encoder_2=base.text_encoder_2,
             vae=base.vae,
@@ -295,18 +301,42 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
             variant="fp16",
         )
 
+        compel_base = Compel(
+            tokenizer=[base.tokenizer, base.tokenizer_2],
+            text_encoder=[base.text_encoder, base.text_encoder_2],
+            returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
+            requires_pooled=[False, True],
+        )
+
+        compel_refiner = Compel(
+            tokenizer=[refiner.tokenizer_2],
+            text_encoder=[refiner.text_encoder_2],
+            returned_embeddings_type=ReturnedEmbeddingsType.PENULTIMATE_HIDDEN_STATES_NON_NORMALIZED,
+            requires_pooled=[True],
+        )
+
+        conditioning, pooled = compel_base(prompt)
+        negative_conditioning, negative_pooled = compel_base(negative_prompt)
+
+        conditioning_refiner, pooled_refiner = compel_refiner(prompt)
+        negative_conditioning_refiner, negative_pooled_refiner = compel_refiner(
+            negative_prompt
+        )
+
         #refiner.unet = torch.compile(refiner.unet, mode="reduce-overhead", fullgraph=True)
         # Define how many steps and what % of steps to be run on each experts (80/20) here
 
         n_steps = 35
         high_noise_frac = 0.8
-        image = base(
-            prompt=prompt,
+        img = base(
+            prompt_embeds=conditioning,
+            pooled_prompt_embeds=pooled,
+            negative_prompt_embeds=negative_conditioning,
+            negative_pooled_prompt_embeds=negative_pooled,
             width=width,
             height=height,
             num_inference_steps=n_steps,
             denoising_end=high_noise_frac,
-            negative_prompt=negative_prompt,
             output_type="latent",
         ).images
 
@@ -317,19 +347,24 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
             torch.cuda.ipc_collect()
 
         refiner.to("cuda")
-        # refiner.enable_model_cpu_offload()
+    # refiner.enable_model_cpu_offload()
         image = refiner(
-            prompt=prompt,
+            prompt_embeds=conditioning_refiner,
+            pooled_prompt_embeds=pooled_refiner,
+            negative_prompt_embeds=negative_conditioning_refiner,
+            negative_pooled_prompt_embeds=negative_pooled_refiner,
             num_inference_steps=n_steps,
             denoising_start=high_noise_frac,
-            negative_prompt=negative_prompt,
-            image=image,
+            num_images_per_prompt = 1,
+            image=img,
         ).images[0]
+
         if torch.cuda.is_available():
-            del  refiner
+            del refiner
             gc.collect()
             torch.cuda.empty_cache()
             torch.cuda.ipc_collect()
+
 
     elif model.startswith("lora"):
 
@@ -346,12 +381,12 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
                          'TRANSFORMERS_CACHE'] + "stablediffusionmodels/anyloraCheckpoint_bakedvaeBlessedFp16.safetensors"
 
         model_path = lora_models_folder + "Inkscenery.safetensors"
-        if model == "inks" or model == "pepe" or model == "journey" or model == "ghibli" or model == "gigachad":
+        if model == "inks" or model == "pepe" or model == "journey" or model == "ghibli" or model == "gigachad" or model == "food":
             if model == "inks":
                 # local lora models
                 model_path = lora_models_folder + "Inkscenery.safetensors"
-                #base_model = os.environ[
-                #                 'TRANSFORMERS_CACHE'] + "stablediffusionmodels/dreamshaper_8.safetensors"
+                base_model = os.environ[
+                                 'TRANSFORMERS_CACHE'] + "stablediffusionmodels/dreamshaper_8.safetensors"
                 prompt = "white background, scenery, ink, mountains, water, trees, " + str(prompt).lstrip() + " <lora:ink-0.1-3-b28-bf16-D128-A1-1-ep64-768-DAdaptation-cosine:1>"
 
 
@@ -369,6 +404,11 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
                 # local lora models
                 model_path = lora_models_folder + "Gigachadv1.safetensors"
                 prompt = "Gigachad, " + prompt + " <lora:Gigachadv1:0.8>"
+
+            elif model == "food":
+                # local lora models
+                model_path = lora_models_folder + "foodphoto.safetensors"
+                prompt = "RAW photo, " + prompt + ", foodphoto <lora:foodphoto:1>"
 
             elif model == "pepe":
                 model_path = lora_models_folder + "pepe_frog_v2.safetensors"
@@ -411,6 +451,8 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
                 safety_checker = None, requires_safety_checker = False)
 
         # pipe.unet.load_attn_procs(model_id_or_path)
+        pipe.safety_checker = None
+        pipe.requires_safety_checker = False
         pipe = pipe.to("cuda")
         image = pipe(prompt=prompt, negative_prompt=negative_prompt, width=width,
                      height=height).images[0]
@@ -427,7 +469,9 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
         print("Upscaling by factor " + upscale + " using RealESRGAN")
         uniquefilepath = imageUpscaleRealESRGAN(uniquefilepath, upscale)
 
-    return uploadToHoster(uniquefilepath)
+    result_url = uploadToHoster(uniquefilepath)
+
+    return result_url
 def imageReimagine(url):
     # pip install git+https://github.com/huggingface/diffusers.git transformers accelerate
     import requests
@@ -540,7 +584,7 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
         cfg_scale = float(guidance_scale)
         transformation_strength = 0.58
         cfg_scale = 11.0
-        negative_prompt = negative_prompt +  ' lowres, bad anatomy, bad hands, deformed face, weird eyes, error, missing fingers, cropped, worst quality, low quality, jpeg artifacts, signature, watermark, blurry'
+        #
 
         #prompt = prompt + ", " + ImageToPrompt(url)
         pipe = pipe.to("cuda")
