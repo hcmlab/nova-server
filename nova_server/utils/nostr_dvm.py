@@ -347,7 +347,7 @@ def nostr_server(config):
                     print(str(user))
                     print("Zap received: " + str(invoice_amount) + " Sats from " + str(user[6]))
                     if zapped_event is not None:
-                        if zapped_event.kind() == 65000:  # if a reaction by us got zapped
+                        if zapped_event.kind() == 65000 and not dvmconfig.IS_BOT:  # if a reaction by us got zapped
                             amount = 0
                             job_event = None
                             for tag in zapped_event.tags():
@@ -443,7 +443,7 @@ def nostr_server(config):
                     else:
                         if bid_offer >= amount:
                             send_job_status_reaction(event, "payment-required", False,
-                                                     amount,
+                                                     amount, # bid_offer
                                                      client=client, config=dvmconfig)
                         #else:
                         #    send_job_status_reaction(event, "payment-rejected", False,
