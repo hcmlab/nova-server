@@ -192,7 +192,7 @@ def nostr_server(config):
                                 user = get_from_sql_table(user[0])
                                 if str(nip05) == "" or nip05 is None:
 
-                                    if dvmconfig.REQUIRES_NIP05 and user[1] <= dvmconfig.NEW_USER_BALANCE:
+                                    if dvmconfig.REQUIRES_NIP05 and int(user[1]) <= dvmconfig.NEW_USER_BALANCE:
                                         time.sleep(1.0)
                                         message = (("In order to reduce misuse by bots, a NIP05 address or a balance "
                                                     "higher than the free credits (") + str(dvmconfig.NEW_USER_BALANCE)
@@ -206,7 +206,8 @@ def nostr_server(config):
                                         return
                         except Exception as e:
                             if not user[2]: #whitelisted
-                                update_sql_table(sender, user[1] + get_amount_per_task(get_task(event, client), config=dvmconfig), user[2], user[3], user[4],
+                                amount = int(user[1]) + get_amount_per_task(get_task(event, client), config=dvmconfig)
+                                update_sql_table(sender, amount, user[2], user[3], user[4],
                                                  user[5], user[6],
                                                  Timestamp.now().as_secs())
                                 message = "There was the following error : " + str(e) + ". Credits have been reimbursed"
@@ -225,7 +226,7 @@ def nostr_server(config):
                         task = str(dec_text).split(' ')[0].removeprefix('-')
                         print("Request from " + str(name) + " (" + str(nip05) + ") Task: " + str(task))
                         required_amount = get_amount_per_task(task, config=dvmconfig)
-                        balance = user[1]
+                        balance = int(user[1])
                         is_whitelisted = user[2]
                         is_blacklisted = user[3]
                         if is_blacklisted:
@@ -282,7 +283,7 @@ def nostr_server(config):
                         print("Request from " + str(name) + " (" +str (nip05) + ") Message: " + dec_text)
                         if str(dec_text).startswith("-balance"):
                             user = get_or_add_user(sender)
-                            balance = user[1]
+                            balance = int(user[1])
                             time.sleep(3.0)
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
                                 "Your current balance is " + str(balance) + " Sats. Zap me to add to your balance. "
@@ -380,14 +381,15 @@ def nostr_server(config):
                                     print("[Nostr] Invoice was not paid sufficiently")
 
                             elif not anon and not dvmconfig.PASSIVE_MODE:
-                                update_user_balance(sender, invoice_amount)
+                                update_user_balance(sender, invoice_amount, config=dvmconfig)
                         elif zapped_event.kind() == 65001:
                             print("Someone zapped the result of an exisiting Task. Nice")
                         elif not anon and not dvmconfig.PASSIVE_MODE:
-                            update_user_balance(sender, invoice_amount)
+                            update_user_balance(sender, invoice_amount,config=dvmconfig)
+
                             # a regular note
                     elif not anon and not dvmconfig.PASSIVE_MODE:
-                        update_user_balance(sender, invoice_amount)
+                        update_user_balance(sender, invoice_amount,config=dvmconfig)
 
                 except Exception as e:
                     print(f"Error during content decryption: {e}")
@@ -845,29 +847,33 @@ def nostr_server(config):
     client.handle_notifications(NotificationHandler())
 
     while True:
-        for job in job_list:
-            if job.bolt11 != "" and job.payment_hash != "" and not job.is_paid:
-                if str(check_bolt11_ln_bits_is_paid(job.payment_hash)) == "True":
-                    job.is_paid = True
-                    event = get_event_by_id(job.event_id, config=dvmconfig)
-                    if event != None:
-                        send_job_status_reaction(event, "processing", True, 0, client=client,  config=dvmconfig)
-                        do_work(event, is_from_bot=False)
-                elif check_bolt11_ln_bits_is_paid(job.payment_hash) is None: #invoice expired
+        if not dvmconfig.IS_BOT:
+            for job in job_list:
+                if job.bolt11 != "" and job.payment_hash != "" and not job.is_paid:
+                    if str(check_bolt11_ln_bits_is_paid(job.payment_hash)) == "True":
+                        job.is_paid = True
+                        event = get_event_by_id(job.event_id, config=dvmconfig)
+                        if event != None:
+                            send_job_status_reaction(event, "processing", True, 0, client=client,  config=dvmconfig)
+                            #job_list.remove(job)
+                            print("do work from joblist")
+                            #job_list.remove(job)
+                            do_work(event, is_from_bot=False)
+                    elif check_bolt11_ln_bits_is_paid(job.payment_hash) is None: #invoice expired
+                        job_list.remove(job)
+                        #event = get_event_by_id(job.event_id)
+                        #send_job_status_reaction(event, "invoice-expired", False, 0, client=client)
+
+                if Timestamp.now().as_secs() > job.expires:
                     job_list.remove(job)
-                    #event = get_event_by_id(job.event_id)
-                    #send_job_status_reaction(event, "invoice-expired", False, 0, client=client)
 
-            if Timestamp.now().as_secs() > job.expires:
-                job_list.remove(job)
+            for job in jobs_on_hold_list:
+                if check_event_has_not_unifinished_job_input(job.event, False, client=client, dvmconfig=dvmconfig):
+                    handle_nip90_job_event(job.event)
+                    jobs_on_hold_list.remove(job)
 
-        for job in jobs_on_hold_list:
-            if check_event_has_not_unifinished_job_input(job.event, False, client=client, dvmconfig=dvmconfig):
-                handle_nip90_job_event(job.event)
-                jobs_on_hold_list.remove(job)
-
-            if Timestamp.now().as_secs() > job.timestamp + 60*20: #remove jobs to look for after 20 minutes..
-                jobs_on_hold_list.remove(job)
+                if Timestamp.now().as_secs() > job.timestamp + 60*20: #remove jobs to look for after 20 minutes..
+                    jobs_on_hold_list.remove(job)
 
 
         #if len(job_list) > 0:
@@ -1241,7 +1247,8 @@ def respond_to_error(content, originaleventstr, is_from_bot=False, dvm_key=None 
         user = get_from_sql_table(sender)
         is_whitelisted = user[2]
         if not is_whitelisted:
-            update_sql_table(sender, user[1] + get_amount_per_task(task), user[2], user[3], user[4], user[5], user[6],
+            amount = int(user[1]) + get_amount_per_task(task)
+            update_sql_table(sender, amount, user[2], user[3], user[4], user[5], user[6],
                              Timestamp.now().as_secs())
             message = "There was the following error : " + content + ". Credits have been reimbursed"
         else:
@@ -1335,6 +1342,12 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
                 bolt11, payment_hash = create_bolt11_ln_bits(amount)
             except Exception as e:
                 print(e)
+        int
+
+
+
+
+    if not any(x.event_id == original_event.id().to_hex() for x in job_list):
         job_list.append(
             JobToWatch(event_id=original_event.id().to_hex(), timestamp=original_event.created_at().as_secs(), amount=amount,
                        is_paid=is_paid,
@@ -2199,10 +2212,10 @@ def list_db():
         print(e)
 
 
-def update_user_balance(sender, sats):
+def update_user_balance(sender, sats, config=None):
     user = get_from_sql_table(sender)
     if user is None:
-        add_to_sql_table(sender, (sats + dvmconfig.NEW_USER_BALANCE), False, False,
+        add_to_sql_table(sender, (int(sats) + dvmconfig.NEW_USER_BALANCE), False, False,
                          "", "", "", Timestamp.now().as_secs())
         print("NEW USER: " + sender + " Zap amount: " + str(sats) + " Sats.")
     else:
@@ -2218,6 +2231,18 @@ def update_user_balance(sender, sats):
         update_sql_table(sender, new_balance, user[2], user[3], user[4], user[5], user[6],
                          Timestamp.now().as_secs())
         print("UPDATE USER BALANCE: " + user[6] + " Zap amount: " + str(sats) + " Sats.")
+
+
+        if config is not None:
+            keys = Keys.from_sk_str(config.PRIVATE_KEY)
+            time.sleep(1.0)
+
+            message = ("Added "+ str(sats) + " Sats to balance. New balance is " + str(new_balance) + " Sats. " )
+
+
+            evt = EventBuilder.new_encrypted_direct_msg(keys, PublicKey.from_hex(sender), message,
+                                                        None).to_event(keys)
+            send_event(evt, key=keys)
 
 
 def get_or_add_user(sender):
@@ -2243,13 +2268,13 @@ def admin_make_database_updates(config=None):
     unwhitelistuser = False
     blacklistuser = False
     addbalance = False
-    additional_balance = 200
+    additional_balance = 500
 
 
 
-    publickey = PublicKey.from_bech32("npub1440t9up2je69n2taqsdyfjkpfn0luqu5efh6uj9hkd2wk8z04cvql4amll").to_hex()
+    #publickey = PublicKey.from_bech32("npub1at8xw328h5458285f0w6l5wqwsxxfyrj6wsafu5e3hsvyrgtdgysz6zckp").to_hex()
     # use this if you have the npub
-    #publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
+    publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
 
     if whitelistuser and dvmconfig.IS_BOT:
         user = get_from_sql_table(publickey)
@@ -2269,7 +2294,13 @@ def admin_make_database_updates(config=None):
     if addbalance and dvmconfig.IS_BOT:
 
         user = get_from_sql_table(publickey)
-        update_sql_table(user[0], user[1] + additional_balance, user[2], user[3], user[4], user[5], user[6], user[7])
+        update_sql_table(user[0], (int(user[1]) + additional_balance), user[2], user[3], user[4], user[5], user[6], user[7])
+        time.sleep(1.0)
+        message = str(additional_balance) + " Sats have been added to your balance. Your new balance is " + str((int(user[1]) + additional_balance)) + " Sats."
+        keys = Keys.from_sk_str(config.PRIVATE_KEY)
+        evt = EventBuilder.new_encrypted_direct_msg(keys, PublicKey.from_hex(publickey) , message,
+                                                    None).to_event(keys)
+        send_event(evt, key=keys)
 
     if deleteuser and dvmconfig.IS_BOT:
         delete_from_sql_table(publickey)
