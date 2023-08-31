@@ -55,7 +55,7 @@ class DVMConfig:
     RELAY_LIST = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol",
                   "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
     RELAY_TIMEOUT = 1
-    LNBITS_INVOICE_KEY = 'bfdfb5ecfc0743daa08749ce58abea74'
+    LNBITS_INVOICE_KEY = "" # 'bfdfb5ecfc0743daa08749ce58abea74'
     LNBITS_URL = 'https://lnbits.novaannotation.com'
     REQUIRES_NIP05: bool = False
 
@@ -100,17 +100,17 @@ class RequiredJobToWatch:
     event: Event
     timestamp: int
 
+
+
 job_list = []
 jobs_on_hold_list = []
 dvmconfig = DVMConfig()
 
 # init_logger(LogLevel.DEBUG)
 def nostr_server(config):
-    global job_list
     dvmconfig = config
 
     keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
-
     sk = keys.secret_key()
     pk = keys.public_key()
 
@@ -156,8 +156,6 @@ def nostr_server(config):
     admin_make_database_updates(config=dvmconfig)
 
     class NotificationHandler(HandleNotification):
-
-
         def handle(self, relay_url, event):
             if 65002 <= event.kind() <= 66000:
                 print(f"[Nostr] Received new NIP90 Job Request from {relay_url}: {event.as_json()}")
@@ -301,7 +299,7 @@ def nostr_server(config):
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
                                  "#Bitcoin? There is no second best.\n\nhttps://cdn.nostr.build/p/mYLv.mp4",
                                   event.id()).to_event(keys)
-                            send_event(evt)
+                            send_event(evt, key=keys)
                         elif not str(dec_text).startswith("-"):
                             # Contect LLAMA Server in parallel to cue.
                             answer = LLAMA2(dec_text, event.pubkey().to_hex())
@@ -348,7 +346,7 @@ def nostr_server(config):
                     print(str(user))
                     print("Zap received: " + str(invoice_amount) + " Sats from " + str(user[6]))
                     if zapped_event is not None:
-                        if zapped_event.kind() == 65000 and not dvmconfig.IS_BOT:  # if a reaction by us got zapped
+                        if zapped_event.kind() == 65000:  # if a reaction by us got zapped
                             amount = 0
                             job_event = None
                             for tag in zapped_event.tags():
@@ -380,8 +378,6 @@ def nostr_server(config):
                                                              False, invoice_amount, client=client, config=dvmconfig)
                                     print("[Nostr] Invoice was not paid sufficiently")
 
-                            elif not anon and not dvmconfig.PASSIVE_MODE:
-                                update_user_balance(sender, invoice_amount, config=dvmconfig)
                         elif zapped_event.kind() == 65001:
                             print("Someone zapped the result of an exisiting Task. Nice")
                         elif not anon and not dvmconfig.PASSIVE_MODE:
@@ -953,7 +949,7 @@ def send_event(event, client=None, key=None):
             relays = tag.as_vec()[1].split(',')
 
     if client is None:
-    
+
         if key is None:
             key = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
         opts = Options().wait_for_ok(False)
@@ -1347,8 +1343,6 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
                 bolt11, payment_hash = create_bolt11_ln_bits(amount)
             except Exception as e:
                 print(e)
-        int
-
 
 
 
@@ -1658,7 +1652,6 @@ def parse_bot_command_to_event(dec_text, sender):
         j_tag = Tag.parse(["j", "chat"])
         i_tag = Tag.parse(["i", text, "text"])
         return [j_tag, i_tag]
-
 
 
 def check_event_has_not_unifinished_job_input(nevent, append, client, dvmconfig):
@@ -2282,7 +2275,7 @@ def admin_make_database_updates(config=None):
     listdatabase = False
     deleteuser = False
     whitelistuser = False
-    unwhitelistuser = False
+    unwhitelistuser = True
     blacklistuser = False
     addbalance = False
     additional_balance = 50
@@ -2328,7 +2321,7 @@ def admin_make_database_updates(config=None):
 
     if listdatabase:
         list_db()
-        
+
     if rebroadcast_nip89 and not dvmconfig.IS_BOT:
         nip89_announce_tasks()
 
