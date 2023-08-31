@@ -375,6 +375,10 @@ def nostr_server(config):
                                                 job_list.pop(index)
                                                 print("Starting work...")
                                                 do_work(job_event, is_from_bot=False)
+                                        else:
+                                            print("Job not in List, but starting work...")
+                                            do_work(job_event, is_from_bot=False)
+
                                     else:
                                         send_job_status_reaction(job_event, "payment-rejected",
                                                                  False, invoice_amount, client=client, config=dvmconfig)
@@ -2278,8 +2282,8 @@ def admin_make_database_updates(config=None):
     cleardb = False
     listdatabase = False
     deleteuser = False
-    whitelistuser = False
-    unwhitelistuser = True
+    whitelistuser = True
+    unwhitelistuser = False
     blacklistuser = False
     addbalance = False
     additional_balance = 50
@@ -2289,7 +2293,7 @@ def admin_make_database_updates(config=None):
     #publickey = PublicKey.from_bech32("npub1at8xw328h5458285f0w6l5wqwsxxfyrj6wsafu5e3hsvyrgtdgysz6zckp").to_hex()
     # use this if you have the npub
     publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
-    publickey = "4564d670cc2b516c0173a27814abe5d8ca60abc8f883ac82b47b5c980877484b"
+    #publickey = "4564d670cc2b516c0173a27814abe5d8ca60abc8f883ac82b47b5c980877484b"
 
     if whitelistuser and dvmconfig.IS_BOT:
         user = get_from_sql_table(publickey)
