@@ -344,47 +344,51 @@ def nostr_server(config):
                                         print("Anonymous Zap received. Unlucky, I don't know from whom, and never will")
                     user = get_or_add_user(sender)
                     print(str(user))
-                    print("Zap received: " + str(invoice_amount) + " Sats from " + str(user[6]))
+
                     if zapped_event is not None:
                         if zapped_event.kind() == 65000:  # if a reaction by us got zapped
-                            amount = 0
-                            job_event = None
-                            for tag in zapped_event.tags():
-                                if tag.as_vec()[0] == 'amount':
-                                    amount = int(float(tag.as_vec()[1]) / 1000)
-                                elif tag.as_vec()[0] == 'e':
-                                    job_event = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
+                            if not dvmconfig.IS_BOT:
+                                print("Zap received for NIP90 task: " + str(invoice_amount) + " Sats from " + str(user[6]))
+                                amount = 0
+                                job_event = None
+                                for tag in zapped_event.tags():
+                                    if tag.as_vec()[0] == 'amount':
+                                        amount = int(float(tag.as_vec()[1]) / 1000)
+                                    elif tag.as_vec()[0] == 'e':
+                                        job_event = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
 
-                            task_supported, task, duration = check_task_is_supported(job_event, client=client, get_duration=False, config=dvmconfig)
-                            if job_event is not None and task_supported:
-                                if amount <= invoice_amount:
-                                    print("[Nostr] Payment-request fulfilled...")
-                                    send_job_status_reaction(job_event, "processing", client=client, config=dvmconfig)
-                                    indices = [i for i, x in enumerate(job_list) if x.event_id == job_event.id().to_hex()]
-                                    index = -1
-                                    if len(indices) > 0:
-                                        index = indices[0]
-                                    if index > -1:
-                                        if job_list[index].is_processed:  # If payment-required appears after processing
-                                            job_list[index].is_paid = True
-                                            check_event_status(job_list[index].result, str(job_event.as_json()), dvm_key=dvmconfig.PRIVATE_KEY)
-                                        elif not (job_list[index]).is_processed:
-                                            # If payment-required appears before processing
-                                            job_list.pop(index)
-                                            print("Starting work...")
-                                            do_work(job_event, is_from_bot=False)
-                                else:
-                                    send_job_status_reaction(job_event, "payment-rejected",
-                                                             False, invoice_amount, client=client, config=dvmconfig)
-                                    print("[Nostr] Invoice was not paid sufficiently")
+                                task_supported, task, duration = check_task_is_supported(job_event, client=client, get_duration=False, config=dvmconfig)
+                                if job_event is not None and task_supported:
+                                    if amount <= invoice_amount:
+                                        print("[Nostr] Payment-request fulfilled...")
+                                        send_job_status_reaction(job_event, "processing", client=client, config=dvmconfig)
+                                        indices = [i for i, x in enumerate(job_list) if x.event_id == job_event.id().to_hex()]
+                                        index = -1
+                                        if len(indices) > 0:
+                                            index = indices[0]
+                                        if index > -1:
+                                            if job_list[index].is_processed:  # If payment-required appears after processing
+                                                job_list[index].is_paid = True
+                                                check_event_status(job_list[index].result, str(job_event.as_json()), dvm_key=dvmconfig.PRIVATE_KEY)
+                                            elif not (job_list[index]).is_processed:
+                                                # If payment-required appears before processing
+                                                job_list.pop(index)
+                                                print("Starting work...")
+                                                do_work(job_event, is_from_bot=False)
+                                    else:
+                                        send_job_status_reaction(job_event, "payment-rejected",
+                                                                 False, invoice_amount, client=client, config=dvmconfig)
+                                        print("[Nostr] Invoice was not paid sufficiently")
 
                         elif zapped_event.kind() == 65001:
                             print("Someone zapped the result of an exisiting Task. Nice")
                         elif not anon and not dvmconfig.PASSIVE_MODE:
+                            print("Note Zap received for Bot balance: " + str(invoice_amount) + " Sats from " + str(user[6]))
                             update_user_balance(sender, invoice_amount,config=dvmconfig)
 
                             # a regular note
                     elif not anon and not dvmconfig.PASSIVE_MODE:
+                        print("Profile Zap received for Bot balance: " + str(invoice_amount) + " Sats from " + str(user[6]))
                         update_user_balance(sender, invoice_amount,config=dvmconfig)
 
                 except Exception as e:
