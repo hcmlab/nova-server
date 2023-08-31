@@ -6,6 +6,7 @@ import urllib
 from dataclasses import dataclass
 from datetime import timedelta
 from sqlite3 import Error
+from types import NoneType
 from urllib.parse import urlparse
 
 from bech32 import bech32_decode, convertbits
@@ -68,8 +69,8 @@ class DVMConfig:
     COSTPERUNIT_IMAGEGENERATION: int = 50  # Generate / Transform one image
     COSTPERUNIT_IMAGETRANSFORMING: int = 50  # Generate / Transform one image
     COSTPERUNIT_IMAGEUPSCALING: int = 25  # This takes quite long..
-    COSTPERUNIT_INACTIVE_FOLLOWING: int = 100  # This takes quite long..
-    COSTPERUNIT_NOTE_RECOMMENDATION: int = 0  # testing
+    COSTPERUNIT_INACTIVE_FOLLOWING: int = 500  # This takes quite long..
+    COSTPERUNIT_NOTE_RECOMMENDATION: int = 100  # testing
     COSTPERUNIT_OCR: int = 20
     NIP89s: list = []
 
@@ -253,9 +254,8 @@ def nostr_server(config):
                             send_event(evt, key=keys)
 
                             #build temp event to work with
-                            tags = parse_bot_command_to_event(dec_text)
+                            tags = parse_bot_command_to_event(dec_text, event.pubkey().to_hex())
                             tags.append(Tag.parse(["p", event.pubkey().to_hex()]))
-                            tags.append(Tag.parse(["y", event.pubkey().to_hex()]))
                             jobevt = EventBuilder(4, "", tags).to_event(keys)
 
 
@@ -784,12 +784,13 @@ def nostr_server(config):
             number = "10"
             user = event.pubkey().to_hex()
             for tag in event.tags():
-
-                if tag.as_vec()[0] == 'y':
-                    user = tag.as_vec()[1]
                 if tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == 'since':
                         days = tag.as_vec()[2]
+                    elif tag.as_vec()[1] == 'user':
+                        user = tag.as_vec()[2]
+                        if user.startswith("npub"):
+                            user = PublicKey.from_bech32(user).to_hex()
             request_form["optStr"] = 'user=' + user + ';since=' + days + ';is_bot=' + str(is_bot)
 
         elif task == "note-recommendation":
@@ -798,11 +799,15 @@ def nostr_server(config):
             days = "1"
             user = event.pubkey().to_hex()
             for tag in event.tags():
-                if tag.as_vec()[0] == 'y':
-                    user = tag.as_vec()[1]
                 if tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == 'since':
                         days = tag.as_vec()[2]
+                    elif tag.as_vec()[1] == 'user':
+                         user = tag.as_vec()[2]
+                         if user.startswith("npub"):
+                                user = PublicKey.from_bech32(user).to_hex()
+
+
             request_form["optStr"] = 'user=' + user + ';since=' + days + ';is_bot=' + str(is_bot)
 
         return request_form
@@ -1427,6 +1432,8 @@ def post_process_result(anno, original_event):
             print(result)
             result = replace_broken_words(result)
             return result
+    elif isinstance(anno, NoneType):
+        return "An error occured"
     else:
         result = replace_broken_words(anno)
         return result
@@ -1462,7 +1469,7 @@ def get_bot_help_text():
             "You can zap any of my notes/dms or my profile to top up your balance. I also understand Zapplepay.")
 
 
-def parse_bot_command_to_event(dec_text):
+def parse_bot_command_to_event(dec_text, sender):
     dec_text = dec_text.replace("\n", " ")
     if str(dec_text).startswith("-text-to-image"):
         command = dec_text.replace("-text-to-image ", "")
@@ -1613,29 +1620,39 @@ def parse_bot_command_to_event(dec_text):
 
     elif str(dec_text).startswith("-inactive-following"):
         since_days = "30"
+        user = sender
         command = dec_text.replace("-inactive-following", "")
         split = command.split(" -")
         for i in split:
             if i.startswith("sincedays "):
                 since_days = i.replace("sincedays ", "")
                 print("Since days: " + str(since_days))
+            elif i.startswith("user "):
+                user = i.replace("user ", "")
+                print("User: " + str(user))
 
         param_tag_since = Tag.parse(["param", "since", since_days])
+        param_tag_user = Tag.parse(["param", "user", user])
         j_tag = Tag.parse(["j", "inactive-following"])
-        return [j_tag, param_tag_since]
+        return [j_tag, param_tag_since, param_tag_user]
 
     elif str(dec_text).startswith("-note-recommendation"):
         since_days = "1"
+        user = sender
         command = dec_text.replace("-note-recommendation", "")
         split = command.split(" -")
         for i in split:
             if i.startswith("sincedays "):
                 since_days = i.replace("sincedays ", "")
                 print("Since days: " + str(since_days))
+            elif i.startswith("user "):
+                user = i.replace("user ", "")
+                print("User: " + str(user))
 
         param_tag_since = Tag.parse(["param", "since", since_days])
+        param_tag_user = Tag.parse(["param", "user", user])
         j_tag = Tag.parse(["j", "note-recommendation"])
-        return [j_tag, param_tag_since]
+        return [j_tag, param_tag_since, param_tag_user]
     else:
         text = dec_text
         j_tag = Tag.parse(["j", "chat"])
@@ -2268,13 +2285,14 @@ def admin_make_database_updates(config=None):
     unwhitelistuser = False
     blacklistuser = False
     addbalance = False
-    additional_balance = 500
+    additional_balance = 50
 
 
 
     #publickey = PublicKey.from_bech32("npub1at8xw328h5458285f0w6l5wqwsxxfyrj6wsafu5e3hsvyrgtdgysz6zckp").to_hex()
     # use this if you have the npub
     publickey = "99bb5591c9116600f845107d31f9b59e2f7c7e09a1ff802e84f1d43da557ca64"
+    publickey = "4564d670cc2b516c0173a27814abe5d8ca60abc8f883ac82b47b5c980877484b"
 
     if whitelistuser and dvmconfig.IS_BOT:
         user = get_from_sql_table(publickey)
