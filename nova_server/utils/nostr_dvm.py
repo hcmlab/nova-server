@@ -272,7 +272,7 @@ def nostr_server(config):
                             print("payment-required")
                             time.sleep(3.0)
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
-                                "Balance required, please zap me with at least " + str(required_amount)
+                                "Balance required, please zap me with at least " + str(int(required_amount-balance))
                                 + " Sats, then try again.",
                                 event.id()).to_event(keys)
                             send_event(evt, key=keys)
