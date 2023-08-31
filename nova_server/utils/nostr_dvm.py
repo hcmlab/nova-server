@@ -1064,6 +1064,11 @@ def get_task(event, client):
     else:
         return "unknown type"
 
+
+
+
+
+
 def check_task_is_supported(event, client, get_duration = False, config=None):
     dvmconfig = config
     input_value = ""
@@ -2282,7 +2287,7 @@ def admin_make_database_updates(config=None):
     cleardb = False
     listdatabase = False
     deleteuser = False
-    whitelistuser = True
+    whitelistuser = False
     unwhitelistuser = False
     blacklistuser = False
     addbalance = False
