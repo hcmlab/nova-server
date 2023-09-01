@@ -199,6 +199,14 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
     elif model.__contains__("crystalclear"):
         model = os.environ[
                     'TRANSFORMERS_CACHE'] + "stablediffusionmodels/crystalClearXL.safetensors"
+    elif model.__contains__("juggernaut"):
+        model = os.environ[
+                    'TRANSFORMERS_CACHE'] + "stablediffusionmodels/juggernautXL_version2.safetensors"
+    elif model.__contains__("timeless"):
+        model = os.environ[
+                    'TRANSFORMERS_CACHE'] + "stablediffusionmodels/copaxTimelessxlSDXL1_v5.safetensors"
+
+
     else:
         model = "stabilityai/stable-diffusion-xl-base-1.0"
 
@@ -214,7 +222,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
         mheight = 768
 
 
-    if model == "stabilityai/stable-diffusion-xl-base-1.0" or  model.__contains__("dreamshaperXL") or model.__contains__("nightvisionXL") or model.__contains__("protovisionXL") or model.__contains__("dynavisionXL") or model.__contains__("sdvn6Realxl_detailface") or model.__contains__("fantasticCharacters_v55")  or model.__contains__("zavychromaxl_v10") or model.__contains__("crystalClearXL"):
+    if model == "stabilityai/stable-diffusion-xl-base-1.0" or  model.__contains__("dreamshaperXL") or model.__contains__("nightvisionXL") or model.__contains__("protovisionXL") or model.__contains__("dynavisionXL") or model.__contains__("sdvn6Realxl_detailface") or model.__contains__("fantasticCharacters_v55")  or model.__contains__("zavychromaxl_v10") or model.__contains__("crystalClearXL") or model.__contains__("juggernautXL_version2") or model.__contains__("copaxTimelessxlSDXL1_v5"):
         mwidth = 1024
         mheight = 1024
 
@@ -236,7 +244,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
     if (model == "stabilityai/stable-diffusion-xl-base-1.0" or model.__contains__("dreamshaperXL") or model.__contains__(
             "nightvisionXL") or model.__contains__("protovisionXL") or model.__contains__(
             "dynavisionXL") or model.__contains__("sdvn6Realxl_detailface") or model.__contains__("fantasticCharacters_v55")
-            or model.__contains__("zavychromaxl_v10") or model.__contains__("crystalClearXL")):
+            or model.__contains__("zavychromaxl_v10") or model.__contains__("crystalClearXL") or model.__contains__("juggernautXL_version2") or model.__contains__("copaxTimelessxlSDXL1_v5")):
         print("Loading model...")
         if model == "stabilityai/stable-diffusion-xl-base-1.0":
 
@@ -282,6 +290,20 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
             if lora == "ink_punk_xl":
                 prompt = "inkpunk style, " + prompt + "  <lora:IPXL_v1:0.5>"
                 existing_lora = True
+
+            if lora == "real_art_xl":
+                prompt = prompt + " <lora:xl_real_beta1:0.8>"
+                existing_lora = True
+
+            if lora == "more_art_xl":
+                prompt = prompt + " <lora:xl_more_art-full_v1:1>"
+                existing_lora = True
+
+            if lora == "2077_style_xl":
+                prompt = "cyberpunk, " +  prompt + " <lora:2077_Style:1.0>"
+                existing_lora = True
+
+
 
 
 
@@ -937,6 +959,9 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
     #        .replace("Already,", ""))
     #print(text)
     keywords = text.split(', ')
+    keywords = [x for x in keywords if x]
+
+
 
     print(keywords)
 
@@ -970,6 +995,8 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
     print("Notes found: " + str(len(notes)))
     j=0
     for note in notes:
+
+
         j= j+1
         res = [ele for ele in keywords if(ele.replace(',',"") in note.content())]
         if bool(res):
@@ -993,7 +1020,9 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
         if is_bot:
             i = i+1
             notelist = notelist + "nostr:" + EventId.from_hex(k).to_bech32() + "\n\n"
-            if i == 20:
+
+            if i == 25:
+                notelist = notelist + "\n\nBased on keywords: " + keywords
                 break
         else:
             p_tag = Tag.parse(["p", k])
@@ -1002,7 +1031,7 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
     if is_bot:
         return notelist
     else:
-        return json.dumps(resultlist[:20])
+        return json.dumps(resultlist[:25])
 
 # take second element for sort
 def takeSecond(elem):
@@ -1084,6 +1113,7 @@ def InactiveNostrFollowers(user, notactivesincedays, is_bot):
             if (is_bot):
 
                 inactivefollowerslist = inactivefollowerslist + "nostr:" + PublicKey.from_hex(k).to_bech32() + "\n"
+
             else:
                 p_tag = Tag.parse(["p", k])
                 resultlist.append(p_tag.as_vec())
