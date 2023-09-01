@@ -70,7 +70,7 @@ class DVMConfig:
     COSTPERUNIT_IMAGETRANSFORMING: int = 50  # Generate / Transform one image
     COSTPERUNIT_IMAGEUPSCALING: int = 25  # This takes quite long..
     COSTPERUNIT_INACTIVE_FOLLOWING: int = 200  # This takes quite long..
-    COSTPERUNIT_NOTE_RECOMMENDATION: int = 100  # testing
+    COSTPERUNIT_NOTE_RECOMMENDATION: int = 0  # testing
     COSTPERUNIT_OCR: int = 20
     NIP89s: list = []
 
@@ -814,11 +814,6 @@ def nostr_server(config):
             request_form["optStr"] = 'user=' + user + ';since=' + days + ';is_bot=' + str(is_bot)
 
         return request_form
-
-
-
-
-
 
 
     def do_work(job_event, is_from_bot=False):
