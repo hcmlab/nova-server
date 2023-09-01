@@ -908,7 +908,8 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
 
     ns = SimpleNamespace()
     inactivefollowerslist = ""
-    relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
+    relay_list = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine",
+                  "wss://relay.nostfiles.dev", "wss://nostr.mom", "wss://nostr.oxtr.dev", "wss://relay.nostr.bg", "wss://relay.f7z.io"]
     relaytimeout = 5
     step = 20
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
@@ -1001,7 +1002,7 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
     def scanList(noteid: EventId, instance, i, length):
 
         relay_list = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine",
-                      "wss://relay.nostfiles.dev"]
+                      "wss://relay.nostfiles.dev", "wss://nostr.mom", "wss://nostr.oxtr.dev", "wss://relay.nostr.bg", "wss://relay.f7z.io"]
         keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
         opts = Options().wait_for_ok(wait_for_ok).wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
         cli = Client.with_opts(keys, opts)
@@ -1079,7 +1080,8 @@ def InactiveNostrFollowers(user, notactivesincedays, is_bot, dvmkey):
 
     detailscan = False
     inactivefollowerslist = ""
-    relay_list = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine", "wss://relay.nostfiles.dev"]
+    relay_list = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine",
+                  "wss://relay.nostfiles.dev", "wss://nostr.mom", "wss://nostr.oxtr.dev", "wss://relay.nostr.bg", "wss://relay.f7z.io"]
     relaytimeout = 5
     step = 25
     keys = Keys.from_sk_str(dvmkey)
@@ -1122,7 +1124,7 @@ def InactiveNostrFollowers(user, notactivesincedays, is_bot, dvmkey):
         def scanList(followings, instance, i, st, notactivesince):
             from nostr_sdk import Filter
             relay_list = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine",
-                          "wss://relay.nostfiles.dev"]
+                          "wss://relay.nostfiles.dev", "wss://nostr.mom", "wss://nostr.oxtr.dev", "wss://relay.nostr.bg", "wss://relay.f7z.io"]
             keys = Keys.from_sk_str(dvmkey)
             opts = Options().wait_for_ok(wait_for_ok).wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
             cli = Client.with_opts(keys, opts)
@@ -1131,14 +1133,15 @@ def InactiveNostrFollowers(user, notactivesincedays, is_bot, dvmkey):
             cli.connect()
 
             filters = []
-            for i in range(i, i + st+1):
+            for i in range(i + st):
                 filter1 = Filter().author(followings[i]).since(notactivesince).limit(1)
                 filters.append(filter1)
 
-            notes = cli.get_events_of(filters, timedelta(seconds=8))
+            authors = cli.get_events_of(filters, timedelta(seconds=8))
 
-            for note in notes:
-                instance.dic[note.pubkey().to_hex()] = "True"
+            for author in authors:
+                instance.dic[author.pubkey().to_hex()] = "True"
+
             print(str(i) + "/" + str(len(followings)))
             cli.disconnect()
 
@@ -1154,7 +1157,7 @@ def InactiveNostrFollowers(user, notactivesincedays, is_bot, dvmkey):
 
         #last to step size
         missing_scans = (len(followings) - i)
-        args = [followings, ns, i, missing_scans-1, notactivesince]
+        args = [followings, ns, i, missing_scans, notactivesince]
         t = Thread(target=scanList, args=args)
         threads.append(t)
 
@@ -1168,8 +1171,6 @@ def InactiveNostrFollowers(user, notactivesincedays, is_bot, dvmkey):
 
         filters = []
         result = {k for (k, v) in ns.dic.items() if v == "False"}
-
-
 
         if len(result) == 0:
             print("Not found")

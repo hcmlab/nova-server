@@ -56,8 +56,8 @@ class DVMConfig:
 
 
     USERDB = "W:\\nova\\tools\\AnnoDBbackup\\nostrzaps.db"
-    RELAY_LIST = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol",
-                  "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
+    RELAY_LIST = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine",
+                  "wss://relay.nostfiles.dev", "wss://nostr.mom", "wss://nostr.oxtr.dev", "wss://relay.nostr.bg", "wss://relay.f7z.io"]
     RELAY_TIMEOUT = 5
     LNBITS_INVOICE_KEY = "" # 'bfdfb5ecfc0743daa08749ce58abea74'
     LNBITS_URL = 'https://lnbits.novaannotation.com'
