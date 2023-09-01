@@ -35,7 +35,8 @@ from nova_utils.interfaces.server_module import Trainer as iTrainer
 os.environ['TRANSFORMERS_CACHE'] = 'W:/nova/cml/models/trainer/.cache/'
 
 predict_static = Blueprint("predict_static", __name__)
-
+wait_for_ok = True
+wait_for_send = True
 
 @predict_static.route("/predict_static", methods=["POST"])
 def predict_static_thread():
@@ -911,7 +912,7 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
     relaytimeout = 5
     step = 20
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    opts = Options().wait_for_ok(False)
+    opts = Options().wait_for_ok(wait_for_ok).wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
     cl = Client.with_opts(keys, opts)
     for relay in relay_list:
         cl.add_relay(relay)
@@ -1002,7 +1003,7 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
         relay_list = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine",
                       "wss://relay.nostfiles.dev"]
         keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-        opts = Options().wait_for_ok(False)
+        opts = Options().wait_for_ok(wait_for_ok).wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
         cli = Client.with_opts(keys, opts)
         for relay in relay_list:
             cli.add_relay(relay)
@@ -1082,7 +1083,7 @@ def InactiveNostrFollowers(user, notactivesincedays, is_bot, dvmkey):
     relaytimeout = 5
     step = 25
     keys = Keys.from_sk_str(dvmkey)
-    opts = Options().wait_for_ok(False)
+    opts = Options().wait_for_ok(wait_for_ok).wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
     cl = Client.with_opts(keys, opts)
 
     for relay in relay_list:
@@ -1123,7 +1124,7 @@ def InactiveNostrFollowers(user, notactivesincedays, is_bot, dvmkey):
             relay_list = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine",
                           "wss://relay.nostfiles.dev"]
             keys = Keys.from_sk_str(dvmkey)
-            opts = Options().wait_for_ok(False)
+            opts = Options().wait_for_ok(wait_for_ok).wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
             cli = Client.with_opts(keys, opts)
             for relay in relay_list:
                 cli.add_relay(relay)
@@ -1134,7 +1135,7 @@ def InactiveNostrFollowers(user, notactivesincedays, is_bot, dvmkey):
                 filter1 = Filter().author(followings[i]).since(notactivesince).limit(1)
                 filters.append(filter1)
 
-            notes = cli.get_events_of(filters, timedelta(seconds=6))
+            notes = cli.get_events_of(filters, timedelta(seconds=8))
 
             for note in notes:
                 instance.dic[note.pubkey().to_hex()] = "True"

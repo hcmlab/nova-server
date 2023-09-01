@@ -19,7 +19,7 @@ from Crypto.Cipher import AES
 
 from decord import AudioReader, cpu
 from nostr_sdk import PublicKey, Keys, Client, Tag, Event, EventBuilder, Filter, HandleNotification, Timestamp, \
-    nip04_decrypt, EventId, Metadata, nostr_sdk, Alphabet, ClientMessage, Options
+    nip04_decrypt, EventId, Metadata, nostr_sdk, Alphabet, ClientMessage, Options, init_logger, LogLevel
 
 import time
 
@@ -41,6 +41,10 @@ import sqlite3
 # purge database and files from time to time?
 # Show preview of longer transcriptions, then ask for zap
 
+use_logger= False
+if use_logger:
+    init_logger(LogLevel.DEBUG)
+
 class DVMConfig:
     SUPPORTED_TASKS = [] # ["inactive-following", "note-recommendation", "speech-to-text", "summarization", "translation", "text-to-image", "image-to-image", "image-upscale","image-to-text", "image-reimagine"]
     PRIVATE_KEY: str
@@ -54,7 +58,7 @@ class DVMConfig:
     USERDB = "W:\\nova\\tools\\AnnoDBbackup\\nostrzaps.db"
     RELAY_LIST = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol",
                   "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
-    RELAY_TIMEOUT = 1
+    RELAY_TIMEOUT = 5
     LNBITS_INVOICE_KEY = "" # 'bfdfb5ecfc0743daa08749ce58abea74'
     LNBITS_URL = 'https://lnbits.novaannotation.com'
     REQUIRES_NIP05: bool = False
@@ -961,7 +965,7 @@ def send_event(event, client=None, key=None):
         if key is None:
             key = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
         print(key.secret_key().to_hex())
-        opts = Options().wait_for_ok(False)
+        opts = Options().wait_for_ok(True).wait_for_send(True).send_timeout(timedelta(seconds=5))
         #client = Client(key)
         client = Client.with_opts(key, opts)
         for relay in dvmconfig.RELAY_LIST:
