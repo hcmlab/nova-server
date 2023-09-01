@@ -69,8 +69,8 @@ class DVMConfig:
     COSTPERUNIT_IMAGEGENERATION: int = 50  # Generate / Transform one image
     COSTPERUNIT_IMAGETRANSFORMING: int = 50  # Generate / Transform one image
     COSTPERUNIT_IMAGEUPSCALING: int = 25  # This takes quite long..
-    COSTPERUNIT_INACTIVE_FOLLOWING: int = 500  # This takes quite long..
-    COSTPERUNIT_NOTE_RECOMMENDATION: int = 100  # testing
+    COSTPERUNIT_INACTIVE_FOLLOWING: int = 200  # This takes quite long..
+    COSTPERUNIT_NOTE_RECOMMENDATION: int = 0  # testing
     COSTPERUNIT_OCR: int = 20
     NIP89s: list = []
 
@@ -136,7 +136,7 @@ def nostr_server(config):
             kinds = [4, 9735]
 
         dm_zap_filter = Filter().pubkey(pk).kinds(kinds).since(Timestamp.now())
-        dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005, 65007]).since(Timestamp.now()))
+        dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005, 65006, 65007, 65008]).since(Timestamp.now()))
         client.subscribe([dm_zap_filter, dvm_filter])
 
     elif dvmconfig.IS_BOT:
@@ -149,7 +149,7 @@ def nostr_server(config):
 
     else:
         dm_zap_filter = Filter().pubkey(pk).kinds([9735]).since(Timestamp.now())
-        dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005, 65007]).since(Timestamp.now()))
+        dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005, 65006, 65007, 65008]).since(Timestamp.now()))
         client.subscribe([dm_zap_filter, dvm_filter])
 
     create_sql_table()
@@ -785,7 +785,6 @@ def nostr_server(config):
             request_form["mode"] = "PREDICT_STATIC"
             request_form["trainerFilePath"] = task
             days = "30"
-            number = "10"
             user = event.pubkey().to_hex()
             for tag in event.tags():
                 if tag.as_vec()[0] == 'param':
@@ -815,11 +814,6 @@ def nostr_server(config):
             request_form["optStr"] = 'user=' + user + ';since=' + days + ';is_bot=' + str(is_bot)
 
         return request_form
-
-
-
-
-
 
 
     def do_work(job_event, is_from_bot=False):
@@ -960,10 +954,13 @@ def send_event(event, client=None, key=None):
 
         if key is None:
             key = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
+        print(key.secret_key().to_hex())
         opts = Options().wait_for_ok(False)
+        #client = Client(key)
         client = Client.with_opts(key, opts)
         for relay in dvmconfig.RELAY_LIST:
             client.add_relay(relay)
+
         client.connect()
         is_new_client = True
 
@@ -971,6 +968,7 @@ def send_event(event, client=None, key=None):
         if relay not in dvmconfig.RELAY_LIST:
             client.add_relay(relay)
     client.connect()
+
 
     event_id = client.send_event(event)
     #event_id = client.send_msg(ClientMessage.EV(event))
@@ -1098,9 +1096,6 @@ def check_task_is_supported(event, client, get_duration = False, config=None):
                 if not (output == "text/plain" or output == "text/json" or output == "json" or output == "image/png" or "image/jpg" or output == ""):
                     print("Output format not supported, skipping..")
                     return False, "", 0
-                else:
-                    print("Output Format: " + output)
-
 
         elif tag.as_vec()[0] == 'param':
             if get_duration:
@@ -1199,6 +1194,7 @@ def get_amount_per_task(task, duration = 0, config=None):
 
 # DECIDE TO RETURN RESULT
 def check_event_status(data, original_event_str: str, dvm_key="", use_bot=False):
+
     original_event = Event.from_json(original_event_str)
     keys = Keys.from_sk_str(dvm_key)
 
@@ -1222,16 +1218,18 @@ def check_event_status(data, original_event_str: str, dvm_key="", use_bot=False)
             break
 
     post_processed_content = post_process_result(data, original_event)
-    print(str(job_list))
-
 
     if use_bot:
         receiver_key = PublicKey()
+
         for tag in original_event.tags():
             if tag.as_vec()[0] == "p": #TODO maybe use another tag, e.g y, as p might be overwritten in some events.
                 receiver_key = PublicKey.from_hex(tag.as_vec()[1])
-        event = EventBuilder.new_encrypted_direct_msg(keys, receiver_key, post_processed_content, None).to_event(keys)
-        send_event(event, key=keys)
+                print(tag.as_vec()[1])
+
+        repevent = EventBuilder.new_encrypted_direct_msg(keys, receiver_key, post_processed_content, None).to_event(keys)
+        id= send_event(repevent, key=keys)
+        print("Event id: " + str(id.to_hex()))
 
     else:
         send_nostr_reply_event(post_processed_content, original_event_str, key=keys)
@@ -1240,6 +1238,7 @@ def check_event_status(data, original_event_str: str, dvm_key="", use_bot=False)
 
 # NIP90 REPLIES
 def respond_to_error(content, originaleventstr, is_from_bot=False, dvm_key=None ):
+    print("ERROR")
     if dvm_key is None:
         keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
     else:
