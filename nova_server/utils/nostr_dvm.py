@@ -787,13 +787,16 @@ def nostr_server(config):
             days = "30"
             user = event.pubkey().to_hex()
             for tag in event.tags():
+                if tag.as_vec()[0] == 'p':
+                    user = tag.as_vec()[1]
+            for tag in event.tags():
                 if tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == 'since':
                         days = tag.as_vec()[2]
-                    #elif tag.as_vec()[1] == 'user': # buggy.
-                    #    user = tag.as_vec()[2]
-                    #    if user.startswith("npub"):
-                    #        user = PublicKey.from_bech32(user).to_hex()
+                    elif tag.as_vec()[1] == 'user': # buggy.
+                        user = tag.as_vec()[2]
+                        if user.startswith("npub"):
+                            user = PublicKey.from_bech32(user).to_hex()
             request_form["optStr"] = 'user=' + user + ';since=' + days + ';is_bot=' + str(is_bot)
 
         elif task == "note-recommendation":
@@ -802,13 +805,16 @@ def nostr_server(config):
             days = "1"
             user = event.pubkey().to_hex()
             for tag in event.tags():
+                if tag.as_vec()[0] == 'p':
+                    user = tag.as_vec()[1]
+            for tag in event.tags():
                 if tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == 'since':
                         days = tag.as_vec()[2]
-                    #elif tag.as_vec()[1] == 'user':
-                    #     user = tag.as_vec()[2]
-                    #     if user.startswith("npub"):
-                    #            user = PublicKey.from_bech32(user).to_hex()
+                    elif tag.as_vec()[1] == 'user':
+                         user = tag.as_vec()[2]
+                         if user.startswith("npub"):
+                                user = PublicKey.from_bech32(tag.as_vec()[2]).to_hex()
 
 
             request_form["optStr"] = 'user=' + user + ';since=' + days + ';is_bot=' + str(is_bot)
