@@ -69,7 +69,7 @@ class DVMConfig:
     COSTPERUNIT_IMAGEGENERATION: int = 50  # Generate / Transform one image
     COSTPERUNIT_IMAGETRANSFORMING: int = 50  # Generate / Transform one image
     COSTPERUNIT_IMAGEUPSCALING: int = 25  # This takes quite long..
-    COSTPERUNIT_INACTIVE_FOLLOWING: int = 200  # This takes quite long..
+    COSTPERUNIT_INACTIVE_FOLLOWING: int = 100  # This takes quite long..
     COSTPERUNIT_NOTE_RECOMMENDATION: int = 0  # testing
     COSTPERUNIT_OCR: int = 20
     NIP89s: list = []

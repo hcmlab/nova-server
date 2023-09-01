@@ -5,6 +5,7 @@ import os
 import re
 from datetime import timedelta
 import random
+from threading import Thread
 
 import numpy as np
 from compel import ReturnedEmbeddingsType
@@ -95,7 +96,7 @@ def predict_static_data(request_form):
             anno = LLAMA2(
                 "Give me a summarization of the most important points of the following text: " + options["message"],  options["user"], options["system_prompt"])
         elif task == "inactive-following":
-            anno = InactiveNostrFollowers(options["user"], int(options["since"]), str2bool(options["is_bot"]))
+            anno = InactiveNostrFollowers(options["user"], int(options["since"]), str2bool(options["is_bot"]), request_form["dvmkey"])
         elif task == "note-recommendation":
             anno = NoteRecommendations(options["user"], int(options["since"]), str2bool(options["is_bot"]))
 
@@ -879,14 +880,17 @@ def LLAMA2(message, user, system_prompt="", clear=False):
 
 
 def NoteRecommendations(user, notactivesincedays, is_bot):
-    from nostr_sdk import Keys, Client, Filter
+    from nostr_sdk import Keys, Client, Filter, Options
+    from types import SimpleNamespace
 
+    ns = SimpleNamespace()
     inactivefollowerslist = ""
     relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
     relaytimeout = 5
     step = 20
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    cl = Client(keys)
+    opts = Options().wait_for_ok(False)
+    cl = Client.with_opts(keys, opts)
     for relay in relay_list:
         cl.add_relay(relay)
     cl.connect()
@@ -929,7 +933,7 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
     else:
         prompt = promptarr[0].replace("\n", ",").replace("*", "")
 
-    pattern = r"[^a-zA-Z,'\s]"
+    pattern = r"[^a-zA-Z,#'\s]"
     text = re.sub(pattern, "", prompt) + ","
 
     #text = (text.replace("Let's,", "").replace("Why,", "").replace("GM,", "")
@@ -937,6 +941,8 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
     #        .replace("Already,", ""))
     #print(text)
     keywords = text.split(', ')
+    keywords = [x.lstrip().rstrip(',') for x in keywords if x]
+
 
     print(keywords)
 
@@ -962,26 +968,57 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
     dif = Timestamp.now().as_secs() - timeinseconds
     looksince = Timestamp.from_secs(dif)
     filt2 = Filter().kind(1).since(looksince)
-    notes = cl.get_events_of([filt2], timedelta(seconds=10))
+    notes = cl.get_events_of([filt2], timedelta(seconds=6))
 
     #finallist = []
-    finallist = {}
+    ns.finallist = {}
 
     print("Notes found: " + str(len(notes)))
+
+    def scanList(noteid: EventId, instance, i, length):
+
+        relay_list = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine",
+                      "wss://relay.nostfiles.dev"]
+        keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
+        opts = Options().wait_for_ok(False)
+        cli = Client.with_opts(keys, opts)
+        for relay in relay_list:
+            cli.add_relay(relay)
+        cli.connect()
+
+        filters = []
+        instance.finallist[noteid.to_hex()] = 0
+        filt = Filter().kinds([9735, 7, 1]).event(noteid)
+        reactions = cl.get_events_of([filt], timedelta(seconds=5))
+        print(str(len(reactions)) + "   " + str(j) + "/" + str(len(notes)))
+        instance.finallist[noteid.to_hex()] = len(reactions)
+
+        print(str(i) + "/" + str(length))
+        cli.disconnect()
+
+
     j=0
+
+    threads = []
+
     for note in notes:
         j= j+1
         res = [ele for ele in keywords if(ele.replace(',',"") in note.content())]
         if bool(res):
-            if not note.id().to_hex() in finallist and note.pubkey().to_hex() != user:
-                finallist[note.id().to_hex()] = 0
-                filt = Filter().kinds([9735, 7, 1]).event(note.id())
-                reactions = cl.get_events_of([filt], timedelta(seconds=1))
-                print(str(len(reactions)) + "   " + str(j) + "/" + str(len(notes)))
-                finallist[note.id().to_hex()] = len(reactions)
+            if not note.id().to_hex() in ns.finallist and note.pubkey().to_hex() != user:
+                args = [note.id(), ns, j, len(notes)]
+                t = Thread(target=scanList, args=args)
+                threads.append(t)
 
+        # Start all threads
+    for x in threads:
+        x.start()
 
-    finallist_sorted = sorted(finallist.items(), key=lambda x: x[1], reverse=True)
+        # Wait for all of them to finish
+    for x in threads:
+        x.join()
+
+    finallist_sorted = sorted(ns.finallist.items(), key=lambda x: x[1], reverse=True)
     converted_dict = dict(finallist_sorted)
     print(json.dumps(converted_dict))
 
@@ -993,7 +1030,8 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
         if is_bot:
             i = i+1
             notelist = notelist + "nostr:" + EventId.from_hex(k).to_bech32() + "\n\n"
-            if i == 20:
+            if i == 25:
+                notelist = notelist + "\n\nBased on topics: " + json.dumps(keywords).lstrip("[").rstrip(("]"))
                 break
         else:
             p_tag = Tag.parse(["p", k])
@@ -1002,87 +1040,118 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
     if is_bot:
         return notelist
     else:
-        return json.dumps(resultlist[:20])
+        return json.dumps(resultlist[:25])
 
 # take second element for sort
 def takeSecond(elem):
     return elem[1]
 
-def InactiveNostrFollowers(user, notactivesincedays, is_bot):
-    from nostr_sdk import Keys, Client, Filter
+def InactiveNostrFollowers(user, notactivesincedays, is_bot, dvmkey):
+    from nostr_sdk import Keys, Client, Filter, Options
+    from types import SimpleNamespace
 
+    ns = SimpleNamespace()
+
+    detailscan = False
     inactivefollowerslist = ""
-    relay_list = ["wss://relay.damus.io", "wss://blastr.f7z.xyz", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine", "wss://relay.nostr.com.au", "wss://relay.snort.social"]
+    relay_list = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine", "wss://relay.nostfiles.dev"]
     relaytimeout = 5
-    step = 20
-    keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    cl = Client(keys)
+    step = 25
+    keys = Keys.from_sk_str(dvmkey)
+    opts = Options().wait_for_ok(False)
+    cl = Client.with_opts(keys, opts)
+
     for relay in relay_list:
         cl.add_relay(relay)
     cl.connect()
 
     filt = Filter().author(user).kind(3).limit(1)
     followers = cl.get_events_of([filt], timedelta(seconds=relaytimeout))
+    cl.disconnect()
 
     if len(followers) > 0:
 
 
         resultlist = []
         newest = 0
-        bestentry = followers[0]
+        best_entry = followers[0]
         for entry in followers:
             if entry.created_at().as_secs() > newest:
                 newest = entry.created_at().as_secs()
-                bestentry = entry
+                best_entry = entry
 
-        i = 0
-        print(bestentry.as_json())
+        print(best_entry.as_json())
         followings = []
-        dic = {}
-        for tag in bestentry.tags():
+        ns.dic = {}
+        for tag in best_entry.tags():
             if tag.as_vec()[0] == "p":
                 following = tag.as_vec()[1]
                 followings.append(following)
-                dic[following] = "False"
+                ns.dic[following] = "False"
         print("Followings: " + str(len(followings)))
 
         notactivesinceseconds = int(notactivesincedays) * 24 * 60 * 60
         dif = Timestamp.now().as_secs() - notactivesinceseconds
         notactivesince = Timestamp.from_secs(dif)
 
-        while i < len(followings) - step:
+        def scanList(followings, instance, i, st, notactivesince):
+            from nostr_sdk import Filter
+            relay_list = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine",
+                          "wss://relay.nostfiles.dev"]
+            keys = Keys.from_sk_str(dvmkey)
+            opts = Options().wait_for_ok(False)
+            cli = Client.with_opts(keys, opts)
+            for relay in relay_list:
+                cli.add_relay(relay)
+            cli.connect()
+
             filters = []
-            for i in range(i, i+step+1):
+            for i in range(i, i + st+1):
                 filter1 = Filter().author(followings[i]).since(notactivesince).limit(1)
                 filters.append(filter1)
 
-            notes = cl.get_events_of(filters, timedelta(seconds=6))
+            notes = cli.get_events_of(filters, timedelta(seconds=6))
 
             for note in notes:
-                    dic[note.pubkey().to_hex()] = "True"
+                instance.dic[note.pubkey().to_hex()] = "True"
             print(str(i) + "/" + str(len(followings)))
+            cli.disconnect()
 
-        missing_scans = len(followings) - i
+        threads = []
+
+
+        i = 0
+        while i < len(followings) - step:
+            args = [followings, ns, i, step, notactivesince]
+            t = Thread(target=scanList, args=args)
+            threads.append(t)
+            i = i+step
+
+        #last to step size
+        missing_scans = (len(followings) - i)
+        args = [followings, ns, i, missing_scans-1, notactivesince]
+        t = Thread(target=scanList, args=args)
+        threads.append(t)
+
+        # Start all threads
+        for x in threads:
+            x.start()
+
+        # Wait for all of them to finish
+        for x in threads:
+            x.join()
+
         filters = []
-        for i in range(i+missing_scans):
-            filter1 = Filter().author(followings[i]).since(notactivesince).limit(1)
-            filters.append(filter1)
+        result = {k for (k, v) in ns.dic.items() if v == "False"}
 
-        notes = cl.get_events_of(filters, timedelta(seconds=6))
-        for note in notes:
-            dic[note.pubkey().to_hex()] = "True"
 
-        print(str(len(followings)) + "/" + str(len(followings)))
 
-        cl.disconnect()
-        result = {k for (k, v) in dic.items() if v == "False"}
         if len(result) == 0:
             print("Not found")
             return "No inactive followers found on relays."
 
         for k in result:
             if (is_bot):
-
                 inactivefollowerslist = inactivefollowerslist + "nostr:" + PublicKey.from_hex(k).to_bech32() + "\n"
             else:
                 p_tag = Tag.parse(["p", k])
@@ -1092,4 +1161,5 @@ def InactiveNostrFollowers(user, notactivesincedays, is_bot):
             return inactivefollowerslist
         else:
             return json.dumps(resultlist)
+
 
