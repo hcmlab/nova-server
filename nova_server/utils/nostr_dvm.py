@@ -2243,16 +2243,21 @@ def update_user_balance(sender, sats, config=None):
     else:
         user = get_from_sql_table(sender)
         print(str(sats))
-        if user[4] is None:
-            user[4] = ""
-        if user[5] is None:
-            user[5] = ""
-        if user[6] is None:
-            user[6] = ""
-        new_balance = int(user[1]) + sats
-        update_sql_table(sender, new_balance, user[2], user[3], user[4], user[5], user[6],
+        nip05 =user[4]
+        lud16 = user[5]
+        name =  user[6]
+
+        if nip05 is None:
+            nip05 = ""
+        if lud16 is None:
+            lud16 = ""
+        if name is None:
+            name = ""
+
+        new_balance = int(user[1]) + int(sats)
+        update_sql_table(sender, new_balance, user[2], user[3], nip05, lud16, name,
                          Timestamp.now().as_secs())
-        print("UPDATE USER BALANCE: " + user[6] + " Zap amount: " + str(sats) + " Sats.")
+        print("UPDATE USER BALANCE: " + str(name) + " Zap amount: " + str(sats) + " Sats.")
 
 
         if config is not None:
