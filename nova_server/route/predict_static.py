@@ -78,10 +78,10 @@ def predict_static_data(request_form):
     try:
         if task == "text-to-image":
             anno = textToImage(options["prompt"], options["extra_prompt"], options["negative_prompt"],
-                               options["upscale"], options["model"],  options["ratiow"], options["ratioh"], options["lora"])
+                               options["upscale"], options["model"],  options["ratiow"], options["ratioh"], options["lora"] , options["lora_weight"])
         elif task == "image-to-image":
             anno = imageToImage(options["url"], options["prompt"], options["negative_prompt"], options["strength"],
-                                options["guidance_scale"], options["model"], options["lora"])
+                                options["guidance_scale"], options["model"], options["lora"] , options["lora_weight"])
         elif task == "image-reimagine":
             anno = imageReimagine(options["url"])
         elif task == "image-upscale":
@@ -154,7 +154,7 @@ def uploadToHoster(filepath):
 
 # SCRIPTS (TO BE MOVED TO FILES)
 def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
-                model="stabilityai/stable-diffusion-xl-base-1.0", ratiow="1", ratioh="1", lora="", num_images_per_prompt=1):
+                model="stabilityai/stable-diffusion-xl-base-1.0", ratiow="1", ratioh="1", lora="", lora_weight=""):
     import torch
     from diffusers import DiffusionPipeline
     from diffusers import StableDiffusionPipeline
@@ -261,58 +261,13 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
         if lora != "":
             print("Loading lora...")
             lora_models_folder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
-            if lora == "cyborg_style_xl":
-                prompt = " cyborg style, " + prompt + " <lora:cyborg_style_xl:.8>"
-                existing_lora = True
-
-            if lora == "3d_render_style_xl":
-                prompt = "3d style, 3d render, " + prompt + " <lora:3d_render_style_xl:1>"
-                existing_lora = True
-
-            if lora == "psychedelic_noir_xl":
-                prompt = prompt + " <lora:Psychedelic_Noir__sdxl:1.0>"
-                existing_lora = True
-
-            if lora == "wojak_xl":
-                prompt = "<lora:wojak_big:1>, " + prompt + ", wojak"
-                existing_lora = True
-
-            if lora == "dreamarts_xl":
-                prompt = "<lora:DreamARTSDXL:1>, " + prompt
-                existing_lora = True
-
-            if lora == "voxel_xl":
-                prompt = "voxel style, " + prompt + " <lora:last:1>"
-                existing_lora = True
-
-            if lora == "kru3ger_xl":
-                prompt = "kru3ger_style, " + prompt + "<lora:sebastiankrueger-kru3ger_style-000007:1>"
-                existing_lora = True
-
-            if lora == "ink_punk_xl":
-                prompt = "inkpunk style, " + prompt + "  <lora:IPXL_v1:0.5>"
-                existing_lora = True
-
-            if lora == "real_art_xl":
-                prompt = prompt + " <lora:xl_real_beta1:0.8>"
-                existing_lora = True
-
-            if lora == "more_art_xl":
-                prompt = prompt + " <lora:xl_more_art-full_v1:1>"
-                existing_lora = True
-
-            if lora == "2077_style_xl":
-                prompt = "cyberpunk, " +  prompt + " <lora:2077_Style:1.0>"
-                existing_lora = True
-
-
-
-
+            lora, prompt, existing_lora =  buildloraxl(lora, prompt, lora_weight)
 
             if existing_lora:
                 lora_weights = lora_models_folder + lora + ".safetensors"
                 base.load_lora_weights(lora_weights)
                 print("Loaded Lora: " + lora_weights)
+
 
 
         # base.unet = torch.compile(base.unet, mode="reduce-overhead", fullgraph=True)
@@ -405,7 +360,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
                          'TRANSFORMERS_CACHE'] + "stablediffusionmodels/anyloraCheckpoint_bakedvaeBlessedFp16.safetensors"
 
         model_path = lora_models_folder + "Inkscenery.safetensors"
-        if model == "inks" or model == "pepe" or model == "journey" or model == "ghibli" or model == "gigachad" or model == "food":
+        if model == "inks" or model == "pepe" or model == "journey" or model == "ghibli" or model == "gigachad" or model == "food" or model == "zeus":
             if model == "inks":
                 # local lora models
                 model_path = lora_models_folder + "Inkscenery.safetensors"
@@ -434,6 +389,15 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
                 model_path = lora_models_folder + "foodphoto.safetensors"
                 prompt = "RAW photo, " + prompt + ", foodphoto <lora:foodphoto:1>"
 
+            elif model == "zeus":
+                base_model = os.environ[
+                                 'TRANSFORMERS_CACHE'] + "stablediffusionmodels/revAnimated_v122EOL.safetensors"
+                model_path = lora_models_folder + "zeus.safetensors"
+                prompt = "Z3US, " + prompt
+                negative_prompt = ("glass, pedestal, socle, basement, camera, subsurface, underwater, hypermaximalist,"
+                                   " diamond, (flowers), water, (leaves) (worst quality:2), (low quality:2), "
+                                   "(normal quality:2), border, frame, poorly drawn, childish,((dof)),bad hands, "
+                                   "ugly hands, unnatural hands ") + negative_prompt
             elif model == "pepe":
                 model_path = lora_models_folder + "pepe_frog_v2.safetensors"
                 base_model = os.environ[
@@ -531,6 +495,101 @@ def imageReimagine(url):
     return uploadToHoster(uniquefilepath)
 
 
+def buildloraxl(lora, prompt, lora_weight):
+    existing_lora = False
+    if lora == "cyborg_style_xl":
+        if lora_weight == "":
+            lora_weight = "0.8"
+        prompt = " cyborg style, " + prompt + " <lora:cyborg_style_xl:"+lora_weight+">" #0.8
+        existing_lora = True
+
+    if lora == "3d_render_style_xl":
+        if lora_weight == "":
+            lora_weight = "1"
+        prompt = "3d style, 3d render, " + prompt + " <lora:3d_render_style_xl:"+lora_weight+">"
+        existing_lora = True
+
+    if lora == "psychedelic_noir_xl":
+        if lora_weight == "":
+            lora_weight = "1"
+        prompt = prompt + " <lora:Psychedelic_Noir__sdxl:"+lora_weight+">>"
+        existing_lora = True
+
+    if lora == "wojak_xl":
+        if lora_weight == "":
+            lora_weight = "1"
+        prompt = "<lora:wojak_big:"+lora_weight+">, " + prompt + ", wojak"
+        existing_lora = True
+
+    if lora == "dreamarts_xl":
+        if lora_weight == "":
+            lora_weight = "1"
+        prompt = "<lora:DreamARTSDXL:"+lora_weight+">, " + prompt
+        existing_lora = True
+
+    if lora == "voxel_xl":
+        if lora_weight == "":
+            lora_weight = "1"
+        prompt = "voxel style, " + prompt + " <lora:last:"+lora_weight+">"
+        existing_lora = True
+
+    if lora == "kru3ger_xl":
+        if lora_weight == "":
+            lora_weight = "1"
+        prompt = "kru3ger_style, " + prompt + "<lora:sebastiankrueger-kru3ger_style-000007:"+lora_weight+">"
+        existing_lora = True
+
+    if lora == "ink_punk_xl":
+        if lora_weight == "":
+            lora_weight = "0.5"
+        prompt = "inkpunk style, " + prompt + "  <lora:IPXL_v2:"+lora_weight+">"
+        existing_lora = True
+
+    if lora == "real_art_xl":
+        if lora_weight == "":
+            lora_weight = "0.8"
+        prompt = prompt + " <lora:xl_real_beta1:"+lora_weight+">"
+        existing_lora = True
+
+    if lora == "more_art_xl":
+        if lora_weight == "":
+            lora_weight = "1"
+        prompt = prompt + " <lora:xl_more_art-full_v1:"+lora_weight+">"
+        existing_lora = True
+
+    if lora == "2077_style_xl":
+        if lora_weight == "":
+            lora_weight = "1"
+        prompt = "cyberpunk, " + prompt + " <lora:2077_Style:"+lora_weight+">"
+        existing_lora = True
+
+    if lora == "ink_scenery_xl":
+        if lora_weight == "":
+            lora_weight = "1"
+        prompt = " ink scenery, " + prompt + " <lora:ink_scenery_xl:"+lora_weight+">"
+        existing_lora = True
+
+    if lora == "pixel_art_xl":
+        if lora_weight == "":
+            lora_weight = "1"
+        prompt = "<lora:pixelbuildings128-v1:"+lora_weight+"> pixel art, " + prompt
+        existing_lora = True
+
+    if lora == "crayons_xl":
+        if lora_weight == "":
+            lora_weight = "1"
+        prompt = "<lora:crayons_v1_sdxl:"+lora_weight+"> " + prompt
+        existing_lora = True
+
+    if lora == "watercolor_xl":
+        if lora_weight == "":
+            lora_weight = "1"
+        prompt = "<lora:watercolor_v1_sdxl:"+lora_weight+"> " + prompt
+        existing_lora = True
+
+    return lora, prompt, existing_lora
+
+
 def ImageToPrompt(url):
     init_image = load_image(url).convert("RGB")
 
@@ -542,13 +601,10 @@ def ImageToPrompt(url):
     return  str(detected)
 
 
-def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="pix2pix", lora=""):
-    import requests
+def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="pix2pix", lora="", lora_weight=""):
     import torch
-    from PIL import Image
-    from io import BytesIO
-
     from diffusers import StableDiffusionImg2ImgPipeline
+    from diffusers.utils import load_image
 
     mwidth = 768
     mheight = 768
@@ -568,6 +624,7 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
         model = "stabilityai/stable-diffusion-xl-refiner-1.0"
 
     init_image = load_image(url).convert("RGB")
+
 
     if  model == "dreamshaper_8" or model == "stabilityai/stable-diffusion-xl-refiner-1.0":
         mwidth = 1024
@@ -591,17 +648,55 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
 
     init_image = init_image.resize((w, h))
 
-   # init_image = init_image.crop((left, top, right, bottom))
+
+    if lora != "":
+        print("Loading lora...")
+        lora_models_folder = os.environ['TRANSFORMERS_CACHE'] + "stablediffusionmodels/lora/"
+        lora, prompt, existing_lora = buildloraxl(lora, prompt, lora_weight)
+
+        if existing_lora:
+            model = "sdxl"
+
+
+    if model == "sdxl":
+        from diffusers import AutoPipelineForImage2Image
+        import torch
 
 
 
-    if model == "stabilityai/stable-diffusion-xl-refiner-1.0":
+        #init_image = init_image.resize((int(w/2), int(h/2)))
+
+        pipe = AutoPipelineForImage2Image.from_pretrained(
+            "stabilityai/stable-diffusion-xl-base-1.0",
+            torch_dtype=torch.float16).to("cuda")
+
+        if existing_lora:
+            lora_weights = lora_models_folder + lora + ".safetensors"
+            pipe.load_lora_weights(lora_weights)
+            print("Loaded Lora: " + lora_weights)
+
+        seed = 20000
+        generator = torch.manual_seed(seed)
+
+        os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
+       
+        image = pipe(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            image=init_image,
+            generator=generator,
+            strength=0.4).images[0]
+
+
+    elif model == "stabilityai/stable-diffusion-xl-refiner-1.0":
 
         pipe = StableDiffusionXLImg2ImgPipeline.from_pretrained(
             model, torch_dtype=torch.float16, variant="fp16",
             use_safetensors=True
         )
-   
+
+
+
         n_steps = 30
         high_noise_frac = 0.75
         transformation_strength = float(strength)
@@ -614,9 +709,6 @@ def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="
         pipe = pipe.to("cuda")
         image = pipe(prompt, image=init_image,
                      negative_prompt=negative_prompt, num_inference_steps=n_steps, strength=transformation_strength, guidance_scale=cfg_scale).images[0]
-
-
-
 
 
     elif model == "timbrooks/instruct-pix2pix":
