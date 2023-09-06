@@ -35,7 +35,6 @@ from nova_utils.interfaces.server_module import Trainer as iTrainer
 os.environ['TRANSFORMERS_CACHE'] = 'W:/nova/cml/models/trainer/.cache/'
 
 predict_static = Blueprint("predict_static", __name__)
-wait_for_ok = True
 wait_for_send = True
 
 @predict_static.route("/predict_static", methods=["POST"])
@@ -1005,7 +1004,7 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
     relaytimeout = 5
     step = 20
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    opts = Options().wait_for_ok(wait_for_ok).wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
+    opts = Options().wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
     cl = Client.with_opts(keys, opts)
     for relay in relay_list:
         cl.add_relay(relay)
@@ -1096,7 +1095,7 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
         relay_list = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine",
                       "wss://relay.nostfiles.dev", "wss://nostr.mom", "wss://nostr.oxtr.dev", "wss://relay.nostr.bg", "wss://relay.f7z.io"]
         keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-        opts = Options().wait_for_ok(wait_for_ok).wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
+        opts = Options().wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
         cli = Client.with_opts(keys, opts)
         for relay in relay_list:
             cli.add_relay(relay)
@@ -1143,13 +1142,14 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
     notelist = ""
     resultlist = []
     i =0
+    notelist = "Based on topics: " + json.dumps(keywords).lstrip("[").rstrip(("]"))+ "\n\n"
     for k in converted_dict:
         #print(k)
         if is_bot:
             i = i+1
             notelist = notelist + "nostr:" + EventId.from_hex(k).to_bech32() + "\n\n"
             if i == 25:
-                notelist = notelist + "\n\nBased on topics: " + json.dumps(keywords).lstrip("[").rstrip(("]"))
+
                 break
         else:
             p_tag = Tag.parse(["p", k])
@@ -1177,7 +1177,7 @@ def InactiveNostrFollowers(user, notactivesincedays, is_bot, dvmkey):
     relaytimeout = 5
     step = 25
     keys = Keys.from_sk_str(dvmkey)
-    opts = Options().wait_for_ok(wait_for_ok).wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
+    opts = Options().wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
     cl = Client.with_opts(keys, opts)
 
     for relay in relay_list:
@@ -1218,7 +1218,7 @@ def InactiveNostrFollowers(user, notactivesincedays, is_bot, dvmkey):
             relay_list = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine",
                           "wss://relay.nostfiles.dev", "wss://nostr.mom", "wss://nostr.oxtr.dev", "wss://relay.nostr.bg", "wss://relay.f7z.io"]
             keys = Keys.from_sk_str(dvmkey)
-            opts = Options().wait_for_ok(wait_for_ok).wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
+            opts = Options().wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
             cli = Client.with_opts(keys, opts)
             for relay in relay_list:
                 cli.add_relay(relay)
