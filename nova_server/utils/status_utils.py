@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from nova_server.utils.thread_utils import status_thread_wrapper
 import copy
-from . import log_utils, db_utils
+from . import log_utils
 
 JOBS = {}
 

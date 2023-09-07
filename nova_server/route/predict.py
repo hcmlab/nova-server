@@ -21,7 +21,7 @@ from hcai_datasets.hcai_nova_dynamic.hcai_nova_dynamic_iterable import (
 )
 from nova_utils.interfaces.server_module import Trainer as iTrainer
 
-predict = Blueprint("predict", __name__)
+predict = Blueprint("_predict", __name__)
 
 
 @predict.route("/predict", methods=["POST"])
