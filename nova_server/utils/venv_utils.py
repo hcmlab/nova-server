@@ -4,6 +4,7 @@ Date: 06.09.2023
 """
 import os
 import json
+import platform
 from pathlib import Path
 from importlib.machinery import SourceFileLoader
 
@@ -35,7 +36,7 @@ def _args_run_cmd(args: list = None, kwargs: dict = None) -> str:
 
 def _src_activate_cmd(env_path: Path):
     """
-    Generate the source command to activate a virtual environment.
+    Generate the source command to activate a virtual environmend. Generated output is platform dependend.
 
     Args:
         env_path (Path): Path to the virtual environment.
@@ -47,7 +48,11 @@ def _src_activate_cmd(env_path: Path):
         >>> _src_activate_cmd(Path('/path/to/venv'))
         'source /path/to/venv/bin/activate'
     """
-    return f"source {env_path/'bin'/'activate'}"
+    if platform.system() == 'Windows':
+        return f"{env_path/'Scripts'/'activate'}"
+    else:
+        return f"source {env_path/'bin'/'activate'}"
+
 
 
 def get_module_run_cmd(
