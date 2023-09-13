@@ -8,7 +8,6 @@ from pathlib import Path
 import subprocess
 import site
 
-
 def assert_or_install_dependencies(packages, trainer_name):
     site_package_path = (
         Path(site.getsitepackages()[0])
@@ -18,6 +17,7 @@ def assert_or_install_dependencies(packages, trainer_name):
     ).resolve()
     site_package_path.mkdir(parents=True, exist_ok=True)
 
+    #TODO: handle pip install *.zip
     for i, pkg in enumerate(packages):
         params = []
         # split on space while also removing double spaces
@@ -32,7 +32,10 @@ def assert_or_install_dependencies(packages, trainer_name):
                 name = pk[0].split("/")[-1].split(".git")[0]
         else:
             # maybe support all specifiers https://peps.python.org/pep-0440/#version-specifiers
-            name = pk[0].split("==")[0]
+            name = pk[0].split('==')[0]
+            # setup-version-specifier
+            if '[' in name:
+                name = name[:name.find('[')]
 
         # support systems without nvidia/cuda installed
         try:
@@ -41,12 +44,20 @@ def assert_or_install_dependencies(packages, trainer_name):
         except:
             cuda_available = False
 
+        # torch/torchvision/torchaudio
         # remove cuda specific torch wheel params
         if name.startswith("torch") and "+cu" in name and not cuda_available:
             pk[0] = pk[0][: pk[0].find("+cu")]
             for p in pk:
                 if "index-url" in p or "download.pytorch.org/whl" in p:
                     params.remove(p)
+
+        # onnxruntime
+        if name == 'onnxruntime':
+            if cuda_available:
+                pk[0] = pk[0].replace('onnxruntime', 'onnxruntime-gpu')
+            elif sys.platform == 'darwin':
+                pk[0] = pk[0].replace('onnxruntime', 'onnxruntime-silicon')
 
         params.append("--target={}".format(site_package_path))
 
