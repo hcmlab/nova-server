@@ -29,7 +29,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument("--env", type=str, default='', help="Path to the environment file to read config from")
 parser.add_argument("--host", type=str, default="0.0.0.0", help="The host ip address")
 parser.add_argument(
-    "--port", type=int, default=8080, help="The port the server listens on"
+    "--port", type=str, default='8080', help="The port the server listens on"
 )
 parser.add_argument(
     "--cml_dir",
@@ -63,64 +63,69 @@ parser.add_argument(
     help="Folder for temporary data storage.",
 )
 
-# TODO: support multiple (data) directories
-args = parser.parse_args()
-default_args = parser.parse_args([])
+def run():
 
-# Loading dot env file if provided
-if args.env:
-    env_path = Path(args.env)
-    if env_path.is_file():
-        dotenv.load_dotenv()
-    else:
-        raise FileNotFoundError(f'.env file not found at {env_path} ')
+    # TODO: support multiple (data) directories
+    args = parser.parse_args()
+    default_args = parser.parse_args([])
 
-# Setting environment variables in the following priority from highest to lowest:
-# Provided commandline argument -> Dotenv environment variable -> System environment variable -> Default value
+    # Loading dot env file if provided
+    if args.env:
+        env_path = Path(args.env)
+        if env_path.is_file():
+            dotenv.load_dotenv()
+        else:
+            raise FileNotFoundError(f'.env file not found at {env_path} ')
 
-def resolve_arg(arg_val, env_var, arg_default_val, create_directory=False):
-    # Check if argument has been provided
-    if not arg_val == arg_default_val:
-        val = arg_val
-    # Check if environment variable exists
-    elif os.environ.get(env_var):
-        val = os.environ[env_var]
-    # Return default
-    else:
-        val = arg_default_val
-    print(f"\t{env_var} : {val}")
+    # Setting environment variables in the following priority from highest to lowest:
+    # Provided commandline argument -> Dotenv environment variable -> System environment variable -> Default value
 
-    if create_directory:
-        Path(val).mkdir(parents=False, exist_ok=True)
+    def resolve_arg(arg_val, env_var, arg_default_val, create_directory=False):
+        # Check if argument has been provided
+        if not arg_val == arg_default_val:
+            val = arg_val
+        # Check if environment variable exists
+        elif os.environ.get(env_var):
+            val = os.environ[env_var]
+        # Return default
+        else:
+            val = arg_default_val
+        print(f"\t{env_var} : {val}")
 
-    return val
+        if create_directory:
+            Path(val).mkdir(parents=False, exist_ok=True)
 
-# Write values to OS variables
-os.environ[env.NOVA_SERVER_HOST] = resolve_arg(
-    args.host, env.NOVA_SERVER_HOST, default_args.host
-)
-os.environ[env.NOVA_SERVER_PORT] = resolve_arg(
-    args.port, env.NOVA_SERVER_PORT, default_args.port
-)
+        return val
 
-os.environ[env.NOVA_SERVER_CML_DIR] = resolve_arg(
-    args.cml_dir, env.NOVA_SERVER_CML_DIR, default_args.cml_dir, create_directory=True
-)
-os.environ[env.NOVA_SERVER_DATA_DIR] = resolve_arg(
-    args.data_dir, env.NOVA_SERVER_DATA_DIR, default_args.data_dir, create_directory=True
-)
-os.environ[env.NOVA_SERVER_CACHE_DIR] = resolve_arg(
-    args.cache_dir, env.NOVA_SERVER_CACHE_DIR, default_args.cache_dir, create_directory=True
-)
-os.environ[env.NOVA_SERVER_TMP_DIR] = resolve_arg(
-    args.tmp_dir, env.NOVA_SERVER_TMP_DIR, default_args.tmp_dir, create_directory=True
-)
-os.environ[env.NOVA_SERVER_LOG_DIR] = resolve_arg(
-    args.log_dir, env.NOVA_SERVER_LOG_DIR, default_args.log_dir, create_directory=True
-)
-print("...done")
+    # Write values to OS variables
+    os.environ[env.NOVA_SERVER_HOST] = resolve_arg(
+        args.host, env.NOVA_SERVER_HOST, default_args.host
+    )
+    os.environ[env.NOVA_SERVER_PORT] = resolve_arg(
+        args.port, env.NOVA_SERVER_PORT, default_args.port
+    )
 
-host = os.environ[env.NOVA_SERVER_HOST]
-port = int(os.environ[env.NOVA_SERVER_PORT])
+    os.environ[env.NOVA_SERVER_CML_DIR] = resolve_arg(
+        args.cml_dir, env.NOVA_SERVER_CML_DIR, default_args.cml_dir, create_directory=True
+    )
+    os.environ[env.NOVA_SERVER_DATA_DIR] = resolve_arg(
+        args.data_dir, env.NOVA_SERVER_DATA_DIR, default_args.data_dir, create_directory=True
+    )
+    os.environ[env.NOVA_SERVER_CACHE_DIR] = resolve_arg(
+        args.cache_dir, env.NOVA_SERVER_CACHE_DIR, default_args.cache_dir, create_directory=True
+    )
+    os.environ[env.NOVA_SERVER_TMP_DIR] = resolve_arg(
+        args.tmp_dir, env.NOVA_SERVER_TMP_DIR, default_args.tmp_dir, create_directory=True
+    )
+    os.environ[env.NOVA_SERVER_LOG_DIR] = resolve_arg(
+        args.log_dir, env.NOVA_SERVER_LOG_DIR, default_args.log_dir, create_directory=True
+    )
+    print("...done")
 
-serve(app, host=host, port=port)
+    host = os.environ[env.NOVA_SERVER_HOST]
+    port = int(os.environ[env.NOVA_SERVER_PORT])
+
+    serve(app, host=host, port=port)
+
+if __name__ == '__main__':
+    run()

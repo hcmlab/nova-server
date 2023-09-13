@@ -39,11 +39,18 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Nova Server:</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../api/nova-server/modules.html">nova_server</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../api/nova-utils/modules.html">nova_utils</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../api/hcai-datasets/modules.html">hcai_nova_dynamic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Packages</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.backend.html">nova_server.backend package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.data.html">nova_server.data package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.exec.html">nova_server.exec package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.route.html">nova_server.route package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.utils.html">nova_server.utils package</a></li>
 </ul>
 
         </div>
@@ -72,18 +79,20 @@
              
   <h1>Source code for nova_server.route.ui</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Blueprint</span><span class="p">,</span> <span class="n">render_template</span>
-<span class="kn">from</span> <span class="nn">nova_server.utils</span> <span class="kn">import</span> <span class="n">status_utils</span>
+<span class="kn">from</span> <span class="nn">nova_server.utils</span> <span class="kn">import</span> <span class="n">job_utils</span>
 
 <span class="n">ui</span> <span class="o">=</span> <span class="n">Blueprint</span><span class="p">(</span><span class="s2">&quot;ui&quot;</span><span class="p">,</span> <span class="vm">__name__</span><span class="p">)</span>
 
-<div class="viewcode-block" id="index"><a class="viewcode-back" href="../../../api/nova-server/nova_server.route.ui.html#nova_server.route.ui.index">[docs]</a><span class="nd">@ui</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">index</span><span class="p">():</span>
-    <span class="n">jobs</span> <span class="o">=</span> <span class="n">status_utils</span><span class="o">.</span><span class="n">get_all_jobs</span><span class="p">()</span>
-    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s1">&#39;ajax_template.html&#39;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;Current Jobs&#39;</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="n">jobs</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="data"><a class="viewcode-back" href="../../../api/nova-server/nova_server.route.ui.html#nova_server.route.ui.data">[docs]</a><span class="nd">@ui</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s1">&#39;/data&#39;</span><span class="p">)</span>
+<div class="viewcode-block" id="index"><a class="viewcode-back" href="../../../api/nova_server.route.html#nova_server.route.ui.index">[docs]</a><span class="nd">@ui</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">index</span><span class="p">():</span>
+    <span class="n">jobs</span> <span class="o">=</span> <span class="n">job_utils</span><span class="o">.</span><span class="n">get_all_jobs</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;ajax_template.html&quot;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">&quot;Current Jobs&quot;</span><span class="p">,</span> <span class="n">jobs</span><span class="o">=</span><span class="n">jobs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="data"><a class="viewcode-back" href="../../../api/nova_server.route.html#nova_server.route.ui.data">[docs]</a><span class="nd">@ui</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/data&quot;</span><span class="p">)</span>
 <span class="k">def</span> <span class="nf">data</span><span class="p">():</span>
-    <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;data&#39;</span><span class="p">:</span> <span class="n">status_utils</span><span class="o">.</span><span class="n">get_all_jobs</span><span class="p">()}</span></div>
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;data&quot;</span><span class="p">:</span> <span class="n">job_utils</span><span class="o">.</span><span class="n">get_all_jobs</span><span class="p">()}</span></div>
 </pre></div>
 
            </div>

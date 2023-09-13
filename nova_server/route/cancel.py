@@ -1,3 +1,11 @@
+""" Blueprint for canceling a job
+Author: Dominik Schiller <dominik.schiller@uni-a.de>
+Date: 06.09.2023
+
+This module defines a Flask Blueprint for canceling a job.
+
+"""
+
 from flask import Blueprint, request, jsonify
 from nova_server.utils import job_utils
 from nova_server.utils.job_utils import get_job_id_from_request_form
@@ -10,6 +18,19 @@ cancel = Blueprint("cancel", __name__)
 
 @cancel.route("/cancel", methods=["POST"])
 def complete_thread():
+    """
+    Cancel a running job.
+
+    This route allows canceling a running job by providing the job's unique identifier in the request.
+
+    Returns:
+        dict: A JSON response indicating whether the cancelation was successful.
+
+    Example:
+        >>> POST /cancel
+        >>> {"job_id": "12345"}
+        {"success": "true"}
+    """
     if request.method == "POST":
         request_form = request.form.to_dict()
         key = get_job_id_from_request_form(request_form)

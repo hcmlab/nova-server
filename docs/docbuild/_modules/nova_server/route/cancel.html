@@ -39,11 +39,17 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Nova Server:</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../api/nova-server/modules.html">nova_server</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../api/nova-utils/modules.html">nova_utils</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../api/hcai-datasets/modules.html">hcai_nova_dynamic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Packages</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.backend.html">nova_server.backend package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.exec.html">nova_server.exec package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.route.html">nova_server.route package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.utils.html">nova_server.utils package</a></li>
 </ul>
 
         </div>
@@ -71,11 +77,17 @@
            <div itemprop="articleBody">
              
   <h1>Source code for nova_server.route.cancel</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">nova_server.utils.status_utils</span>
+<span></span><span class="sd">&quot;&quot;&quot; Blueprint for canceling a job</span>
+<span class="sd">Author: Dominik Schiller &lt;dominik.schiller@uni-a.de&gt;</span>
+<span class="sd">Date: 06.09.2023</span>
+
+<span class="sd">This module defines a Flask Blueprint for canceling a job.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Blueprint</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">jsonify</span>
-<span class="kn">from</span> <span class="nn">nova_server.utils</span> <span class="kn">import</span> <span class="n">status_utils</span>
-<span class="kn">from</span> <span class="nn">nova_server.utils.key_utils</span> <span class="kn">import</span> <span class="n">get_key_from_request_form</span>
+<span class="kn">from</span> <span class="nn">nova_server.utils</span> <span class="kn">import</span> <span class="n">job_utils</span>
+<span class="kn">from</span> <span class="nn">nova_server.utils.job_utils</span> <span class="kn">import</span> <span class="n">get_job_id_from_request_form</span>
 <span class="kn">from</span> <span class="nn">nova_server.utils.thread_utils</span> <span class="kn">import</span> <span class="n">THREADS</span>
 <span class="kn">from</span> <span class="nn">nova_server.utils.log_utils</span> <span class="kn">import</span> <span class="n">LOGS</span>
 
@@ -83,25 +95,38 @@
 <span class="n">cancel</span> <span class="o">=</span> <span class="n">Blueprint</span><span class="p">(</span><span class="s2">&quot;cancel&quot;</span><span class="p">,</span> <span class="vm">__name__</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="complete_thread"><a class="viewcode-back" href="../../../api/nova-server/nova_server.route.cancel.html#nova_server.route.cancel.complete_thread">[docs]</a><span class="nd">@cancel</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/cancel&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<div class="viewcode-block" id="complete_thread"><a class="viewcode-back" href="../../../api/nova_server.route.html#nova_server.route.cancel.complete_thread">[docs]</a><span class="nd">@cancel</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/cancel&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
 <span class="k">def</span> <span class="nf">complete_thread</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Cancel a running job.</span>
+
+<span class="sd">    This route allows canceling a running job by providing the job&#39;s unique identifier in the request.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: A JSON response indicating whether the cancelation was successful.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; POST /cancel</span>
+<span class="sd">        &gt;&gt;&gt; {&quot;job_id&quot;: &quot;12345&quot;}</span>
+<span class="sd">        {&quot;success&quot;: &quot;true&quot;}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;POST&quot;</span><span class="p">:</span>
         <span class="n">request_form</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
-        <span class="n">key</span> <span class="o">=</span> <span class="n">get_key_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">get_job_id_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">THREADS</span><span class="p">:</span>
             <span class="n">thread</span> <span class="o">=</span> <span class="n">THREADS</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
             <span class="n">thread</span><span class="o">.</span><span class="n">raise_exception</span><span class="p">()</span>
-            <span class="n">status_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">status_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">WAITING</span><span class="p">)</span>
+            <span class="n">job_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">job_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">WAITING</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">LOGS</span><span class="p">:</span>
                 <span class="n">log</span> <span class="o">=</span> <span class="n">LOGS</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
                 <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Action successfully canceled.&quot;</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s1">&#39;success&#39;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">})</span>
+            <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="s2">&quot;true&quot;</span><span class="p">})</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">LOGS</span><span class="p">:</span>
                 <span class="n">log</span> <span class="o">=</span> <span class="n">LOGS</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
                 <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Cancel was not successful.&quot;</span><span class="p">)</span>
-            <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s1">&#39;success&#39;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span><span class="p">})</span></div>
+            <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="s2">&quot;false&quot;</span><span class="p">})</span></div>
 </pre></div>
 
            </div>

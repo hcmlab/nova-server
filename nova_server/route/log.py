@@ -1,6 +1,10 @@
-"""Route to return the logfile for a specific job
+"""
+log.py - Blueprint for retrieving a job's log file
 Author: Dominik Schiller <dominik.schiller@uni-a.de>
 Date: 13.09.2023
+
+This module defines a Flask Blueprint for retrieving a job's log file.
+
 """
 
 from flask import Blueprint, request, jsonify
@@ -13,6 +17,19 @@ log = Blueprint("log", __name__)
 
 @log.route("/log", methods=["POST"])
 def log_thread():
+    """
+    Retrieve the log file for a specific job.
+
+    This route allows retrieving the log file for a job by providing the job's unique identifier in the request.
+
+    Returns:
+        dict: A JSON response containing the log file content.
+
+    Example:
+        >>> POST /log
+        >>> {"job_id": "12345"}
+        {"message": "Log file content here..."}
+    """
     if request.method == "POST":
         request_form = request.form.to_dict()
         log_key = get_job_id_from_request_form(request_form)

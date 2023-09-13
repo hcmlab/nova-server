@@ -39,11 +39,17 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Nova Server:</span></p>
+              <p class="caption" role="heading"><span class="caption-text">Getting started</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="../../../api/nova-server/modules.html">nova_server</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../api/nova-utils/modules.html">nova_utils</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../api/hcai-datasets/modules.html">hcai_nova_dynamic</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/introduction.html">Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorials/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Packages</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.backend.html">nova_server.backend package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.exec.html">nova_server.exec package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.route.html">nova_server.route package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.utils.html">nova_server.utils package</a></li>
 </ul>
 
         </div>
@@ -71,18 +77,41 @@
            <div itemprop="articleBody">
              
   <h1>Source code for nova_server.route.status</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Blueprint</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">jsonify</span>
-<span class="kn">from</span> <span class="nn">nova_server.utils.status_utils</span> <span class="kn">import</span> <span class="n">JOBS</span><span class="p">,</span> <span class="n">get_all_jobs</span><span class="p">,</span> <span class="n">JobStatus</span>
-<span class="kn">from</span> <span class="nn">nova_server.utils.key_utils</span> <span class="kn">import</span> <span class="n">get_key_from_request_form</span>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">status.py - Blueprint for querying job statuses</span>
+<span class="sd">Author: Dominik Schiller &lt;dominik.schiller@uni-a.de&gt;</span>
+<span class="sd">Date: 13.09.2023</span>
+
+<span class="sd">This module defines a Flask Blueprint for querying the current status of a specific job or all logged jobs.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="kn">from</span> <span class="nn">flask</span> <span class="kn">import</span> <span class="n">Blueprint</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">jsonify</span>
+<span class="kn">from</span> <span class="nn">nova_server.utils.job_utils</span> <span class="kn">import</span> <span class="n">JOBS</span><span class="p">,</span> <span class="n">get_all_jobs</span><span class="p">,</span> <span class="n">JobStatus</span>
+<span class="kn">from</span> <span class="nn">nova_server.utils.job_utils</span> <span class="kn">import</span> <span class="n">get_job_id_from_request_form</span>
 
 <span class="n">status</span> <span class="o">=</span> <span class="n">Blueprint</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="vm">__name__</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="job_status"><a class="viewcode-back" href="../../../api/nova-server/nova_server.route.status.html#nova_server.route.status.job_status">[docs]</a><span class="nd">@status</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/job_status&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+<div class="viewcode-block" id="job_status"><a class="viewcode-back" href="../../../api/nova_server.route.html#nova_server.route.status.job_status">[docs]</a><span class="nd">@status</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/job_status&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
 <span class="k">def</span> <span class="nf">job_status</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Query the status of a specific job.</span>
+
+<span class="sd">    This route allows querying the status of a job by providing the job&#39;s unique identifier in the request.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: A JSON response containing the status of the requested job.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        &gt;&gt;&gt; POST /job_status</span>
+<span class="sd">        &gt;&gt;&gt; {&quot;job_id&quot;: &quot;12345&quot;}</span>
+<span class="sd">        {&quot;status&quot;: &quot;RUNNING&quot;}</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;POST&quot;</span><span class="p">:</span>
         <span class="n">request_form</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
-        <span class="n">status_key</span> <span class="o">=</span> <span class="n">get_key_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
+        <span class="n">status_key</span> <span class="o">=</span> <span class="n">get_job_id_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">status_key</span> <span class="ow">in</span> <span class="n">JOBS</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="n">status</span> <span class="o">=</span> <span class="n">JOBS</span><span class="p">[</span><span class="n">status_key</span><span class="p">]</span><span class="o">.</span><span class="n">status</span>
@@ -91,8 +120,30 @@
             <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="n">JobStatus</span><span class="o">.</span><span class="n">WAITING</span><span class="o">.</span><span class="n">value</span><span class="p">})</span></div>
 
 
-<div class="viewcode-block" id="job_status_all"><a class="viewcode-back" href="../../../api/nova-server/nova_server.route.status.html#nova_server.route.status.job_status_all">[docs]</a><span class="nd">@status</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/job_status_all&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">])</span>
+<div class="viewcode-block" id="job_status_all"><a class="viewcode-back" href="../../../api/nova_server.route.html#nova_server.route.status.job_status_all">[docs]</a><span class="nd">@status</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/job_status_all&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">])</span>
 <span class="k">def</span> <span class="nf">job_status_all</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">     Query the status of all jobs.</span>
+
+<span class="sd">     This route allows querying the status of a job by providing the job&#39;s unique identifier in the request.</span>
+
+<span class="sd">     Returns:</span>
+<span class="sd">         dict: A JSON response containing the status of the requested job.</span>
+
+<span class="sd">     Example:</span>
+<span class="sd">         &gt;&gt;&gt; POST /job_status</span>
+<span class="sd">         &gt;&gt;&gt; {&quot;job_id&quot;: &quot;12345&quot;}</span>
+<span class="sd">         [{</span>
+<span class="sd">            start_time = &#39;09/13/2023, 16:51:27&#39;</span>
+<span class="sd">            end_time = None</span>
+<span class="sd">            progress = &#39;Predicting data&#39;</span>
+<span class="sd">            status = JobStatus.RUNNING</span>
+<span class="sd">            job_key = 12345</span>
+<span class="sd">            interactive_url = interactive_url</span>
+<span class="sd">            log_path = /logs/12345.log</span>
+<span class="sd">            details = {&#39;user&#39; : &#39;my_user&#39;, &#39;dataset&#39; : &#39;test&#39; ... }</span>
+<span class="sd">         }, ...]</span>
+<span class="sd">     &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">get_all_jobs</span><span class="p">())</span></div>
 </pre></div>
 

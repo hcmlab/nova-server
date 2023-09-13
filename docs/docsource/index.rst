@@ -18,22 +18,15 @@ The server api can be used either from the UI itself or as a standalone tool to 
 
     tutorials/introduction
     tutorials/examples
-
+      
 .. toctree::
-    :maxdepth: 2
-    :caption: Modules
+     :maxdepth: 2
+     :caption: Packages
 
-    overview <modules/overview_link>
-    modules/whisperx_link
-
-
-.. toctree::
-   :maxdepth: 2
-   :caption: API Documentation:
-
-   api/nova-server/modules
-   api/nova-utils/modules
-   api/hcai-datasets/modules
+     api/nova_server.backend
+     api/nova_server.exec
+     api/nova_server.route
+     api/nova_server.utils
 
 
 Indices and tables
