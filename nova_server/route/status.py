@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
-from nova_server.utils.status_utils import JOBS, get_all_jobs, JobStatus
-from nova_server.utils.key_utils import get_job_id_from_request_form
+from nova_server.utils.job_utils import JOBS, get_all_jobs, JobStatus
+from nova_server.utils.job_utils import get_job_id_from_request_form
 
 status = Blueprint("status", __name__)
 

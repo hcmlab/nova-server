@@ -15,10 +15,10 @@ from nova_server.utils import (
 from nova_server.utils import log_utils
 from nova_server.exec.execution_handler import NovaPredictHandler
 
-predict = Blueprint("predict_in_venv", __name__)
+predict = Blueprint("predict", __name__)
 
 
-@predict.route("/predict_in_venv", methods=["POST"])
+@predict.route("/predict", methods=["POST"])
 def predict_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()

@@ -2,8 +2,7 @@ import logging
 import threading
 from pathlib import Path
 import os
-from nova_server.utils import status_utils
-import datetime
+from nova_server.utils import job_utils
 LOGS = {}
 
 def get_log_conform_request(request_form):
@@ -11,23 +10,16 @@ def get_log_conform_request(request_form):
     log_conform_request["password"] = "---"
     return log_conform_request
 
-def get_logfile_name_for_thread(job_id):
-    #current_time = datetime.datetime.now()
-    #formatted_time = current_time.strftime('%Y-%m-%d_%H-%M-%S')
-    return job_id
-
-
 def get_log_path_for_thread(job_id):
-    name = get_logfile_name_for_thread(job_id)
     log_dir = os.environ["NOVA_LOG_DIR"]
-    return Path(log_dir) / (name + ".log")
+    return Path(log_dir) / (job_id + ".log")
 
 
 def init_logger(logger, job_id):
     print("Init logger" + str(threading.current_thread().name))
     try:
         log_path = get_log_path_for_thread(job_id)
-        status_utils.set_log_path(job_id, log_path)
+        job_utils.set_log_path(job_id, log_path)
         handler = logging.FileHandler(log_path, "w")
         handler.setFormatter(logging.Formatter(fmt="%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
         logger.addHandler(handler)
