@@ -73,7 +73,8 @@ def run():
     if args.env:
         env_path = Path(args.env)
         if env_path.is_file():
-            dotenv.load_dotenv()
+            print(f'loading environment from {env_path.resolve()}')
+            dotenv.load_dotenv(env_path, verbose=True, override=True)
         else:
             raise FileNotFoundError(f'.env file not found at {env_path} ')
 
