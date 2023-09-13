@@ -1,12 +1,11 @@
 from flask import Flask
-# from nova_server.route.train import train
-# from nova_server.route.extract import extract
-# from nova_server.route.status import status
-# from nova_server.route.log import log
-# from nova_server.route.ui import ui
-# from nova_server.route.cancel import cancel
-# from nova_server.route.predict import predict
-from nova_server.route.predict_in_venv import predict
+from nova_server.route.train import train
+from nova_server.route.extract import extract
+from nova_server.route.status import status
+from nova_server.route.log import log
+from nova_server.route.ui import ui
+from nova_server.route.cancel import cancel
+from nova_server.route.predict import predict
 import argparse
 import os
 from pathlib import Path
@@ -15,14 +14,13 @@ from waitress import serve
 
 print("Starting nova-backend server...")
 app = Flask(__name__, template_folder="./templates")
-#app.register_blueprint(train)
-#app.register_blueprint(predict)
-#app.register_blueprint(extract)
-#app.register_blueprint(log)
-#app.register_blueprint(status)
-#app.register_blueprint(ui)
-#app.register_blueprint(cancel)
+app.register_blueprint(train)
 app.register_blueprint(predict)
+app.register_blueprint(extract)
+app.register_blueprint(log)
+app.register_blueprint(status)
+app.register_blueprint(ui)
+app.register_blueprint(cancel)
 
 parser = argparse.ArgumentParser(
     description="Commandline arguments to configure the nova backend server"
