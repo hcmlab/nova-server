@@ -3,14 +3,15 @@ the correct command using the specified backends.
 Author: Dominik Schiller <dominik.schiller@uni-a.de>
 Date: 06.09.2023
 """
-import json
+
 import os
+import re
+from logging import Logger
 from abc import ABC, abstractmethod
 from enum import Enum
 from pathlib import Path
 from dotenv import load_dotenv
 from pathlib import PureWindowsPath
-import re
 
 
 class Action(Enum):
@@ -36,9 +37,12 @@ class ExecutionHandler(ABC):
             for k, v in value.items()
         }
 
-    def __init__(self, request_form: dict, backend: Backend = Backend.VENV):
+    def __init__(
+        self, request_form: dict, backend: Backend = Backend.VENV, logger: Logger = None
+    ):
         self.backend = backend
         self.script_arguments = request_form
+        self.logger = logger
 
     def _nova_server_env_to_arg(self):
         env_vars = ["NOVA_CML_DIR", "NOVA_DATA_DIR", "NOVA_LOG_DIR", "NOVA_CACHE_DIR"]
@@ -57,7 +61,7 @@ class ExecutionHandler(ABC):
         else:
             load_dotenv(dot_env_path)
 
-        # run with backend
+        # run with selected backend
         if self.backend == Backend.VENV:
             from nova_server.backend import virtual_environment as backend
 
@@ -72,7 +76,7 @@ class ExecutionHandler(ABC):
                     f"NOVA_CML_DIR {module_dir} is not a valid directory"
                 )
             backend_handler = backend.VenvHandler(
-                module_dir, logger=None, log_verbose=True
+                module_dir, logger=self.logger, log_verbose=True
             )
 
             # add dotenv variables to arguments for script
@@ -82,6 +86,7 @@ class ExecutionHandler(ABC):
                 self.run_script,
                 script_kwargs=self._script_arguments,
             )
+
         else:
             raise ValueError(f"Unknown backend {self.backend}")
 
@@ -107,7 +112,7 @@ class NovaPredictHandler(ExecutionHandler):
 
     @property
     def run_script(self):
-        return Path(__file__).parent / "predict.py"
+        return Path(__file__).parent / "ex_predict.py"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
