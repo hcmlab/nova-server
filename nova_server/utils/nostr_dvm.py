@@ -596,13 +596,14 @@ def nostr_server(config):
         elif task == "image-to-image":
             request_form["mode"] = "PREDICT_STATIC"
             request_form["trainerFilePath"] = task
-            prompt = "surprise me"
+            prompt = ""
             url = " "
             negative_prompt = " "
             strength = 0.5
             guidance_scale = 7.5
             model = "sdxl"
             lora = ""
+            lora_weight = ""
 
             for tag in event.tags():
                 if tag.as_vec()[0] == 'i':
@@ -631,11 +632,16 @@ def nostr_server(config):
                         model = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "lora":
                         lora = tag.as_vec()[2]
+                    elif tag.as_vec()[1] == "lora_weight":
+                        lora_weight = tag.as_vec()[2]
+
+            if prompt == "" and lora == "":
+                prompt = "Surprise me"
 
             request_form["optStr"] = ('url=' + url + ';prompt=' + prompt + ';negative_prompt=' + negative_prompt
                                      + ';strength=' + str(strength) + ';guidance_scale=' + str(guidance_scale)
                                      + ';model=' + model
-                                     + ';lora=' + lora)
+                                     + ';lora=' + lora  + ';lora_weight=' + lora_weight)
 
         elif task == "text-to-image":
             request_form["mode"] = "PREDICT_STATIC"
@@ -649,6 +655,7 @@ def nostr_server(config):
             ratio_width = "1"
             ratio_height = "1"
             lora = ""
+            lora_weight = ""
 
             for tag in event.tags():
                 if tag.as_vec()[0] == 'i':
@@ -687,6 +694,8 @@ def nostr_server(config):
                         negative_prompt = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "lora":
                         lora = tag.as_vec()[2]
+                    elif tag.as_vec()[1] == "lora_weight":
+                        lora_weight = tag.as_vec()[2]
                     elif tag.as_vec()[1] == "ratio":
                         if len(tag.as_vec()) > 3:
                             ratio_width = (tag.as_vec()[2])
@@ -703,7 +712,7 @@ def nostr_server(config):
             prompt = prompt.replace(";",",")
             request_form["optStr"] = ('prompt=' + prompt + ';extra_prompt=' + extra_prompt + ';negative_prompt='
                                       + negative_prompt + ';upscale=' + str(upscale) + ';model=' + model
-                                      + ';ratiow=' + str(ratio_width) + ';ratioh=' + str(ratio_height)) + ';lora=' + str(lora)
+                                      + ';ratiow=' + str(ratio_width) + ';ratioh=' + str(ratio_height)+ ';lora=' + str(lora) + ';lora_weight=' + lora_weight)
 
 
         elif task == "image-reimagine":
