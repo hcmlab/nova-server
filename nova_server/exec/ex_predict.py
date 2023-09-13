@@ -127,7 +127,7 @@ parser.add_argument(
     help="Path to the trainer file using Windows UNC-Style",
 )
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     # Parse arguments
     args, _ = parser.parse_known_args()
@@ -159,7 +159,7 @@ if __name__ == '__main__':
     sessions = iter_args.sessions
     iterators = []
 
-    #TODO split for role if multirole input is false
+    # TODO split for role if multirole input is false
 
     args = {**vars(db_args), **vars(iter_args)}
 
@@ -169,7 +169,6 @@ if __name__ == '__main__':
         ni = NovaIterator(**args)
         iterators.append(ni)
     print("Data iterators initialized")
-
 
     # Load Trainer
     model_script_path = (
@@ -206,7 +205,9 @@ if __name__ == '__main__':
             data = predictor.process_data(ds_iter)
             annos = predictor.to_anno(data)
         except FileNotFoundError as e:
-            print(f"\tIterator exited with error: '{str(e)}'. Continuing with next session.")
+            print(
+                f"\tIterator exited with error: '{str(e)}'. Continuing with next session."
+            )
             caught_ex = True
             continue
         finally:
@@ -218,7 +219,9 @@ if __name__ == '__main__':
             for anno in annos:
                 db_handler.save(anno)
         except FileExistsError as e:
-            print(f"\tCould note save annotation: '{str(e)}'. Continuing with next session.")
+            print(
+                f"\tCould note save annotation: '{str(e)}'. Continuing with next session."
+            )
             caught_ex = True
             continue
         finally:
@@ -226,5 +229,7 @@ if __name__ == '__main__':
 
     print("Prediction completed!")
     if caught_ex:
-        print("Prediction job encountered errors for some sessions. Check logs for details.")
+        print(
+            "Prediction job encountered errors for some sessions. Check logs for details."
+        )
         exit(1)

@@ -21,9 +21,9 @@ def complete_thread():
             if key in LOGS:
                 log = LOGS[key]
                 log.info("Action successfully canceled.")
-            return jsonify({'success': "true"})
+            return jsonify({"success": "true"})
         else:
             if key in LOGS:
                 log = LOGS[key]
                 log.info("Cancel was not successful.")
-            return jsonify({'success': "false"})
+            return jsonify({"success": "false"})

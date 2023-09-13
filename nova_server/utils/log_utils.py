@@ -1,14 +1,22 @@
+"""Utility modules for NOVA-Server Logs
+Author: Dominik Schiller <dominik.schiller@uni-a.de>
+Date: 13.09.2023
+"""
+
 import logging
 import threading
 from pathlib import Path
 import os
 from nova_server.utils import job_utils, env
+
 LOGS = {}
+
 
 def get_log_conform_request(request_form):
     log_conform_request = dict(request_form)
     log_conform_request["password"] = "---"
     return log_conform_request
+
 
 def get_log_path_for_thread(job_id):
     log_dir = os.environ[env.NOVA_SERVER_LOG_DIR]
@@ -21,7 +29,11 @@ def init_logger(logger, job_id):
         log_path = get_log_path_for_thread(job_id)
         job_utils.set_log_path(job_id, log_path)
         handler = logging.FileHandler(log_path, "w")
-        handler.setFormatter(logging.Formatter(fmt="%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+        handler.setFormatter(
+            logging.Formatter(
+                fmt="%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+            )
+        )
         logger.addHandler(handler)
         logger.setLevel(logging.DEBUG)
         LOGS[job_id] = logger

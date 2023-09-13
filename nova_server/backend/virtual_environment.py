@@ -62,9 +62,9 @@ class VenvHandler:
             msg = s.decode("utf-8")
             if self.logger is None:
                 if not self.log_verbose:
-                   sys.stderr.write(".")
+                    sys.stderr.write(".")
                 else:
-                   sys.stderr.write(msg)
+                    sys.stderr.write(msg)
             else:
                 if context == "stderr":
                     self.logger.error(msg)

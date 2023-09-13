@@ -1,3 +1,8 @@
+"""Route to query the current status of a specific job or all logged jobs
+Author: Dominik Schiller <dominik.schiller@uni-a.de>
+Date: 13.09.2023
+"""
+
 from flask import Blueprint, request, jsonify
 from nova_server.utils.job_utils import JOBS, get_all_jobs, JobStatus
 from nova_server.utils.job_utils import get_job_id_from_request_form

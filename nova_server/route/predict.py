@@ -8,10 +8,7 @@ from pathlib import Path
 from flask import Blueprint, request, jsonify
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.job_utils import get_job_id_from_request_form
-from nova_server.utils import (
-    thread_utils,
-    job_utils
-)
+from nova_server.utils import thread_utils, job_utils
 from nova_server.utils import log_utils
 from nova_server.exec.execution_handler import NovaPredictHandler
 
@@ -40,12 +37,11 @@ def predict_data(request_form):
     handler = NovaPredictHandler(request_form, logger=logger)
 
     # TODO replace .env with actual path
-    dotenv_path = Path('.env').resolve()
+    dotenv_path = Path(".env").resolve()
 
     try:
         handler.run(dotenv_path)
         job_utils.update_status(job_id, job_utils.JobStatus.FINISHED)
     except Exception as e:
-        logger.critical(f'Job failed with exception {str(e)}')
+        logger.critical(f"Job failed with exception {str(e)}")
         job_utils.update_status(job_id, job_utils.JobStatus.ERROR)
-

@@ -1,3 +1,8 @@
+"""Utility modules for NOVA-Server Jobs
+Author: Dominik Schiller <dominik.schiller@uni-a.de>
+Date: 13.09.2023
+"""
+
 import copy
 import random
 from datetime import datetime

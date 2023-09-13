@@ -1,3 +1,8 @@
+"""Route to return the logfile for a specific job
+Author: Dominik Schiller <dominik.schiller@uni-a.de>
+Date: 13.09.2023
+"""
+
 from flask import Blueprint, request, jsonify
 from nova_server.utils import log_utils
 from nova_server.utils.job_utils import get_job_id_from_request_form
@@ -16,9 +21,9 @@ def log_thread():
             path = logger.handlers[0].baseFilename
             with open(path) as f:
                 f = f.readlines()
-            output = ''
+            output = ""
             for line in f:
                 output += line
-            return jsonify({'message': output})
+            return jsonify({"message": output})
         else:
-            return jsonify({'message': 'No log for the given parameters found.'})
+            return jsonify({"message": "No log for the given parameters found."})

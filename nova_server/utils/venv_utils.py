@@ -29,7 +29,7 @@ def _args_run_cmd(args: list = None, kwargs: dict = None) -> str:
     if args is not None:
         tmp += args
     if kwargs is not None:
-        tmp += [f'{k} {json.dumps(v)}' for k, v in kwargs.items()]
+        tmp += [f"{k} {json.dumps(v)}" for k, v in kwargs.items()]
     args_run_cmd = " ".join(tmp)
 
     return args_run_cmd
@@ -49,11 +49,10 @@ def _src_activate_cmd(env_path: Path):
         >>> _src_activate_cmd(Path('/path/to/venv'))
         'source /path/to/venv/bin/activate'
     """
-    if platform.system() == 'Windows':
+    if platform.system() == "Windows":
         return f"{env_path/'Scripts'/'activate'}"
     else:
         return f"source {env_path/'bin'/'activate'}"
-
 
 
 def get_module_run_cmd(
