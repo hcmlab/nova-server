@@ -118,23 +118,36 @@ class NovaPredictHandler(ExecutionHandler):
         super().__init__(*args, **kwargs)
         self.action = Action.PREDICT
 
+class NovaExtractHandler(ExecutionHandler):
+    @property
+    def module_name(self):
+        cfp = self.script_arguments.get("--chain_file_path")
+        if cfp is None:
+            raise ValueError("chainFilePath not specified in request.")
+        else:
+            return PureWindowsPath(cfp).parent
 
-#
-# class NovaExtractHandler(NovaHandler):
-#     @property
-#     def run_script(self):
-#         return Path(__file__) / "nova_extract.py"
-#
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.action = Action.EXTRACT
-#
-#
-# class NovaTrainHandler(NovaHandler):
-#     @property
-#     def run_script(self):
-#         return Path(__file__) / "nova_train.py"
-#
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.action = Action.TRAIN
+    @property
+    def run_script(self):
+        return Path(__file__).parent / "ex_extract.py"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.action = Action.EXTRACT
+
+class NovaTrainHandler(ExecutionHandler):
+    @property
+    def module_name(self):
+        tfp = self.script_arguments.get("--trainer_file_path")
+        if tfp is None:
+            raise ValueError("trainerFilePath not specified in request.")
+        else:
+            return PureWindowsPath(tfp).parent
+
+    @property
+    def run_script(self):
+        return Path(__file__).parent / "ex_train.py"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.action = Action.TRAIN
