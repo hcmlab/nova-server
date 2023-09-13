@@ -1,8 +1,47 @@
+import copy
+import random
 from datetime import datetime
 from enum import Enum
 from nova_server.utils.thread_utils import status_thread_wrapper
-import copy
 from . import log_utils
+from ..data import ANIMALS, COLORS
+
+
+def get_job_id_from_request_form(request_form):
+    """
+    Returns the logging key from the provided request form
+    Args:
+        request_form (dict): Request form from Nova
+
+    Returns:
+
+    """
+    key = request_form.get("jobID", None)
+
+    if key is None:
+        key = f"{get_random_name()}"
+
+    return key
+
+
+def get_random_name(
+    combo=(COLORS, ANIMALS), separator: str = " ", style: str = "capital"
+):
+    if not combo:
+        raise Exception("combo cannot be empty")
+
+    random_name = []
+    for word_list in combo:
+        part_name = random.choice(word_list)
+        if style == "capital":
+            part_name = part_name.capitalize()
+        if style == "lowercase":
+            part_name = part_name.lower()
+        if style == "uppercase":
+            part_name = part_name.upper()
+        random_name.append(part_name)
+    return separator.join(random_name)
+
 
 JOBS = {}
 
@@ -50,7 +89,6 @@ def remove_job(job_key):
         print(f"Key {job_key} is not in the dictionary")
 
 
-
 @status_thread_wrapper
 def update_status(job_key, status: JobStatus):
     try:
@@ -64,14 +102,12 @@ def update_status(job_key, status: JobStatus):
         print(f"Key {job_key} is not in the dictionary")
 
 
-
 @status_thread_wrapper
 def update_progress(job_key, progress: str):
     try:
         JOBS[job_key].progress = progress
     except KeyError:
         print(f"Key {job_key} is not in the dictionary")
-
 
 
 @status_thread_wrapper
@@ -82,14 +118,12 @@ def set_log_path(job_key, log_path):
         print(f"Key {job_key} is not in the dictionary")
 
 
-
 @status_thread_wrapper
 def get_log_path(job_key):
     try:
         return JOBS[str(job_key)].log_path
     except KeyError:
         print(f"Key {job_key} is not in the dictionary")
-
 
 
 @status_thread_wrapper
