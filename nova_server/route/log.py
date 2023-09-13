@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from nova_server.utils import log_utils
-from nova_server.utils.key_utils import get_key_from_request_form
+from nova_server.utils.key_utils import get_job_id_from_request_form
 
 
 log = Blueprint("log", __name__)
@@ -10,7 +10,7 @@ log = Blueprint("log", __name__)
 def log_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
-        log_key = get_key_from_request_form(request_form)
+        log_key = get_job_id_from_request_form(request_form)
         if log_key in log_utils.LOGS:
             logger = log_utils.LOGS[log_key]
             path = logger.handlers[0].baseFilename

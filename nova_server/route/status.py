@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from nova_server.utils.status_utils import JOBS, get_all_jobs, JobStatus
-from nova_server.utils.key_utils import get_key_from_request_form
+from nova_server.utils.key_utils import get_job_id_from_request_form
 
 status = Blueprint("status", __name__)
 
@@ -9,7 +9,7 @@ status = Blueprint("status", __name__)
 def job_status():
     if request.method == "POST":
         request_form = request.form.to_dict()
-        status_key = get_key_from_request_form(request_form)
+        status_key = get_job_id_from_request_form(request_form)
 
         if status_key in JOBS.keys():
             status = JOBS[status_key].status

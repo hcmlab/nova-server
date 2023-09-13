@@ -2,7 +2,7 @@ import nova_server.utils.status_utils
 
 from flask import Blueprint, request, jsonify
 from nova_server.utils import status_utils
-from nova_server.utils.key_utils import get_key_from_request_form
+from nova_server.utils.key_utils import get_job_id_from_request_form
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.log_utils import LOGS
 
@@ -14,7 +14,7 @@ cancel = Blueprint("cancel", __name__)
 def complete_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
-        key = get_key_from_request_form(request_form)
+        key = get_job_id_from_request_form(request_form)
 
         if key in THREADS:
             thread = THREADS[key]
