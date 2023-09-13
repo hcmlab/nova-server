@@ -7,10 +7,10 @@ Date: 06.09.2023
 from pathlib import Path
 from flask import Blueprint, request, jsonify
 from nova_server.utils.thread_utils import THREADS
-from nova_server.utils.key_utils import get_job_id_from_request_form
+from nova_server.utils.job_utils import get_job_id_from_request_form
 from nova_server.utils import (
     thread_utils,
-    status_utils
+    job_utils
 )
 from nova_server.utils import log_utils
 from nova_server.exec.execution_handler import NovaPredictHandler
@@ -23,8 +23,8 @@ def predict_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
         key = get_job_id_from_request_form(request_form)
-        status_utils.add_new_job(key, request_form=request_form)
-        thread = predict_data(request_form)
+        job_utils.add_new_job(key, request_form=request_form)
+        thread = extract_data(request_form)
         thread.start()
         THREADS[key] = thread
         data = {"success": "true"}
@@ -32,10 +32,10 @@ def predict_thread():
 
 
 @thread_utils.ml_thread_wrapper
-def predict_data(request_form):
+def extract_data(request_form):
     key = get_job_id_from_request_form(request_form)
 
-    status_utils.update_status(key, status_utils.JobStatus.RUNNING)
+    job_utils.update_status(key, job_utils.JobStatus.RUNNING)
     logger = log_utils.get_logger_for_job(key)
     handler = NovaPredictHandler(request_form, logger=logger)
 
@@ -44,7 +44,7 @@ def predict_data(request_form):
 
     try:
         handler.run(dotenv_path)
-        status_utils.update_status(key, status_utils.JobStatus.FINISHED)
+        job_utils.update_status(key, job_utils.JobStatus.FINISHED)
     except:
-        status_utils.update_status(key, status_utils.JobStatus.ERROR)
+        job_utils.update_status(key, job_utils.JobStatus.ERROR)
 

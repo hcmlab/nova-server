@@ -1,8 +1,6 @@
-import nova_server.utils.status_utils
-
 from flask import Blueprint, request, jsonify
-from nova_server.utils import status_utils
-from nova_server.utils.key_utils import get_job_id_from_request_form
+from nova_server.utils import job_utils
+from nova_server.utils.job_utils import get_job_id_from_request_form
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.log_utils import LOGS
 
@@ -19,7 +17,7 @@ def complete_thread():
         if key in THREADS:
             thread = THREADS[key]
             thread.raise_exception()
-            status_utils.update_status(key, status_utils.JobStatus.WAITING)
+            job_utils.update_status(key, job_utils.JobStatus.WAITING)
             if key in LOGS:
                 log = LOGS[key]
                 log.info("Action successfully canceled.")
