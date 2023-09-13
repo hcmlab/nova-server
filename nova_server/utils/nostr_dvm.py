@@ -965,7 +965,7 @@ def send_event(event, client=None, key=None):
         if key is None:
             key = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
         print(key.secret_key().to_hex())
-        opts = Options().wait_for_send(True).send_timeout(timedelta(seconds=5))
+        opts = Options().wait_for_send(False).send_timeout(timedelta(seconds=5))
         client = Client.with_opts(key, opts)
         for relay in dvmconfig.RELAY_LIST:
             client.add_relay(relay)
