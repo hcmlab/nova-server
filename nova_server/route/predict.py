@@ -33,10 +33,10 @@ def predict_thread():
 
 @thread_utils.ml_thread_wrapper
 def predict_data(request_form):
-    key = get_job_id_from_request_form(request_form)
+    job_id = get_job_id_from_request_form(request_form)
 
-    job_utils.update_status(key, job_utils.JobStatus.RUNNING)
-    logger = log_utils.get_logger_for_job(key)
+    job_utils.update_status(job_id, job_utils.JobStatus.RUNNING)
+    logger = log_utils.get_logger_for_job(job_id)
     handler = NovaPredictHandler(request_form, logger=logger)
 
     # TODO replace .env with actual path
@@ -44,7 +44,8 @@ def predict_data(request_form):
 
     try:
         handler.run(dotenv_path)
-        job_utils.update_status(key, job_utils.JobStatus.FINISHED)
-    except:
-        job_utils.update_status(key, job_utils.JobStatus.ERROR)
+        job_utils.update_status(job_id, job_utils.JobStatus.FINISHED)
+    except Exception as e:
+        logger.critical(f'Job failed with exception {str(e)}')
+        job_utils.update_status(job_id, job_utils.JobStatus.ERROR)
 

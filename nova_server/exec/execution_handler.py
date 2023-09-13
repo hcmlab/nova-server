@@ -12,6 +12,7 @@ from enum import Enum
 from pathlib import Path
 from dotenv import load_dotenv
 from pathlib import PureWindowsPath
+from nova_server.utils import env
 
 
 class Action(Enum):
@@ -45,10 +46,11 @@ class ExecutionHandler(ABC):
         self.logger = logger
 
     def _nova_server_env_to_arg(self):
-        env_vars = ["NOVA_CML_DIR", "NOVA_DATA_DIR", "NOVA_LOG_DIR", "NOVA_CACHE_DIR"]
+        env_vars = [env.NOVA_SERVER_CML_DIR, env.NOVA_SERVER_DATA_DIR, env.NOVA_SERVER_LOG_DIR, env.NOVA_SERVER_CACHE_DIR, env.NOVA_SERVER_TMP_DIR]
         arg_vars = {}
+        prefix = 'NOVA_SERVER_'
         for var in env_vars:
-            k = "--" + var[5:].lower()
+            k = "--" + var[len(prefix):].lower()
             v = os.getenv(var)
             arg_vars[k] = v
         return arg_vars
@@ -66,7 +68,7 @@ class ExecutionHandler(ABC):
             from nova_server.backend import virtual_environment as backend
 
             # setup virtual environment
-            cml_dir = os.getenv("NOVA_CML_DIR")
+            cml_dir = os.getenv(env.NOVA_SERVER_CML_DIR)
             if cml_dir is None:
                 raise ValueError(f"NOVA_CML_DIR not set in environment {dot_env_path}")
 

@@ -2,7 +2,7 @@ import logging
 import threading
 from pathlib import Path
 import os
-from nova_server.utils import job_utils
+from nova_server.utils import job_utils, env
 LOGS = {}
 
 def get_log_conform_request(request_form):
@@ -11,7 +11,7 @@ def get_log_conform_request(request_form):
     return log_conform_request
 
 def get_log_path_for_thread(job_id):
-    log_dir = os.environ["NOVA_LOG_DIR"]
+    log_dir = os.environ[env.NOVA_SERVER_LOG_DIR]
     return Path(log_dir) / (job_id + ".log")
 
 
@@ -36,7 +36,7 @@ def init_logger(logger, job_id):
 
 
 def get_logger_for_job(job_id):
-    logger = logging.getLogger(get_logfile_name_for_thread(job_id))
+    logger = logging.getLogger(job_id)
     if not logger.handlers:
         logger = init_logger(logger, job_id)
     return logger

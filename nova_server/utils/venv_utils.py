@@ -6,6 +6,7 @@ import os
 import json
 import platform
 from pathlib import Path
+from nova_server.utils import env
 from importlib.machinery import SourceFileLoader
 
 
@@ -136,7 +137,7 @@ def venv_dir_from_mod(module_dir: Path) -> Path:
         >>> venv_dir_from_mod(Path('/path/to/my_module'))
         Path('/path/to/venvs/my_module')
     """
-    parent_dir = os.getenv("NOVA_CACHE_DIR")
+    parent_dir = os.getenv(env.NOVA_SERVER_CACHE_DIR)
 
     if parent_dir is None:
         raise ValueError("NOVA_CACHE_DIR environment variable has not been set")
