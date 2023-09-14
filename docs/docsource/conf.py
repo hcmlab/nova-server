@@ -33,7 +33,7 @@ extensions = [
 ]
 source_suffix = ['.rst', '.md']
 autodoc_typehints = "none"
-napoleon_use_param = False
+#napoleon_use_param = False
 napoleon_google_docstring = True  # Enable parsing of Google-style pydocs.
 napoleon_use_ivar = True  # to correctly handle Attributes header in class pydocs
 

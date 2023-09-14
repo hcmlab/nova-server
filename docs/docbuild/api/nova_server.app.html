@@ -91,20 +91,56 @@
 </dl>
 <p>This script performs predictions for annotations in the NOVA database using a provided nova-server module for inference and saves the results to the NOVA-DB.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>–env</strong> (<em>str, optional</em>) – Path to the environment file to read configuration from. Default: ‘’</p></li>
-<li><p><strong>–host</strong> (<em>str, optional</em>) – The host IP address for the server. Default: ‘0.0.0.0’</p></li>
-<li><p><strong>–port</strong> (<em>str, optional</em>) – The port on which the server will listen. Default: ‘8080’</p></li>
-<li><p><strong>–cml_dir</strong> (<em>str, optional</em>) – CML folder to read the training scripts from, same as in Nova. Default: ‘cml’</p></li>
-<li><p><strong>–data_dir</strong> (<em>str, optional</em>) – Data folder to read the training scripts from, same as in Nova. Default: ‘data’</p></li>
-<li><p><strong>–cache_dir</strong> (<em>str, optional</em>) – Cache folder where all large files (e.g., model weights) are cached. Default: ‘cache’</p></li>
-<li><p><strong>–tmp_dir</strong> (<em>str, optional</em>) – Folder for temporary data storage. Default: ‘tmp’</p></li>
-<li><p><strong>–log_dir</strong> (<em>str, optional</em>) – Folder for temporary data storage. Default: ‘log’</p></li>
-</ul>
+<dt class="field-odd">param –env<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Path to the environment file to read configuration from. Default: ‘’</p>
 </dd>
-<dt class="field-even">returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>None</p>
+<dt class="field-even">type –env<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, optional</p>
+</dd>
+<dt class="field-odd">param –host<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The host IP address for the server. Default: ‘0.0.0.0’</p>
+</dd>
+<dt class="field-even">type –host<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, optional</p>
+</dd>
+<dt class="field-odd">param –port<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The port on which the server will listen. Default: ‘8080’</p>
+</dd>
+<dt class="field-even">type –port<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, optional</p>
+</dd>
+<dt class="field-odd">param –cml_dir<span class="colon">:</span></dt>
+<dd class="field-odd"><p>CML folder to read the training scripts from, same as in Nova. Default: ‘cml’</p>
+</dd>
+<dt class="field-even">type –cml_dir<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, optional</p>
+</dd>
+<dt class="field-odd">param –data_dir<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Data folder to read the training scripts from, same as in Nova. Default: ‘data’</p>
+</dd>
+<dt class="field-even">type –data_dir<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, optional</p>
+</dd>
+<dt class="field-odd">param –cache_dir<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Cache folder where all large files (e.g., model weights) are cached. Default: ‘cache’</p>
+</dd>
+<dt class="field-even">type –cache_dir<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, optional</p>
+</dd>
+<dt class="field-odd">param –tmp_dir<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Folder for temporary data storage. Default: ‘tmp’</p>
+</dd>
+<dt class="field-even">type –tmp_dir<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, optional</p>
+</dd>
+<dt class="field-odd">param –log_dir<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Folder for temporary data storage. Default: ‘log’</p>
+</dd>
+<dt class="field-even">type –log_dir<span class="colon">:</span></dt>
+<dd class="field-even"><p>str, optional</p>
+</dd>
+<dt class="field-odd">returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
 </dd>
 </dl>
 <p class="rubric">Example</p>
