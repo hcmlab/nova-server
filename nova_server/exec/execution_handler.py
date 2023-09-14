@@ -10,15 +10,14 @@ from logging import Logger
 from abc import ABC, abstractmethod
 from enum import Enum
 from pathlib import Path
-from dotenv import load_dotenv
 from pathlib import PureWindowsPath
 from nova_server.utils import env
 
 
 class Action(Enum):
-    PREDICT = 0
-    EXTRACT = 1
-    TRAIN = 2
+    PREDICT = "nu-predict"
+    EXTRACT = "nu-extract"
+    TRAIN = "nu-train"
 
 
 class Backend(Enum):
@@ -55,13 +54,7 @@ class ExecutionHandler(ABC):
             arg_vars[k] = v
         return arg_vars
 
-    def run(self, dot_env_path: Path = None):
-
-        # load dotenv everytime we execute run
-        if dot_env_path is None or not dot_env_path.is_file():
-            raise FileNotFoundError(f"No dotenv file found at path {dot_env_path}")
-        else:
-            load_dotenv(dot_env_path)
+    def run(self):
 
         # run with selected backend
         if self.backend == Backend.VENV:
@@ -70,7 +63,7 @@ class ExecutionHandler(ABC):
             # setup virtual environment
             cml_dir = os.getenv(env.NOVA_SERVER_CML_DIR)
             if cml_dir is None:
-                raise ValueError(f"NOVA_CML_DIR not set in environment {dot_env_path}")
+                raise ValueError(f"NOVA_CML_DIR not et")
 
             module_dir = Path(cml_dir) / self.module_name
             if not module_dir.is_dir():
@@ -84,7 +77,7 @@ class ExecutionHandler(ABC):
             # add dotenv variables to arguments for script
             self._script_arguments |= self._nova_server_env_to_arg()
 
-            backend_handler.run_script_from_file(
+            backend_handler.run_shell_script(
                 self.run_script,
                 script_kwargs=self._script_arguments,
             )
@@ -114,7 +107,7 @@ class NovaPredictHandler(ExecutionHandler):
 
     @property
     def run_script(self):
-        return Path(__file__).parent / "ex_predict.py"
+        return self.action.value
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -131,7 +124,7 @@ class NovaExtractHandler(ExecutionHandler):
 
     @property
     def run_script(self):
-        return Path(__file__).parent / "ex_extract.py"
+        return self.action.value
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -148,7 +141,7 @@ class NovaTrainHandler(ExecutionHandler):
 
     @property
     def run_script(self):
-        return Path(__file__).parent / "ex_train.py"
+        return self.action.value
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -40,7 +40,7 @@ class VenvHandler:
         >>> logger = logging.getLogger('test_logger')
         >>> module_path = Path(os.getenv("NOVA_CML_DIR")) / "test"
         >>> venv_handler = VenvHandler(module_path, logger=logger, log_verbose=True)
-        >>> venv_handler.run_script_from_file(
+        >>> venv_handler.run_python_script_from_file(
         ...     module_path / "test.py",
         ...     script_args=["pos_1", "pos_2"],
         ...     script_kwargs={"-k1": "k1", "--keyword_three": "k3"},
@@ -59,17 +59,16 @@ class VenvHandler:
             s = stream.readline()
             if not s:
                 break
-            msg = s.decode("utf-8")
             if self.logger is None:
                 if not self.log_verbose:
                     sys.stderr.write(".")
                 else:
-                    sys.stderr.write(msg)
+                    sys.stderr.write(s)
             else:
                 if context == "stderr":
-                    self.logger.error(msg)
+                    self.logger.error(s)
                 else:
-                    self.logger.info(msg)
+                    self.logger.info(s)
             sys.stderr.flush()
         stream.close()
 
@@ -84,7 +83,7 @@ class VenvHandler:
         Returns:
             int: Return code of the executed command
         """
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True)
+        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True, universal_newlines=True)
         t1 = Thread(target=self._reader, args=(p.stdout, "stdout"))
         t1.start()
         t2 = Thread(target=self._reader, args=(p.stderr, "stderr"))
@@ -167,7 +166,7 @@ class VenvHandler:
         self.venv_dir = self._get_or_create_venv()
         self._install_requirements()
 
-    def run_script_from_file(
+    def run_python_script_from_file(
         self, script_fp: Path, script_args: list = None, script_kwargs: dict = None
     ):
         """
@@ -186,8 +185,33 @@ class VenvHandler:
             raise ValueError(
                 "Virtual environment has not been initialized. Call <init_venv()> first."
             )
-        run_cmd = vu.get_script_run_cmd(
+        run_cmd = vu.get_python_script_run_cmd(
             self.venv_dir, script_fp, script_args, script_kwargs
+        )
+        return_code = self._run_cmd(run_cmd)
+        if not return_code == 0:
+            raise subprocess.CalledProcessError(returncode=return_code, cmd=run_cmd)
+
+    def run_shell_script(self, script: str, script_args: list = None, script_kwargs: dict = None):
+        """
+        Runs a command in the respective os shell with an activated virtual environment
+
+
+        Args:
+            script (Path): The path to the script to run.
+            script_args (list, optional): List of positional arguments to pass to the script.
+            script_kwargs (dict, optional): Dictionary of keyword arguments to pass to the script.
+
+        Raises:
+            ValueError: If the virtual environment has not been initialized. Call `init_venv()` first.
+            subprocess.CalledProcessError: If the executed command exits with a return value other than 0
+        """
+        if self.venv_dir is None:
+            raise ValueError(
+                "Virtual environment has not been initialized. Call <init_venv()> first."
+            )
+        run_cmd = vu.get_shell_script_run_cmd(
+            self.venv_dir, script, script_args, script_kwargs
         )
         return_code = self._run_cmd(run_cmd)
         if not return_code == 0:
@@ -206,7 +230,7 @@ if __name__ == "__main__":
 
     module_path = Path(os.getenv("NOVA_CML_DIR")) / "test"
     venv_handler = VenvHandler(module_path, logger=logger, log_verbose=True)
-    venv_handler.run_script_from_file(
+    venv_handler.run_python_script_from_file(
         module_path / "test.py",
         script_args=["pos_1", "pos_2"],
         script_kwargs={"-k1": "k1", "--keyword_three": "k3"},

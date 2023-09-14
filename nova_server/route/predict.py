@@ -40,11 +40,8 @@ def predict_data(request_form):
     logger = log_utils.get_logger_for_job(job_id)
     handler = NovaPredictHandler(request_form, logger=logger)
 
-    # TODO replace .env with actual path
-    dotenv_path = Path(".env").resolve()
-
     try:
-        handler.run(dotenv_path)
+        handler.run()
         job_utils.update_status(job_id, job_utils.JobStatus.FINISHED)
     except Exception as e:
         logger.critical(f"Job failed with exception {str(e)}")

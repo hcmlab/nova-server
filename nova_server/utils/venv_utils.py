@@ -77,7 +77,7 @@ def get_module_run_cmd(
     return f"{_src_activate_cmd(env_path)} && python -m {module} {_args_run_cmd(args, kwargs)}"
 
 
-def get_script_run_cmd(
+def get_python_script_run_cmd(
     env_path: Path, script: Path, args: list = None, kwargs: dict = None
 ):
     """
@@ -93,10 +93,31 @@ def get_script_run_cmd(
         str: Run command.
 
     Example:
-        >>> get_script_run_cmd(Path('/path/to/venv'), Path('/path/to/script.py'), ['arg1', 'arg2'], {'--flag': 'value'})
+        >>> get_python_script_run_cmd(Path('/path/to/venv'), Path('/path/to/script.py'), ['arg1', 'arg2'], {'--flag': 'value'})
         'source /path/to/venv/bin/activate && python /path/to/script.py arg1 arg2 --flag value'
     """
     return f"{_src_activate_cmd(env_path)} && python {script.resolve()} {_args_run_cmd(args, kwargs)}"
+
+def get_shell_script_run_cmd(
+        env_path: Path, script: str, args: list = None, kwargs: dict = None
+):
+    """
+    Generate a command to run a console script within a virtual environment. The path to the script musst be set in the path environment variable of the console session.
+
+    Args:
+        env_path (Path): Path to the virtual environment.
+        script (Path): Path to the Python script.
+        args (list, optional): List of arguments to pass to the script.
+        kwargs (dict, optional): Dictionary of keyword arguments to pass to the script.
+
+    Returns:
+        str: Run command.
+
+    Example:
+        >>> get_python_script_run_cmd(Path('/path/to/venv'), Path('/path/to/script.py'), ['arg1', 'arg2'], {'--flag': 'value'})
+        'source /path/to/venv/bin/activate && python /path/to/script.py arg1 arg2 --flag value'
+    """
+    return f"{_src_activate_cmd(env_path)} && {script} {_args_run_cmd(args, kwargs)}"
 
 
 def _venv_name_from_mod(module_dir: Path) -> str:
