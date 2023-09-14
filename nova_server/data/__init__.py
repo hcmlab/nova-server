@@ -1,3 +1,11 @@
+"""Package to handle resources for NOVA-Server
+
+Author:
+    Dominik Schiller <dominik.schiller@uni-a.de>
+Date:
+    18.8.2023
+"""
+
 from .adjectives import ADJECTIVES
 from .animals import ANIMALS
 from .colors import COLORS

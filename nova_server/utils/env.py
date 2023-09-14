@@ -1,6 +1,10 @@
 """This module lists all required environment variables used by NOVA-Server
-Author: Dominik Schiller <dominik.schiller@uni-a.de>
-Date: 13.09.2023
+
+Author:
+    Dominik Schiller <dominik.schiller@uni-a.de>
+Date:
+    13.09.2023
+
 """
 
 NOVA_SERVER_HOST = "NOVA_SERVER_HOST"

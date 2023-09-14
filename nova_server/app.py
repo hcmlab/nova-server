@@ -1,3 +1,28 @@
+"""Standalone script for data predictions
+
+Author:
+    Dominik Schiller <dominik.schiller@uni-a.de>
+Date:
+    06.09.2023
+
+This script performs predictions for annotations in the NOVA database using a provided nova-server module for inference and saves the results to the NOVA-DB.
+
+Args:
+    --env (str, optional): Path to the environment file to read configuration from. Default: ''
+    --host (str, optional): The host IP address for the server. Default: '0.0.0.0'
+    --port (str, optional): The port on which the server will listen. Default: '8080'
+    --cml_dir (str, optional): CML folder to read the training scripts from, same as in Nova. Default: 'cml'
+    --data_dir (str, optional): Data folder to read the training scripts from, same as in Nova. Default: 'data'
+    --cache_dir (str, optional): Cache folder where all large files (e.g., model weights) are cached. Default: 'cache'
+    --tmp_dir (str, optional): Folder for temporary data storage. Default: 'tmp'
+    --log_dir (str, optional): Folder for temporary data storage. Default: 'log'
+
+Returns:
+    None
+
+Example:
+    >>> app.py --host 0.0.0.0 --port 53771 --cml_dir "/path/to/my/cml" --data_dir "/path/to/my/data" --cache_dir "/path/to/my/cache" --tmp_dir "/path/to/my/tmp"
+"""
 import dotenv
 from flask import Flask
 from nova_server.route.train import train
@@ -63,7 +88,7 @@ parser.add_argument(
     help="Folder for temporary data storage.",
 )
 
-def run():
+def _run():
 
     # TODO: support multiple (data) directories
     args = parser.parse_args()
@@ -129,4 +154,4 @@ def run():
     serve(app, host=host, port=port)
 
 if __name__ == '__main__':
-    run()
+    _run()

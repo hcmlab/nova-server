@@ -24,23 +24,24 @@ You can then activate the virtual environment like this:
 
 ### Setup
 
-You can then install NOVA-Server using pip like this:
+Install NOVA-Server using pip like this:
 
 ```pip install hcai-nova-server```
 
 ### Start the server
 
-To start NOVA-Server you can just open a Terminal and type 
+To start NOVA-Server you just open a Terminal and type 
 
 ```nova-server```
 
+
 NOVA-Server takes the following optional arguments as input:
+
+```--env```: ```''``` : Path to a dotenv file containing your server configuration
 
 ```--host```: ```0.0.0.0``` : The IP for the Server to listen
 
 ```--port``` : ```8080``` : The port for the Server to be bound to
-
-```--template_folder``` : ```templates``` : The Flask template folder to 
 
 ```--cml_dir``` : ```cml``` : The cooperative machine learning directory for Nova 
 
@@ -52,12 +53,13 @@ NOVA-Server takes the following optional arguments as input:
 
 ```--log_dir``` : ```log``` : Directory to store logfiles.
 
+Internally NOVA-Server converts the input to environment variables with the following names:
+```NOVA_SERVER_HOST```, ```NOVA_SERVER_PORT```
+```NOVA_SERVER_CML_DIR```, ```NOVA_SERVER_CML_DIR```, ```NOVA_SERVER_CML_DIR```, ```NOVA_SERVER_CML_DIR```, ```NOVA_SERVER_CML_DIR```
 
-All directory variables can be also set as system wide environment variables using the following variable names:
 
-```NOVA_CML_DIR```, ```NOVA_DATA_DIR```, ```NOVA_CACHE_DIR```, ```NOVA_TMP_DIR```, ```NOVA_LOG_DIR```
-
-If a directory is set via a system variable but also passed as command line argument when starting nova-server, the command line argument will overwrite the system variable.
+All variables can be either passed directly as commandline argument, set in a [dotenv](https://hexdocs.pm/dotenvy/dotenv-file-format.html) file or as system wide environment variables.
+During runtime the arguments will be prioritized in this order commandline arguments -> dotenv file -> environment variable -> default value.
 
 If the server started successfully your console output should look like this: 
 

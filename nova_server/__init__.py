@@ -1,3 +1,11 @@
+""" Nova Server
+
+Author:
+    Dominik Schiller <dominik.schiller@uni-a.de>
+Date:
+    14.09.2023
+
+"""
 # We follow Semantic Versioning (https://semver.org/)
 _MAJOR_VERSION = '1'
 _MINOR_VERSION = '1'

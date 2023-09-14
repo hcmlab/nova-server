@@ -1,7 +1,9 @@
-"""
-status.py - Blueprint for querying job statuses
-Author: Dominik Schiller <dominik.schiller@uni-a.de>
-Date: 13.09.2023
+""" Blueprint for querying job statuses
+
+Author:
+    Dominik Schiller <dominik.schiller@uni-a.de>
+Date:
+    06.09.2023
 
 This module defines a Flask Blueprint for querying the current status of a specific job or all logged jobs.
 

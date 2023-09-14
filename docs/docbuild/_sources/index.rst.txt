@@ -23,6 +23,7 @@ The server api can be used either from the UI itself or as a standalone tool to 
      :maxdepth: 2
      :caption: Packages
 
+     api/nova_server.app
      api/nova_server.backend
      api/nova_server.exec
      api/nova_server.route

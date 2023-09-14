@@ -1,6 +1,10 @@
 """Custom dependency handling for NOVA-Server modules
-Author: Dominik Schiller <dominik.schiller@uni-a.de>, Tobias Hallmen <tobias.hallmen@informatik.uni-augsburg.de>
-Date: 13.09.2023
+
+Authors:
+    Dominik Schiller <dominik.schiller@uni-a.de>,
+    Tobias Hallmen <tobias.hallmen@informatik.uni-augsburg.de>
+Date:
+    13.09.2023
 """
 
 import sys

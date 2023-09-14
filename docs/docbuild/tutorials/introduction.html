@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Introduction &mdash; Nova Server 0.1.3 documentation</title>
+  <title>Introduction &mdash; Nova Server 1.1.0 documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -57,8 +57,8 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Packages</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/nova_server.app.html">nova_server.app module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../api/nova_server.backend.html">nova_server.backend package</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../api/nova_server.data.html">nova_server.data package</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../api/nova_server.exec.html">nova_server.exec package</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../api/nova_server.route.html">nova_server.route package</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../api/nova_server.utils.html">nova_server.utils package</a></li>
@@ -109,25 +109,27 @@ To do so, open a terminal at the directory where your virtual environment should
 </section>
 <section id="setup">
 <h3>Setup<a class="headerlink" href="#setup" title="Permalink to this heading"></a></h3>
-<p>You can then install NOVA-Server using pip like this:</p>
+<p>Install NOVA-Server using pip like this:</p>
 <p><code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">hcai-nova-server</span></code></p>
 </section>
 <section id="start-the-server">
 <h3>Start the server<a class="headerlink" href="#start-the-server" title="Permalink to this heading"></a></h3>
-<p>To start NOVA-Server you can just open a Terminal and type</p>
+<p>To start NOVA-Server you just open a Terminal and type</p>
 <p><code class="docutils literal notranslate"><span class="pre">nova-server</span></code></p>
 <p>NOVA-Server takes the following optional arguments as input:</p>
+<p><code class="docutils literal notranslate"><span class="pre">--env</span></code>: <code class="docutils literal notranslate"><span class="pre">''</span></code> : Path to a dotenv file containing your server configuration</p>
 <p><code class="docutils literal notranslate"><span class="pre">--host</span></code>: <code class="docutils literal notranslate"><span class="pre">0.0.0.0</span></code> : The IP for the Server to listen</p>
 <p><code class="docutils literal notranslate"><span class="pre">--port</span></code> : <code class="docutils literal notranslate"><span class="pre">8080</span></code> : The port for the Server to be bound to</p>
-<p><code class="docutils literal notranslate"><span class="pre">--template_folder</span></code> : <code class="docutils literal notranslate"><span class="pre">templates</span></code> : The Flask template folder to</p>
 <p><code class="docutils literal notranslate"><span class="pre">--cml_dir</span></code> : <code class="docutils literal notranslate"><span class="pre">cml</span></code> : The cooperative machine learning directory for Nova</p>
 <p><code class="docutils literal notranslate"><span class="pre">--data_dir</span></code> : <code class="docutils literal notranslate"><span class="pre">data</span></code> : Directory where the Nova data resides</p>
 <p><code class="docutils literal notranslate"><span class="pre">--cache_dir</span></code> : <code class="docutils literal notranslate"><span class="pre">cache</span></code> : Cache directory for Models and other downloadable content</p>
 <p><code class="docutils literal notranslate"><span class="pre">--tmp_dir</span></code> : <code class="docutils literal notranslate"><span class="pre">tmp</span></code> : Directory to store data for temporary usage</p>
 <p><code class="docutils literal notranslate"><span class="pre">--log_dir</span></code> : <code class="docutils literal notranslate"><span class="pre">log</span></code> : Directory to store logfiles.</p>
-<p>All directory variables can be also set as system wide environment variables using the following variable names:</p>
-<p><code class="docutils literal notranslate"><span class="pre">NOVA_CML_DIR</span></code>, <code class="docutils literal notranslate"><span class="pre">NOVA_DATA_DIR</span></code>, <code class="docutils literal notranslate"><span class="pre">NOVA_CACHE_DIR</span></code>, <code class="docutils literal notranslate"><span class="pre">NOVA_TMP_DIR</span></code>, <code class="docutils literal notranslate"><span class="pre">NOVA_LOG_DIR</span></code></p>
-<p>If a directory is set via a system variable but also passed as command line argument when starting nova-server, the command line argument will overwrite the system variable.</p>
+<p>Internally NOVA-Server converts the input to environment variables with the following names:
+<code class="docutils literal notranslate"><span class="pre">NOVA_SERVER_HOST</span></code>, <code class="docutils literal notranslate"><span class="pre">NOVA_SERVER_PORT</span></code>
+<code class="docutils literal notranslate"><span class="pre">NOVA_SERVER_CML_DIR</span></code>, <code class="docutils literal notranslate"><span class="pre">NOVA_SERVER_CML_DIR</span></code>, <code class="docutils literal notranslate"><span class="pre">NOVA_SERVER_CML_DIR</span></code>, <code class="docutils literal notranslate"><span class="pre">NOVA_SERVER_CML_DIR</span></code>, <code class="docutils literal notranslate"><span class="pre">NOVA_SERVER_CML_DIR</span></code></p>
+<p>All variables can be either passed directly as commandline argument, set in a <a class="reference external" href="https://hexdocs.pm/dotenvy/dotenv-file-format.html">dotenv</a> file or as system wide environment variables.
+During runtime the arguments will be prioritized in this order commandline arguments -&gt; dotenv file -&gt; environment variable -&gt; default value.</p>
 <p>If the server started successfully your console output should look like this:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Starting</span> <span class="n">nova</span><span class="o">-</span><span class="n">backend</span> <span class="n">server</span><span class="o">...</span>
 <span class="n">HOST</span><span class="p">:</span> <span class="mf">0.0.0.0</span>

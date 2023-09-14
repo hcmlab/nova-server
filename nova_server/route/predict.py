@@ -1,7 +1,9 @@
-"""
-extract.py - Blueprint for data prediction
-Author: Dominik Schiller <dominik.schiller@uni-a.de>
-Date: 13.09.2023
+""" Blueprint for data prediction
+
+Author:
+    Dominik Schiller <dominik.schiller@uni-a.de>
+Date:
+    06.09.2023
 
 This module defines a Flask Blueprint for predicting data.
 

@@ -43,4 +43,4 @@ Documentation = "https://hcmlab.github.io/nova-server/docbuild/"
 Repository = "https://github.com/hcmlab/nova-server"
 
 [project.scripts]
-nova-server = "nova_server.app:run"
+nova-server = "nova_server.app:_run"

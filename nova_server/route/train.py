@@ -1,6 +1,10 @@
 """General process logic for train route
-Author: Dominik Schiller <dominik.schiller@uni-a.de>
-Date: 06.09.2023
+
+Author:
+    Dominik Schiller <dominik.schiller@uni-a.de>
+Date:
+    06.09.2023
+
 """
 
 

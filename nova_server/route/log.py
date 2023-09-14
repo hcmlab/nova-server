@@ -1,7 +1,9 @@
-"""
-log.py - Blueprint for retrieving a job's log file
-Author: Dominik Schiller <dominik.schiller@uni-a.de>
-Date: 13.09.2023
+""" Blueprint for retrieving a job's log file
+
+Author:
+    Dominik Schiller <dominik.schiller@uni-a.de>
+Date:
+    06.09.2023
 
 This module defines a Flask Blueprint for retrieving a job's log file.
 

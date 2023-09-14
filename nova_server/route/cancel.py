@@ -1,6 +1,9 @@
 """ Blueprint for canceling a job
-Author: Dominik Schiller <dominik.schiller@uni-a.de>
-Date: 06.09.2023
+
+Author:
+    Dominik Schiller <dominik.schiller@uni-a.de>
+Date:
+    06.09.2023
 
 This module defines a Flask Blueprint for canceling a job.
 

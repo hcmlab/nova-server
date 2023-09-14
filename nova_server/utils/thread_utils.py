@@ -1,6 +1,9 @@
-"""Utility modules for NOVA-Server Threads
-Author: Dominik Schiller <dominik.schiller@uni-a.de>
-Date: 13.09.2023
+""" Utility modules for NOVA-Server Threads
+
+Author:
+    Dominik Schiller <dominik.schiller@uni-a.de>
+Date:
+    13.09.2023
 """
 
 import ctypes

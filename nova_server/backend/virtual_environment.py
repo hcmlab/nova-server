@@ -1,6 +1,10 @@
 """Backend for using virtual environments as a backend for nova server
-Author: Dominik Schiller <dominik.schiller@uni-a.de>
-Date: 18.8.2023
+
+Author:
+    Dominik Schiller <dominik.schiller@uni-a.de>
+Date:
+    18.8.2023
+
 """
 
 import os

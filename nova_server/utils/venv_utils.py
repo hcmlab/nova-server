@@ -1,6 +1,10 @@
 """Utility functions to create virtual environments and execute commands in them
-Author: Dominik Schiller <dominik.schiller@uni-a.de>
-Date: 06.09.2023
+
+Author:
+    Dominik Schiller <dominik.schiller@uni-a.de>
+Date:
+    06.09.2023
+
 """
 import os
 import json

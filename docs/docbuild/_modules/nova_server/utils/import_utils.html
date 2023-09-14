@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>nova_server.utils.import_utils &mdash; Nova Server 0.1.3 documentation</title>
+  <title>nova_server.utils.import_utils &mdash; Nova Server 1.1.0 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -46,8 +46,8 @@
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Packages</span></p>
 <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.app.html">nova_server.app module</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.backend.html">nova_server.backend package</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.data.html">nova_server.data package</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.exec.html">nova_server.exec package</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.route.html">nova_server.route package</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../api/nova_server.utils.html">nova_server.utils package</a></li>
@@ -79,8 +79,12 @@
              
   <h1>Source code for nova_server.utils.import_utils</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Custom dependency handling for NOVA-Server modules</span>
-<span class="sd">Author: Dominik Schiller &lt;dominik.schiller@uni-a.de&gt;, Tobias Hallmen &lt;tobias.hallmen@informatik.uni-augsburg.de&gt;</span>
-<span class="sd">Date: 13.09.2023</span>
+
+<span class="sd">Authors:</span>
+<span class="sd">    Dominik Schiller &lt;dominik.schiller@uni-a.de&gt;,</span>
+<span class="sd">    Tobias Hallmen &lt;tobias.hallmen@informatik.uni-augsburg.de&gt;</span>
+<span class="sd">Date:</span>
+<span class="sd">    13.09.2023</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span> <span class="nn">sys</span>
@@ -88,8 +92,7 @@
 <span class="kn">import</span> <span class="nn">subprocess</span>
 <span class="kn">import</span> <span class="nn">site</span>
 
-
-<div class="viewcode-block" id="assert_or_install_dependencies"><a class="viewcode-back" href="../../../api/nova_server.utils.html#nova_server.utils.import_utils.assert_or_install_dependencies">[docs]</a><span class="k">def</span> <span class="nf">assert_or_install_dependencies</span><span class="p">(</span><span class="n">packages</span><span class="p">,</span> <span class="n">trainer_name</span><span class="p">):</span>
+<div class="viewcode-block" id="assert_or_install_dependencies"><a class="viewcode-back" href="../../../api/nova_server.utils.import_utils.html#nova_server.utils.import_utils.assert_or_install_dependencies">[docs]</a><span class="k">def</span> <span class="nf">assert_or_install_dependencies</span><span class="p">(</span><span class="n">packages</span><span class="p">,</span> <span class="n">trainer_name</span><span class="p">):</span>
     <span class="n">site_package_path</span> <span class="o">=</span> <span class="p">(</span>
         <span class="n">Path</span><span class="p">(</span><span class="n">site</span><span class="o">.</span><span class="n">getsitepackages</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span>
         <span class="o">/</span> <span class="s2">&quot;..&quot;</span>
@@ -98,6 +101,7 @@
     <span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
     <span class="n">site_package_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
+    <span class="c1">#TODO: handle pip install *.zip</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">pkg</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">packages</span><span class="p">):</span>
         <span class="n">params</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="c1"># split on space while also removing double spaces</span>
@@ -112,7 +116,10 @@
                 <span class="n">name</span> <span class="o">=</span> <span class="n">pk</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.git&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># maybe support all specifiers https://peps.python.org/pep-0440/#version-specifiers</span>
-            <span class="n">name</span> <span class="o">=</span> <span class="n">pk</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;==&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">pk</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;==&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="c1"># setup-version-specifier</span>
+            <span class="k">if</span> <span class="s1">&#39;[&#39;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="n">name</span><span class="p">[:</span><span class="n">name</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s1">&#39;[&#39;</span><span class="p">)]</span>
 
         <span class="c1"># support systems without nvidia/cuda installed</span>
         <span class="k">try</span><span class="p">:</span>
@@ -121,12 +128,20 @@
         <span class="k">except</span><span class="p">:</span>
             <span class="n">cuda_available</span> <span class="o">=</span> <span class="kc">False</span>
 
+        <span class="c1"># torch/torchvision/torchaudio</span>
         <span class="c1"># remove cuda specific torch wheel params</span>
         <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;torch&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">&quot;+cu&quot;</span> <span class="ow">in</span> <span class="n">name</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">cuda_available</span><span class="p">:</span>
             <span class="n">pk</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">pk</span><span class="p">[</span><span class="mi">0</span><span class="p">][:</span> <span class="n">pk</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="s2">&quot;+cu&quot;</span><span class="p">)]</span>
             <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pk</span><span class="p">:</span>
                 <span class="k">if</span> <span class="s2">&quot;index-url&quot;</span> <span class="ow">in</span> <span class="n">p</span> <span class="ow">or</span> <span class="s2">&quot;download.pytorch.org/whl&quot;</span> <span class="ow">in</span> <span class="n">p</span><span class="p">:</span>
                     <span class="n">params</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+
+        <span class="c1"># onnxruntime</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s1">&#39;onnxruntime&#39;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">cuda_available</span><span class="p">:</span>
+                <span class="n">pk</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">pk</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;onnxruntime&#39;</span><span class="p">,</span> <span class="s1">&#39;onnxruntime-gpu&#39;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s1">&#39;darwin&#39;</span><span class="p">:</span>
+                <span class="n">pk</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">pk</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;onnxruntime&#39;</span><span class="p">,</span> <span class="s1">&#39;onnxruntime-silicon&#39;</span><span class="p">)</span>
 
         <span class="n">params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;--target=</span><span class="si">{}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">site_package_path</span><span class="p">))</span>
 
@@ -170,7 +185,7 @@
     <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">site_package_path</span><span class="o">.</span><span class="n">resolve</span><span class="p">()))</span></div>
 
 
-<div class="viewcode-block" id="install_package"><a class="viewcode-back" href="../../../api/nova_server.utils.html#nova_server.utils.import_utils.install_package">[docs]</a><span class="k">def</span> <span class="nf">install_package</span><span class="p">(</span><span class="n">pkg</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+<div class="viewcode-block" id="install_package"><a class="viewcode-back" href="../../../api/nova_server.utils.import_utils.html#nova_server.utils.import_utils.install_package">[docs]</a><span class="k">def</span> <span class="nf">install_package</span><span class="p">(</span><span class="n">pkg</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
     <span class="n">call</span> <span class="o">=</span> <span class="p">[</span><span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span> <span class="s2">&quot;-m&quot;</span><span class="p">,</span> <span class="s2">&quot;pip&quot;</span><span class="p">,</span> <span class="s2">&quot;install&quot;</span><span class="p">,</span> <span class="n">pkg</span><span class="p">,</span> <span class="o">*</span><span class="n">params</span><span class="p">]</span>
     <span class="nb">print</span><span class="p">(</span><span class="o">*</span><span class="n">call</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">check_call</span><span class="p">(</span><span class="n">call</span><span class="p">)</span></div>

@@ -1,7 +1,10 @@
 """ Class definition for th execution handler. The execution handler combines uses data from the request form to execute
 the correct command using the specified backends.
-Author: Dominik Schiller <dominik.schiller@uni-a.de>
-Date: 06.09.2023
+
+Author:
+    Dominik Schiller <dominik.schiller@uni-a.de>
+Date:
+    06.09.2023
 """
 
 import os
