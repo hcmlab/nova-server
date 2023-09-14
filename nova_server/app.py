@@ -30,6 +30,7 @@ from nova_server.route.extract import extract
 from nova_server.route.status import status
 from nova_server.route.log import log
 from nova_server.route.ui import ui
+from nova_server.route.cml_info import cml_info
 from nova_server.route.cancel import cancel
 from nova_server.route.predict import predict
 import argparse
@@ -47,6 +48,7 @@ app.register_blueprint(log)
 app.register_blueprint(status)
 app.register_blueprint(ui)
 app.register_blueprint(cancel)
+app.register_blueprint(cml_info)
 
 parser = argparse.ArgumentParser(
     description="Commandline arguments to configure the nova backend server"
