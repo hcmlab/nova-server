@@ -13,6 +13,7 @@ Submodules
    :maxdepth: 8
 
    nova_server.route.cancel
+   nova_server.route.cml_info
    nova_server.route.deprecated_extract
    nova_server.route.deprecated_train
    nova_server.route.explain
