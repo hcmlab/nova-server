@@ -21,7 +21,7 @@ from glob import glob
 cml_info = Blueprint("cml_info", __name__)
 
 
-@cml_info.route("/cml_info", methods=["POST"])
+@cml_info.route("/cml_info", methods=["GET"])
 def info():
     """
     Query the server to return information about all
@@ -34,7 +34,7 @@ def info():
     Example:
 
     """
-    if request.method == "POST":
+    if request.method == "GET":
         cml_dir = os.getenv(env.NOVA_SERVER_CML_DIR)
 
         if not cml_dir:
