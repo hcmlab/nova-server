@@ -1,4 +1,10 @@
 ### Basic Python Projects ###
+
+build/
+dist/
+local/
+cache/
+
 # Editors
 .vscode/
 .idea/
