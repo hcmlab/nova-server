@@ -52,19 +52,21 @@ def info():
 
         for tf in trainer_files:
             t = Trainer()
+            rtf = str(Path(tf).relative_to(cml_dir))
             try:
                 t.load_from_file(tf)
-                trainer_ok[tf] = json.dumps(t, cls=TrainerEncoder)
+                trainer_ok[rtf] = json.dumps(t, cls=TrainerEncoder)
             except Exception as e:
-                trainer_faulty[tf] = str(e)
+                trainer_faulty[rtf] = str(e)
 
         for cf in chain_files:
             c = Chain()
+            rcf = str(Path(cf).relative_to(cml_dir))
             try:
                 c.load_from_file(cf)
-                chains_ok[cf] = json.dumps(c, cls=ChainEncoder)
+                chains_ok[rcf] = json.dumps(c, cls=ChainEncoder)
             except Exception as e:
-                chains_faulty[cf] = str(e)
+                chains_faulty[rcf] = str(e)
 
         return {
             'chains_ok' : chains_ok,
