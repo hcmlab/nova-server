@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>nova_server.exec.execution_handler &mdash; Nova Server 1.1.0 documentation</title>
+  <title>nova_server.exec.execution_handler &mdash; Nova Server 1.1.2 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -98,6 +98,7 @@
 
 
 <div class="viewcode-block" id="Action"><a class="viewcode-back" href="../../../api/nova_server.exec.execution_handler.html#nova_server.exec.execution_handler.Action">[docs]</a><span class="k">class</span> <span class="nc">Action</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">PROCESS</span> <span class="o">=</span> <span class="s2">&quot;nu-process&quot;</span>
     <span class="n">PREDICT</span> <span class="o">=</span> <span class="s2">&quot;nu-predict&quot;</span>
     <span class="n">EXTRACT</span> <span class="o">=</span> <span class="s2">&quot;nu-extract&quot;</span>
     <span class="n">TRAIN</span> <span class="o">=</span> <span class="s2">&quot;nu-train&quot;</span></div>
@@ -178,6 +179,22 @@
     <span class="k">def</span> <span class="nf">module_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span></div>
 
+<div class="viewcode-block" id="NovaProcessHandler"><a class="viewcode-back" href="../../../api/nova_server.exec.execution_handler.html#nova_server.exec.execution_handler.NovaProcessHandler">[docs]</a><span class="k">class</span> <span class="nc">NovaProcessHandler</span><span class="p">(</span><span class="n">ExecutionHandler</span><span class="p">):</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">module_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">tfp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_arguments</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;--trainer_file_path&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">tfp</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;trainerFilePath not specified in request.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">PureWindowsPath</span><span class="p">(</span><span class="n">tfp</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">run_script</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">action</span><span class="o">.</span><span class="n">value</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">action</span> <span class="o">=</span> <span class="n">Action</span><span class="o">.</span><span class="n">PROCESS</span></div>
 
 <div class="viewcode-block" id="NovaPredictHandler"><a class="viewcode-back" href="../../../api/nova_server.exec.execution_handler.html#nova_server.exec.execution_handler.NovaPredictHandler">[docs]</a><span class="k">class</span> <span class="nc">NovaPredictHandler</span><span class="p">(</span><span class="n">ExecutionHandler</span><span class="p">):</span>
     <span class="nd">@property</span>

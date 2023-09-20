@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>nova_server.exec.execution_handler module &mdash; Nova Server 1.1.1 documentation</title>
+  <title>nova_server.exec.execution_handler module &mdash; Nova Server 1.1.2 documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -59,6 +59,7 @@
 <li class="toctree-l4"><a class="reference internal" href="#nova_server.exec.execution_handler.ExecutionHandler"><code class="docutils literal notranslate"><span class="pre">ExecutionHandler</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#nova_server.exec.execution_handler.NovaExtractHandler"><code class="docutils literal notranslate"><span class="pre">NovaExtractHandler</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#nova_server.exec.execution_handler.NovaPredictHandler"><code class="docutils literal notranslate"><span class="pre">NovaPredictHandler</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#nova_server.exec.execution_handler.NovaProcessHandler"><code class="docutils literal notranslate"><span class="pre">NovaProcessHandler</span></code></a></li>
 <li class="toctree-l4"><a class="reference internal" href="#nova_server.exec.execution_handler.NovaTrainHandler"><code class="docutils literal notranslate"><span class="pre">NovaTrainHandler</span></code></a></li>
 </ul>
 </li>
@@ -118,6 +119,11 @@ the correct command using the specified backends.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="nova_server.exec.execution_handler.Action.PREDICT">
 <span class="sig-name descname"><span class="pre">PREDICT</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'nu-predict'</span></em><a class="headerlink" href="#nova_server.exec.execution_handler.Action.PREDICT" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="nova_server.exec.execution_handler.Action.PROCESS">
+<span class="sig-name descname"><span class="pre">PROCESS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'nu-process'</span></em><a class="headerlink" href="#nova_server.exec.execution_handler.Action.PROCESS" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -193,6 +199,22 @@ the correct command using the specified backends.</p>
 <dl class="py property">
 <dt class="sig sig-object py" id="nova_server.exec.execution_handler.NovaPredictHandler.run_script">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">run_script</span></span><a class="headerlink" href="#nova_server.exec.execution_handler.NovaPredictHandler.run_script" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="nova_server.exec.execution_handler.NovaProcessHandler">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">nova_server.exec.execution_handler.</span></span><span class="sig-name descname"><span class="pre">NovaProcessHandler</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/nova_server/exec/execution_handler.html#NovaProcessHandler"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#nova_server.exec.execution_handler.NovaProcessHandler" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference internal" href="#nova_server.exec.execution_handler.ExecutionHandler" title="nova_server.exec.execution_handler.ExecutionHandler"><code class="xref py py-class docutils literal notranslate"><span class="pre">ExecutionHandler</span></code></a></p>
+<dl class="py property">
+<dt class="sig sig-object py" id="nova_server.exec.execution_handler.NovaProcessHandler.module_name">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">module_name</span></span><a class="headerlink" href="#nova_server.exec.execution_handler.NovaProcessHandler.module_name" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="nova_server.exec.execution_handler.NovaProcessHandler.run_script">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">run_script</span></span><a class="headerlink" href="#nova_server.exec.execution_handler.NovaProcessHandler.run_script" title="Permalink to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>

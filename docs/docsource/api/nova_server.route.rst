@@ -20,6 +20,7 @@ Submodules
    nova_server.route.extract
    nova_server.route.log
    nova_server.route.predict
+   nova_server.route.process
    nova_server.route.status
    nova_server.route.train
    nova_server.route.ui
