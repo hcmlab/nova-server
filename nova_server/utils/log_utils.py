@@ -9,12 +9,23 @@ Date:
 
 import logging
 import threading
-from pathlib import Path
 import os
+import re
+from pathlib import Path
 from nova_server.utils import job_utils, env
 
 LOGS = {}
 
+class SensitiveFormatter(logging.Formatter):
+    """Formatter that removes sensitive information in urls."""
+    @staticmethod
+    def _filter(s):
+        password_regex = r"(?<=password\':\s\').*?(\')"
+        return re.sub(password_regex, r"****'", s)
+
+    def format(self, record):
+        original = logging.Formatter.format(self, record)
+        return self._filter(original)
 
 def get_log_conform_request(request_form):
     log_conform_request = dict(request_form)
@@ -32,13 +43,19 @@ def init_logger(logger, job_id):
     try:
         log_path = get_log_path_for_thread(job_id)
         job_utils.set_log_path(job_id, log_path)
-        handler = logging.FileHandler(log_path, "w")
-        handler.setFormatter(
-            logging.Formatter(
+        file_handler = logging.FileHandler(log_path, "w")
+        stream_handler = logging.getLogger().handlers[0]
+        file_handler.setFormatter(
+            SensitiveFormatter(
                 fmt="%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
             )
         )
-        logger.addHandler(handler)
+        stream_handler.setFormatter(
+            SensitiveFormatter(
+                fmt="%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+            )
+        )
+        logger.addHandler(file_handler)
         logger.setLevel(logging.DEBUG)
         LOGS[job_id] = logger
         return logger
