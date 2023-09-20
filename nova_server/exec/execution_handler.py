@@ -18,6 +18,7 @@ from nova_server.utils import env
 
 
 class Action(Enum):
+    PROCESS = "nu-process"
     PREDICT = "nu-predict"
     EXTRACT = "nu-extract"
     TRAIN = "nu-train"
@@ -98,6 +99,22 @@ class ExecutionHandler(ABC):
     def module_name(self):
         pass
 
+class NovaProcessHandler(ExecutionHandler):
+    @property
+    def module_name(self):
+        tfp = self.script_arguments.get("--trainer_file_path")
+        if tfp is None:
+            raise ValueError("trainerFilePath not specified in request.")
+        else:
+            return PureWindowsPath(tfp).parent
+
+    @property
+    def run_script(self):
+        return self.action.value
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.action = Action.PROCESS
 
 class NovaPredictHandler(ExecutionHandler):
     @property
