@@ -61,17 +61,18 @@ def extract_data(request_form):
     This function runs the data extraction process in a separate thread.
 
     """
-    key = get_job_id_from_request_form(request_form)
+    job_id = get_job_id_from_request_form(request_form)
 
-    job_utils.update_status(key, job_utils.JobStatus.RUNNING)
-    logger = log_utils.get_logger_for_job(key)
+    job_utils.update_status(job_id, job_utils.JobStatus.RUNNING)
+    logger = log_utils.get_logger_for_job(job_id)
     handler = NovaExtractHandler(request_form, logger=logger)
 
     # TODO replace .env with actual path
     dotenv_path = Path(".env").resolve()
 
     try:
-        handler.run(dotenv_path)
-        job_utils.update_status(key, job_utils.JobStatus.FINISHED)
-    except:
-        job_utils.update_status(key, job_utils.JobStatus.ERROR)
+        handler.run()
+        job_utils.update_status(job_id, job_utils.JobStatus.FINISHED)
+    except Exception as e:
+        logger.critical(f"Job failed with exception {str(e)}")
+        job_utils.update_status(job_id, job_utils.JobStatus.ERROR)
