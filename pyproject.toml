@@ -26,7 +26,8 @@ classifiers = [
 dependencies = [
     "Flask == 2.0.2",
     "waitress==2.0.0",
-    "hcai-nova-utils==1.1.1"
+    "hcai-nova-utils==1.1.1",
+    "python-dotenv"
 ]
 dynamic = ["version"]
 

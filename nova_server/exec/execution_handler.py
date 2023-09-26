@@ -94,7 +94,7 @@ class ExecutionHandler(ABC):
                 )
 
             backend_handler = backend.VenvHandler(
-                module_dir, logger=self.logger, log_verbose=False
+                module_dir, logger=self.logger, log_verbose=True
             )
 
             # add dotenv variables to arguments for script

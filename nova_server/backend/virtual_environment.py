@@ -107,14 +107,16 @@ class VenvHandler:
             Path: The path to the virtual environment.
         """
         venv_dir = vu.venv_dir_from_mod(self.module_dir)
+        existed = True
         if not venv_dir.is_dir():
+            existed = False
             try:
                 run_cmd = f"{sys.executable} -m venv {venv_dir}"
                 self._run_cmd(run_cmd)
             except Exception as e:
                 shutil.rmtree(venv_dir)
                 raise e
-        return venv_dir
+        return venv_dir, existed
 
     def _upgrade_pip(self):
         """
@@ -138,7 +140,7 @@ class VenvHandler:
         self._upgrade_pip()
 
         # hcai-nova-utils
-        self._install_nova_utils()
+        #self._install_nova_utils()
 
         # requirements.txt
         req_txt = self.module_dir / "requirements.txt"
@@ -204,8 +206,11 @@ class VenvHandler:
         """
         Initializes the virtual environment and installs requirements.
         """
-        self.venv_dir = self._get_or_create_venv()
-        self._install_requirements()
+        self.logger.info(f"Initializing venv")
+        venv_dir, existed = self._get_or_create_venv()
+        self.venv_dir = venv_dir
+        if not existed:
+            self._install_requirements()
         self.logger.info(f"Venv {self.venv_dir} initialized")
 
     def run_python_script_from_file(
