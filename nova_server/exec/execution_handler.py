@@ -49,11 +49,29 @@ class ExecutionHandler(ABC):
         self.logger = logger
 
     def _nova_server_env_to_arg(self):
-        env_vars = [env.NOVA_SERVER_CML_DIR, env.NOVA_SERVER_DATA_DIR, env.NOVA_SERVER_LOG_DIR, env.NOVA_SERVER_CACHE_DIR, env.NOVA_SERVER_TMP_DIR]
         arg_vars = {}
-        prefix = 'NOVA_SERVER_'
+        prefix = "NOVA_SERVER_"
+
+        # select data folder if multiple folders are passed
+        dd = os.getenv(env.NOVA_SERVER_DATA_DIR)
+        if ';' in dd:
+            for dir in dd.split(';'):
+                dataset_dir = (Path(dir) / self.script_arguments['--dataset'])
+                if dataset_dir.is_dir():
+                    os.environ[env.NOVA_SERVER_DATA_DIR] = str(dataset_dir.resolve())
+                    break
+
+        # set other vars
+        env_vars = [
+                env.NOVA_SERVER_CML_DIR,
+                env.NOVA_SERVER_DATA_DIR,
+                env.NOVA_SERVER_LOG_DIR,
+                env.NOVA_SERVER_CACHE_DIR,
+                env.NOVA_SERVER_TMP_DIR,
+        ]
+
         for var in env_vars:
-            k = "--" + var[len(prefix):].lower()
+            k = "--" + var[len(prefix) :].lower()
             v = os.getenv(var)
             arg_vars[k] = v
         return arg_vars
@@ -67,15 +85,16 @@ class ExecutionHandler(ABC):
             # setup virtual environment
             cml_dir = os.getenv(env.NOVA_SERVER_CML_DIR)
             if cml_dir is None:
-                raise ValueError(f"NOVA_CML_DIR not et")
+                raise ValueError(f"NOVA_CML_DIR not set")
 
             module_dir = Path(cml_dir) / self.module_name
             if not module_dir.is_dir():
                 raise NotADirectoryError(
                     f"NOVA_CML_DIR {module_dir} is not a valid directory"
                 )
+
             backend_handler = backend.VenvHandler(
-                module_dir, logger=self.logger, log_verbose=True
+                module_dir, logger=self.logger, log_verbose=False
             )
 
             # add dotenv variables to arguments for script
@@ -99,6 +118,7 @@ class ExecutionHandler(ABC):
     def module_name(self):
         pass
 
+
 class NovaProcessHandler(ExecutionHandler):
     @property
     def module_name(self):
@@ -115,6 +135,7 @@ class NovaProcessHandler(ExecutionHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.action = Action.PROCESS
+
 
 class NovaPredictHandler(ExecutionHandler):
     @property
@@ -133,6 +154,7 @@ class NovaPredictHandler(ExecutionHandler):
         super().__init__(*args, **kwargs)
         self.action = Action.PREDICT
 
+
 class NovaExtractHandler(ExecutionHandler):
     @property
     def module_name(self):
@@ -149,6 +171,7 @@ class NovaExtractHandler(ExecutionHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.action = Action.EXTRACT
+
 
 class NovaTrainHandler(ExecutionHandler):
     @property
