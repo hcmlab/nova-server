@@ -37,6 +37,7 @@ def process_data(request_form):
 
     job_utils.update_status(job_id, job_utils.JobStatus.RUNNING)
     logger = log_utils.get_logger_for_job(job_id)
+    logger.info(request_form)
     handler = NovaProcessHandler(request_form, logger=logger)
 
     try:
