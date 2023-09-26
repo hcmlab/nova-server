@@ -67,12 +67,12 @@ class VenvHandler:
                 if not self.log_verbose:
                     sys.stderr.write(".")
                 else:
-                    sys.stderr.write(s)
+                    sys.stderr.write(s.strip('\n'))
             else:
                 if context == "stderr":
-                    self.logger.error(s)
+                    self.logger.error(s.strip('\n'))
                 else:
-                    self.logger.info(s)
+                    self.logger.info(s.strip('\n'))
             sys.stderr.flush()
         stream.close()
 
@@ -120,8 +120,13 @@ class VenvHandler:
         """
         Upgrades the `pip` package within the virtual environment.
         """
+
+        args = ["install"]
+        if not self.log_verbose:
+            args.append("-q")
+
         run_cmd = vu.get_module_run_cmd(
-            self.venv_dir, "pip", args=["install"], kwargs={"--upgrade": "pip"}
+            self.venv_dir, "pip", args=args, kwargs={"--upgrade": "pip"}
         )
         self._run_cmd(run_cmd)
 
@@ -129,21 +134,53 @@ class VenvHandler:
         """
         Installs requirements from a `requirements.txt` file within the virtual environment.
         """
+        # pip
+        self._upgrade_pip()
+
+        # hcai-nova-utils
+        self._install_nova_utils()
+
+        # requirements.txt
         req_txt = self.module_dir / "requirements.txt"
         if not req_txt.is_file():
             return
         else:
-            # pip
-            self._upgrade_pip()
             # TODO: replace with custom import utils for better parsing
             # requirements.txt
+
+            args = ["install"]
+            if not self.log_verbose:
+                args.append("-q")
             run_cmd = vu.get_module_run_cmd(
                 self.venv_dir,
                 "pip",
-                args=["install"],
+                args=args,
                 kwargs={"-r": str(req_txt.resolve())},
             )
             self._run_cmd(run_cmd)
+
+    def _install_nova_utils(self):
+        import toml
+
+        toml_file = Path(__file__) / '..' / '..' / '..' / 'pyproject.toml'
+        with open(toml_file.resolve(), 'r') as f:
+            config = toml.load(f)
+            dependencies = config['project']['dependencies']
+            nu_dependency = list(filter(lambda x: x.startswith('hcai-nova-utils'), dependencies))
+            if len(nu_dependency) == 1:
+                args = ["install"]
+                if not self.log_verbose:
+                    args.append("-q")
+                args.append(nu_dependency[0])
+
+                run_cmd = vu.get_module_run_cmd(
+                    self.venv_dir,
+                    "pip",
+                    args=args
+                )
+                self._run_cmd(run_cmd)
+            else:
+                raise ValueError(f'Could not find unique version for hcai-nova-utils in {dependencies}')
 
     def __init__(
         self, module_dir: Path = None, logger: Logger = None, log_verbose: bool = False
@@ -169,6 +206,7 @@ class VenvHandler:
         """
         self.venv_dir = self._get_or_create_venv()
         self._install_requirements()
+        self.logger.info(f"Venv {self.venv_dir} initialized")
 
     def run_python_script_from_file(
         self, script_fp: Path, script_args: list = None, script_kwargs: dict = None
