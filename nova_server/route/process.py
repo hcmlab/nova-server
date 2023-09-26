@@ -24,7 +24,7 @@ def predict_thread():
         request_form = request.form.to_dict()
         key = get_job_id_from_request_form(request_form)
         job_utils.add_new_job(key, request_form=request_form)
-        thread = predict_data(request_form)
+        thread = process_data(request_form)
         thread.start()
         THREADS[key] = thread
         data = {"success": "true"}
@@ -32,7 +32,7 @@ def predict_thread():
 
 
 @thread_utils.ml_thread_wrapper
-def predict_data(request_form):
+def process_data(request_form):
     job_id = get_job_id_from_request_form(request_form)
 
     job_utils.update_status(job_id, job_utils.JobStatus.RUNNING)

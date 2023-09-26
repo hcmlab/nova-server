@@ -136,10 +136,10 @@ def _run():
     )
 
     os.environ[env.NOVA_SERVER_CML_DIR] = resolve_arg(
-        args.cml_dir, env.NOVA_SERVER_CML_DIR, default_args.cml_dir, create_directory=True
+        args.cml_dir, env.NOVA_SERVER_CML_DIR, default_args.cml_dir
     )
     os.environ[env.NOVA_SERVER_DATA_DIR] = resolve_arg(
-        args.data_dir, env.NOVA_SERVER_DATA_DIR, default_args.data_dir, create_directory=True
+        args.data_dir, env.NOVA_SERVER_DATA_DIR, default_args.data_dir
     )
     os.environ[env.NOVA_SERVER_CACHE_DIR] = resolve_arg(
         args.cache_dir, env.NOVA_SERVER_CACHE_DIR, default_args.cache_dir, create_directory=True
