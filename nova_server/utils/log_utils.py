@@ -20,8 +20,8 @@ class SensitiveFormatter(logging.Formatter):
     """Formatter that removes sensitive information in urls."""
     @staticmethod
     def _filter(s):
-        password_regex = r"(?<=Password\':).*?(,)"
-        return re.sub(password_regex, r" '****',", s)
+        password_regex = r"((?<=Password\':) |(?<=db_password)).*?(\"|\').*?(\"|\')"
+        return re.sub(password_regex, r" **** ", s)
 
     def format(self, record):
         original = logging.Formatter.format(self, record)
