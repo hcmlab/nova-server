@@ -39,7 +39,31 @@ import sqlite3
 # consider reactions from customers (Kind 65000 event)
 # add more output formats (webvtt, srt)
 # purge database and files from time to time?
-# Show preview of longer transcriptions, then ask for zap
+#
+# how preview of longer transcriptions, then ask for zap
+
+
+
+class EventDefinitions:
+    KIND_DM: int = 4
+    KIND_ZAP: int = 9735
+    KIND_FEEDBACK: int =  65000 #7000
+    KIND_NIP90_EXTRACT_TEXT = 65002 #5001
+    KIND_NIP90_RESULT_EXTRACT_TEXT = 65001 # 6001
+    KIND_NIP90_SUMMARIZE_TEXT = 65003  # 5002
+    KIND_NIP90_RESULT_SUMMARIZE_TEXT = 65001  # 6002
+    KIND_NIP90_TRANSLATE_TEXT = 65004  # 5003
+    KIND_NIP90_RESULT_TRANSLATE_TEXT = 65001  # 6003
+    KIND_NIP90_GENERATE_IMAGE = 65005  # 5004
+    KIND_NIP90_RESULT_GENERATE_IMAGE = 65001  # 6004
+    KIND_NIP90_RECOMMEND_NOTES = 65006  # 5005
+    KIND_NIP90_RESULT_RECOMMEND_NOTES = 65001  # 6005
+    KIND_NIP90_RECOMMEND_USERS = 65007  # 5006
+    KIND_NIP90_RESULT_RECOMMEND_USERS = 65001  # 6006
+    KIND_NIP90_GENERIC = 66000 #5999
+    KIND_NIP90_RESULT_GENERIC =  65001 #6999
+    ANY_RESULT = [KIND_NIP90_RESULT_EXTRACT_TEXT, KIND_NIP90_RESULT_SUMMARIZE_TEXT, KIND_NIP90_RESULT_TRANSLATE_TEXT, KIND_NIP90_RESULT_GENERATE_IMAGE, KIND_NIP90_RESULT_RECOMMEND_NOTES, KIND_NIP90_RESULT_RECOMMEND_USERS, KIND_NIP90_RESULT_GENERIC]
+
 
 use_logger= False
 if use_logger:
@@ -59,7 +83,7 @@ class DVMConfig:
     RELAY_LIST = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine",
                   "wss://relay.nostfiles.dev", "wss://nostr.mom", "wss://nostr.oxtr.dev", "wss://relay.nostr.bg", "wss://relay.f7z.io"]
     RELAY_TIMEOUT = 5
-    LNBITS_INVOICE_KEY = "" # 'bfdfb5ecfc0743daa08749ce58abea74'
+    LNBITS_INVOICE_KEY = 'bfdfb5ecfc0743daa08749ce58abea74'
     LNBITS_URL = 'https://lnbits.novaannotation.com'
     REQUIRES_NIP05: bool = False
 
@@ -135,25 +159,25 @@ def nostr_server(config):
     client.connect()
 
     if dvmconfig.IS_HYBRID:
-        kinds = [4]
+        kinds = [EventDefinitions.KIND_DM]
         if not dvmconfig.PASSIVE_MODE:
-            kinds = [4, 9735]
+            kinds = [EventDefinitions.KIND_DM, EventDefinitions.KIND_ZAP]
 
         dm_zap_filter = Filter().pubkey(pk).kinds(kinds).since(Timestamp.now())
-        dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005, 65006, 65007, 65008]).since(Timestamp.now()))
+        dvm_filter = (Filter().kinds([EventDefinitions.KIND_NIP90_GENERIC, EventDefinitions.KIND_NIP90_EXTRACT_TEXT, EventDefinitions.KIND_NIP90_SUMMARIZE_TEXT, EventDefinitions.KIND_NIP90_TRANSLATE_TEXT, EventDefinitions.KIND_NIP90_GENERATE_IMAGE, EventDefinitions.KIND_NIP90_RECOMMEND_USERS, EventDefinitions.KIND_NIP90_RECOMMEND_NOTES]).since(Timestamp.now()))
         client.subscribe([dm_zap_filter, dvm_filter])
 
     elif dvmconfig.IS_BOT:
-        kinds = [4]
+        kinds = [EventDefinitions.KIND_DM]
         if not dvmconfig.PASSIVE_MODE:
-            kinds = [4, 9735]
+            kinds = [EventDefinitions.KIND_DM, EventDefinitions.KIND_ZAP]
 
         dm_zap_filter = Filter().pubkey(pk).kinds(kinds).since(Timestamp.now())
         client.subscribe([dm_zap_filter])
 
     else:
-        dm_zap_filter = Filter().pubkey(pk).kinds([9735]).since(Timestamp.now())
-        dvm_filter = (Filter().kinds([66000, 65002, 65003, 65004, 65005, 65006, 65007, 65008]).since(Timestamp.now()))
+        dm_zap_filter = Filter().pubkey(pk).kinds([EventDefinitions.KIND_ZAP]).since(Timestamp.now())
+        dvm_filter = (Filter().kinds([EventDefinitions.KIND_NIP90_GENERIC, EventDefinitions.KIND_NIP90_EXTRACT_TEXT, EventDefinitions.KIND_NIP90_SUMMARIZE_TEXT,EventDefinitions.KIND_NIP90_TRANSLATE_TEXT, EventDefinitions.KIND_NIP90_GENERATE_IMAGE, EventDefinitions.KIND_NIP90_RECOMMEND_USERS, EventDefinitions.KIND_NIP90_RECOMMEND_NOTES]).since(Timestamp.now()))
         client.subscribe([dm_zap_filter, dvm_filter])
 
     create_sql_table()
@@ -161,12 +185,12 @@ def nostr_server(config):
 
     class NotificationHandler(HandleNotification):
         def handle(self, relay_url, event):
-            if 65002 <= event.kind() <= 66000:
+            if EventDefinitions.KIND_NIP90_EXTRACT_TEXT <= event.kind() <= EventDefinitions.KIND_NIP90_GENERIC:
                 print(f"[Nostr] Received new NIP90 Job Request from {relay_url}: {event.as_json()}")
                 if check_event_has_not_unifinished_job_input(event,True, client, dvmconfig):
                     handle_nip90_job_event(event)
 
-            elif event.kind() == 4:
+            elif event.kind() == EventDefinitions.KIND_DM:
                 sender = event.pubkey().to_hex()
                 try:
                     dec_text = nip04_decrypt(sk, event.pubkey(), event.content())
@@ -258,7 +282,7 @@ def nostr_server(config):
                             #build temp event to work with
                             tags = parse_bot_command_to_event(dec_text, event.pubkey().to_hex())
                             tags.append(Tag.parse(["p", event.pubkey().to_hex()]))
-                            jobevt = EventBuilder(4, "", tags).to_event(keys)
+                            jobevt = EventBuilder(EventDefinitions.KIND_DM, "", tags).to_event(keys)
 
 
                             #expires = event.created_at().as_secs() + (60 * 60)
@@ -313,7 +337,7 @@ def nostr_server(config):
 
                 except Exception as e:
                     print(f"Error during content decryption: {e}")
-            elif event.kind() == 9735:
+            elif event.kind() == EventDefinitions.KIND_ZAP:
 
                 zapped_event = None
                 invoice_amount = 0
@@ -350,7 +374,7 @@ def nostr_server(config):
                     print(str(user))
 
                     if zapped_event is not None:
-                        if zapped_event.kind() == 65000:  # if a reaction by us got zapped
+                        if zapped_event.kind() == EventDefinitions.KIND_FEEDBACK:  # if a reaction by us got zapped
                             if not dvmconfig.IS_BOT:
                                 print("Zap received for NIP90 task: " + str(invoice_amount) + " Sats from " + str(user[6]))
                                 amount = 0
@@ -388,7 +412,7 @@ def nostr_server(config):
                                                                  False, invoice_amount, client=client, config=dvmconfig)
                                         print("[Nostr] Invoice was not paid sufficiently")
 
-                        elif zapped_event.kind() == 65001:
+                        elif zapped_event.kind() in EventDefinitions.ANY_RESULT:
                             print("Someone zapped the result of an exisiting Task. Nice")
                         elif not anon and not dvmconfig.PASSIVE_MODE:
                             print("Note Zap received for Bot balance: " + str(invoice_amount) + " Sats from " + str(user[6]))
@@ -570,7 +594,7 @@ def nostr_server(config):
             elif input_type == "job":
                 for tag in event.tags():
                     if tag.as_vec()[0] == 'i':
-                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [EventDefinitions.KIND_NIP90_RESULT_EXTRACT_TEXT, EventDefinitions.KIND_NIP90_RESULT_SUMMARIZE_TEXT], client, config=dvmconfig)
                         text = evt.content()
                         break
 
@@ -590,7 +614,7 @@ def nostr_server(config):
                         evt = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
                     elif input_type == "job":
-                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [EventDefinitions.KIND_NIP90_RESULT_GENERATE_IMAGE], client, config=dvmconfig)
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
                 elif tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == "kind":
@@ -621,7 +645,7 @@ def nostr_server(config):
                         evt = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
                     elif input_type == "job":
-                         evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
+                         evt = get_referenced_event_by_id(tag.as_vec()[1], [EventDefinitions.KIND_NIP90_RESULT_GENERATE_IMAGE], client, config=dvmconfig)
                          if evt is not None:
                              url = evt.content()
                 elif tag.as_vec()[0] == 'param':
@@ -673,7 +697,7 @@ def nostr_server(config):
                                            "Reply only with comma-seperated lists, no smalltalk")
                         prompt = llamalist.replace("\n", ",")
                     elif input_type == "job":
-                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [EventDefinitions.KIND_NIP90_RESULT_EXTRACT_TEXT], client, config=dvmconfig)
                         if evt is not None:
                             try:
                                 llamalist = LLAMA2(evt.content(), ""
@@ -729,7 +753,7 @@ def nostr_server(config):
                     if input_type == "url":
                         url = tag.as_vec()[1]
                     elif input_type == "job":
-                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [EventDefinitions.KIND_NIP90_RESULT_GENERATE_IMAGE], client, config=dvmconfig)
                         if evt is not None:
                             url = evt.content()
 
@@ -753,7 +777,7 @@ def nostr_server(config):
                         evt = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
                     elif input_type == "job":
-                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [EventDefinitions.KIND_NIP90_RESULT_GENERATE_IMAGE], client, config=dvmconfig)
                         url = evt.content()
                 elif tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == "upscale":
@@ -790,7 +814,7 @@ def nostr_server(config):
                         evt = get_event_by_id(tag.as_vec()[1], config=dvmconfig)
                         text = re.sub(pattern, "", evt.content()).replace("\n", "")
                     elif input_type == "job":
-                        evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
+                        evt = get_referenced_event_by_id(tag.as_vec()[1], [EventDefinitions.KIND_NIP90_RESULT_EXTRACT_TEXT, EventDefinitions.KIND_NIP90_RESULT_TRANSLATE_TEXT], client, config=dvmconfig)
                         if evt is not None:
                             text = evt.content().replace(";", "")
                     all_texts = all_texts + text
@@ -841,7 +865,7 @@ def nostr_server(config):
 
 
     def do_work(job_event, is_from_bot=False):
-        if (65002 <= job_event.kind() <= 66000) or job_event.kind() == 4 or job_event.kind() == 68001:
+        if (EventDefinitions.KIND_NIP90_EXTRACT_TEXT <= job_event.kind() <= EventDefinitions.KIND_NIP90_GENERIC) or job_event.kind() == EventDefinitions.KIND_DM:
             request_form = create_requestform_from_nostr_event(job_event, is_from_bot)
             task = get_task(job_event, client=client)
             if task == "speech-to-text":
@@ -979,6 +1003,7 @@ def send_event(event, client=None, key=None):
         if key is None:
             key = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
         print(key.secret_key().to_hex())
+
         opts = Options().wait_for_send(False).send_timeout(timedelta(seconds=5)).skip_disconnected_relays(True)
         client = Client.with_opts(key, opts)
         for relay in dvmconfig.RELAY_LIST:
@@ -1008,19 +1033,19 @@ def send_event(event, client=None, key=None):
 
 # GET INFO ON TASK
 def get_task(event, client):
-    if event.kind() == 66000:  # use this for events that have no id yet
+    if event.kind() == EventDefinitions.KIND_NIP90_GENERIC:  # use this for events that have no id yet
         for tag in event.tags():
             if tag.as_vec()[0] == 'j':
                 return tag.as_vec()[1]
         else:
             return "unknown job: " + event.as_json()
-    elif event.kind() == 4:  # dm
+    elif event.kind() == EventDefinitions.KIND_DM:  # dm
         for tag in event.tags():
             if tag.as_vec()[0] == 'j':
                 return tag.as_vec()[1]
         else:
             return "unknown job: " + event.as_json()
-    elif event.kind() == 65002:
+    elif event.kind() == EventDefinitions.KIND_NIP90_EXTRACT_TEXT:
         for tag in event.tags():
             if tag.as_vec()[0] == "i":
                 if tag.as_vec()[2] == "url":
@@ -1048,11 +1073,11 @@ def get_task(event, client):
                                         return "unknown job"
                 else:
                     return "unknown type"
-    elif event.kind() == 65003:
+    elif event.kind() == EventDefinitions.KIND_NIP90_SUMMARIZE_TEXT:
         return "summarization"
-    elif event.kind() == 65004:
+    elif event.kind() == EventDefinitions.KIND_NIP90_TRANSLATE_TEXT:
         return "translation"
-    elif event.kind() == 65005:
+    elif event.kind() == EventDefinitions.KIND_NIP90_GENERATE_IMAGE:
         has_image_tag = False
         has_text_tag = False
         for tag in event.tags():
@@ -1063,7 +1088,7 @@ def get_task(event, client):
                         has_image_tag = True
                         print("found image tag")
                 elif tag.as_vec()[2] == "job":
-                    evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
+                    evt = get_referenced_event_by_id(tag.as_vec()[1], [EventDefinitions.KIND_NIP90_RESULT_EXTRACT_TEXT, EventDefinitions.KIND_NIP90_RESULT_TRANSLATE_TEXT, EventDefinitions.KIND_NIP90_RESULT_SUMMARIZE_TEXT], client, config=dvmconfig)
                     if evt is not None:
                         file_type = check_url_is_readable(evt.content())
                         if file_type == "image":
@@ -1078,9 +1103,9 @@ def get_task(event, client):
             return "image-to-image"
         elif has_text_tag and not has_image_tag:
             return "text-to-image"
-    elif event.kind() == 65006:
+    elif event.kind() == EventDefinitions.KIND_NIP90_RECOMMEND_NOTES:
         return "note-recommendation"
-    elif event.kind() == 65007:
+    elif event.kind() == EventDefinitions.KIND_NIP90_RECOMMEND_USERS:
         return "inactive-following"
     else:
         return "unknown type"
@@ -1307,9 +1332,16 @@ def send_nostr_reply_event(content, original_event_as_str, key=None):
     if key is None:
         key = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
 
-    event = EventBuilder(65001, str(content), [requesttag, etag, ptag, alttag, statustag]).to_event(key)
+
+    #Legacy, remove once NIP is merged
+    responsekind = 65001
+    if EventDefinitions.KIND_NIP90_RESULT_GENERIC != 65001:
+         responsekind = originalevent.kind() + 1000
+
+
+    event = EventBuilder(responsekind, str(content), [requesttag, etag, ptag, alttag, statustag]).to_event(key)
     send_event(event, key=key)
-    print("[Nostr] 65001 Job Response event sent: " + event.as_json())
+    print("[Nostr] "+ str(responsekind) + " Job Response event sent: " + event.as_json())
     return event.as_json()
 
 
@@ -1399,10 +1431,10 @@ def send_job_status_reaction(original_event, status, is_paid=True, amount=0, cli
         keys = Keys.from_sk_str(key)
     else:
         keys = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
-    event = EventBuilder(65000, reaction, tags).to_event(keys)
+    event = EventBuilder(EventDefinitions.KIND_FEEDBACK, reaction, tags).to_event(keys)
 
     send_event(event, key=keys)
-    print("[Nostr] Sent Kind 65000 Reaction: " + status + " " + event.as_json())
+    print("[Nostr] Sent Kind "+ str(EventDefinitions.KIND_FEEDBACK) +" Reaction: " + status + " " + event.as_json())
     return event.as_json()
 
 
@@ -1711,7 +1743,7 @@ def check_event_has_not_unifinished_job_input(nevent, append, client, dvmconfig)
                 input = tag.as_vec()[1]
                 input_type = tag.as_vec()[2]
                 if input_type == "job":
-                    evt = get_referenced_event_by_id(input, [65001], client, config=dvmconfig)
+                    evt = get_referenced_event_by_id(input, EventDefinitions.ANY_RESULT, client, config=dvmconfig)
                     if evt is None:
                         if append:
                             job = RequiredJobToWatch(event=nevent, timestamp=Timestamp.now().as_secs())
