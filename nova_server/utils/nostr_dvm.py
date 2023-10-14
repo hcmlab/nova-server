@@ -1879,7 +1879,7 @@ def get_Twitter(input_value, request_form):
 
     except Exception as e:
         print(e)
-        return filename, start, end
+        return "", start, end
     return filename, start, end
 
 def get_youtube(input_value, request_form):
@@ -1993,6 +1993,8 @@ def organize_input_data(input_value, input_type, request_form, process=True, con
         else:
             filename = get_media_link(input_value, request_form)
 
+        if filename == "" or filename == None:
+            return None, 0
         try:
 
             file_reader = AudioReader(filename, ctx=cpu(0), mono=False)
@@ -2057,11 +2059,12 @@ def check_url_is_readable(url):
     if not str(url).startswith("http"):
         return None
     # If it's a YouTube oder Overcast link, we suppose we support it
-    if str(url).replace("http://", "").replace("https://", "").replace("www.", "").replace("youtu.be/",
+    if (str(url).replace("http://", "").replace("https://", "").replace("www.", "").replace("youtu.be/",
                                                                                            "youtube.com?v=")[
-       0:11] == "youtube.com" and str(url).find("live") == -1:
+       0:11] == "youtube.com" and str(url).find("live") == -1) or str(url).startswith('https://x.com') or str(url).startswith('https://twitter.com') :
         # print("CHECKING YOUTUBE")f
         # if (checkYoutubeLinkValid(url)):
+        print("YES")
         return "video"
 
     elif str(url).startswith("https://overcast.fm/"):
