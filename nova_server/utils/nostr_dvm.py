@@ -581,6 +581,7 @@ def nostr_server(config):
             request_form["trainerFilePath"] = task
             input_type = "url"
             url = ""
+            kind = "prompt"
             for tag in event.tags():
                 if tag.as_vec()[0] == 'i':
                     if input_type == "url":
@@ -591,7 +592,11 @@ def nostr_server(config):
                     elif input_type == "job":
                         evt = get_referenced_event_by_id(tag.as_vec()[1], [65001], client, config=dvmconfig)
                         url = re.search("(?P<url>https?://[^\s]+)", evt.content()).group("url")
-            request_form["optStr"] = 'url=' + url
+                elif tag.as_vec()[0] == 'param':
+                    if tag.as_vec()[1] == "kind":
+                        kind = tag.as_vec()[2]
+
+            request_form["optStr"] = 'url=' + url + ';kind=' + kind
 
         elif task == "image-to-image":
             request_form["mode"] = "PREDICT_STATIC"
@@ -974,7 +979,7 @@ def send_event(event, client=None, key=None):
         if key is None:
             key = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
         print(key.secret_key().to_hex())
-        opts = Options().wait_for_send(True).send_timeout(timedelta(seconds=5))
+        opts = Options().wait_for_send(False).send_timeout(timedelta(seconds=5)).skip_disconnected_relays(True)
         client = Client.with_opts(key, opts)
         for relay in dvmconfig.RELAY_LIST:
             client.add_relay(relay)
@@ -1614,9 +1619,16 @@ def parse_bot_command_to_event(dec_text, sender):
     elif str(dec_text).startswith("-image-to-text"):
         command = dec_text.replace("-image-to-text ", "")
         split = command.split(" -")
+        kind = "ocr"
         url = str(split[0]).replace(' ', '')
+        if len(split) > 1:
+            for i in split:
+                if i.startswith("kind "):
+                    kind = i.replace("kind ", "")
+
         j_tag = Tag.parse(["j", "image-to-text"])
         i_tag = Tag.parse(["i", url, "url"])
+        param_tag_since = Tag.parse(["param", "kind", kind])
         tags = [j_tag, i_tag]
         return tags
 

@@ -87,9 +87,12 @@ def predict_static_data(request_form):
             anno = imageUpscaleRealESRGANUrl(options["url"], options["upscale"])
         elif task == "translation":
             anno = GoogleTranslate(options["text"], options["translation_lang"])
+
         elif task == "image-to-text":
-            #anno = ImageToPrompt(options["url"])
-            anno = OCRtesseract(options["url"])
+            if options["kind"] == "prompt":
+                anno = ImageToPrompt(options["url"])
+            else:
+                 anno = OCRtesseract(options["url"])
         elif task == "chat":
             anno = LLAMA2(options["message"], options["user"])
         elif task == "summarization":
@@ -206,6 +209,16 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
     elif model.__contains__("timeless"):
         model = os.environ[
                     'TRANSFORMERS_CACHE'] + "stablediffusionmodels/copaxTimelessxlSDXL1_v5.safetensors"
+    elif model.__contains__("realisticfreedom"):
+        model = os.environ[
+                    'TRANSFORMERS_CACHE'] + "stablediffusionmodels/realisticFreedomSFW_alpha.safetensors"
+    elif model.__contains__("fodda"):
+        model = os.environ[
+                    'TRANSFORMERS_CACHE'] + "stablediffusionmodels/foddaxlPhotorealism_v35.safetensors"
+    elif model.__contains__("realvis"):
+        model = os.environ[
+                    'TRANSFORMERS_CACHE'] + "stablediffusionmodels/realvisxlV10_v10VAE.safetensors"
+
 
 
     else:
@@ -223,7 +236,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
         mheight = 768
 
 
-    if model == "stabilityai/stable-diffusion-xl-base-1.0" or  model.__contains__("dreamshaperXL") or model.__contains__("nightvisionXL") or model.__contains__("protovisionXL") or model.__contains__("dynavisionXL") or model.__contains__("sdvn6Realxl_detailface") or model.__contains__("fantasticCharacters_v55")  or model.__contains__("zavychromaxl_v10") or model.__contains__("crystalClearXL") or model.__contains__("juggernautXL_version2") or model.__contains__("copaxTimelessxlSDXL1_v5"):
+    if model == "stabilityai/stable-diffusion-xl-base-1.0" or  model.__contains__("dreamshaperXL") or model.__contains__("nightvisionXL") or model.__contains__("protovisionXL") or model.__contains__("dynavisionXL") or model.__contains__("sdvn6Realxl_detailface") or model.__contains__("fantasticCharacters_v55")  or model.__contains__("zavychromaxl_v10") or model.__contains__("crystalClearXL") or model.__contains__("juggernautXL_version2") or model.__contains__("copaxTimelessxlSDXL1_v5") or model.__contains__("realisticFreedomSFW_alpha") or model.__contains__("foddaxlPhotorealism_v35") or model.__contains__("realvisxlV10_v10VAE"):
         mwidth = 1024
         mheight = 1024
 
@@ -245,7 +258,7 @@ def textToImage(prompt, extra_prompt="", negative_prompt="", upscale="1",
     if (model == "stabilityai/stable-diffusion-xl-base-1.0" or model.__contains__("dreamshaperXL") or model.__contains__(
             "nightvisionXL") or model.__contains__("protovisionXL") or model.__contains__(
             "dynavisionXL") or model.__contains__("sdvn6Realxl_detailface") or model.__contains__("fantasticCharacters_v55")
-            or model.__contains__("zavychromaxl_v10") or model.__contains__("crystalClearXL") or model.__contains__("juggernautXL_version2") or model.__contains__("copaxTimelessxlSDXL1_v5")):
+            or model.__contains__("zavychromaxl_v10") or model.__contains__("crystalClearXL") or model.__contains__("juggernautXL_version2") or model.__contains__("copaxTimelessxlSDXL1_v5")  or model.__contains__("realisticFreedomSFW_alpha")  or model.__contains__("foddaxlPhotorealism_v35") or model.__contains__("realvisxlV10_v10VAE")):
         print("Loading model...")
         if model == "stabilityai/stable-diffusion-xl-base-1.0":
 
@@ -590,14 +603,97 @@ def buildloraxl(lora, prompt, lora_weight):
 
 
 def ImageToPrompt(url):
+    from PIL import Image
+    os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:512"
+    kind =  "prompt" #"analysis" #prompt
+    mode = "fast"
     init_image = load_image(url).convert("RGB")
+    mwidth = 256
+    mheight = 256
+
+
+    w = mwidth
+    h = mheight
+    if init_image.width > init_image.height:
+        scale = float(init_image.height / init_image.width)
+        w = mwidth
+        h = int(mheight * scale)
+    elif init_image.width < init_image.height:
+        scale = float(init_image.width / init_image.height)
+        w = int(mwidth * scale)
+        h = mheight
+    else:
+        w = mwidth
+        h = mheight
+
+    init_image = init_image.resize((w, h))
 
     from clip_interrogator import Config, Interrogator
-    ci = Interrogator(Config(clip_model_name=os.environ[
-                                 'TRANSFORMERS_CACHE'] + "ViT-L-14/openai"))
-    detected = ci.interrogate(init_image)
-    print(detected)
-    return  str(detected)
+
+    config = Config(clip_model_name="ViT-L-14/openai", device="cpu")
+
+
+    if kind == "analysis":
+        ci = Interrogator(config)
+
+
+        image_features = ci.image_to_features(init_image)
+
+        top_mediums = ci.mediums.rank(image_features, 5)
+        top_artists = ci.artists.rank(image_features, 5)
+        top_movements = ci.movements.rank(image_features, 5)
+        top_trendings = ci.trendings.rank(image_features, 5)
+        top_flavors = ci.flavors.rank(image_features, 5)
+
+        medium_ranks = {medium: sim for medium, sim in zip(top_mediums, ci.similarities(image_features, top_mediums))}
+        artist_ranks = {artist: sim for artist, sim in zip(top_artists, ci.similarities(image_features, top_artists))}
+        movement_ranks = {movement: sim for movement, sim in
+                          zip(top_movements, ci.similarities(image_features, top_movements))}
+        trending_ranks = {trending: sim for trending, sim in
+                          zip(top_trendings, ci.similarities(image_features, top_trendings))}
+        flavor_ranks = {flavor: sim for flavor, sim in zip(top_flavors, ci.similarities(image_features, top_flavors))}
+
+        result = "Medium Ranks:\n" + str(medium_ranks) + "\nArtist Ranks: " + str(artist_ranks) +  "\nMovement Ranks:\n" + str(movement_ranks) + "\nTrending Ranks:\n" + str(trending_ranks) +  "\nFlavor Ranks:\n" + str(flavor_ranks)
+
+        print(result)
+        return result
+    else:
+
+        ci = Interrogator(config)
+        ci.config.blip_num_beams = 64
+        ci.config.chunk_size = 2024
+        ci.config.clip_offload = True
+        ci.config.apply_low_vram_defaults()
+        #MODELS = ['ViT-L (best for Stable Diffusion 1.*)']
+        ci.config.flavor_intermediate_count = 2024 #if clip_model_name == MODELS[0] else 1024
+
+        image = init_image
+        if mode == 'best':
+            prompt = ci.interrogate(image)
+        elif mode == 'classic':
+            prompt = ci.interrogate_classic(image)
+        elif mode == 'fast':
+            prompt = ci.interrogate_fast(image)
+        elif mode == 'negative':
+            prompt = ci.interrogate_negative(image)
+
+        return prompt,
+
+    #return medium_ranks, artist_ranks, movement_ranks, trending_ranks, flavor_ranks
+
+   # config = Config(clip_model_name=os.environ['TRANSFORMERS_CACHE'] + "ViT-L-14/openai", device="cuda")git
+   # ci = Interrogator(config)
+    # "ViT-L-14/openai"))
+    # "ViT-g-14/laion2B-s34B-b88K"))
+    print("after function")
+
+    #detected = ci.interrogate(init_image)
+    print("after interogate")
+    #print(str(detected))
+    detected = "No worky"
+    return str(detected)
+
+
 
 
 def imageToImage(url, prompt, negative_prompt, strength, guidance_scale, model="pix2pix", lora="", lora_weight=""):
@@ -1004,7 +1100,7 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
     relaytimeout = 5
     step = 20
     keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-    opts = Options().wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
+    opts = Options().wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5)).skip_disconnected_relays(True)
     cl = Client.with_opts(keys, opts)
     for relay in relay_list:
         cl.add_relay(relay)
@@ -1095,7 +1191,7 @@ def NoteRecommendations(user, notactivesincedays, is_bot):
         relay_list = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine",
                       "wss://relay.nostfiles.dev", "wss://nostr.mom", "wss://nostr.oxtr.dev", "wss://relay.nostr.bg", "wss://relay.f7z.io"]
         keys = Keys.from_sk_str(os.environ["NOVA_NOSTR_KEY"])
-        opts = Options().wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
+        opts = Options().wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5)).skip_disconnected_relays(True)
         cli = Client.with_opts(keys, opts)
         for relay in relay_list:
             cli.add_relay(relay)
@@ -1177,7 +1273,7 @@ def InactiveNostrFollowers(user, notactivesincedays, is_bot, dvmkey):
     relaytimeout = 5
     step = 25
     keys = Keys.from_sk_str(dvmkey)
-    opts = Options().wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
+    opts = Options().wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5)).skip_disconnected_relays(True)
     cl = Client.with_opts(keys, opts)
 
     for relay in relay_list:
@@ -1218,7 +1314,7 @@ def InactiveNostrFollowers(user, notactivesincedays, is_bot, dvmkey):
             relay_list = ["wss://relay.damus.io", "wss://nostr-pub.wellorder.net", "wss://nos.lol", "wss://nostr.wine",
                           "wss://relay.nostfiles.dev", "wss://nostr.mom", "wss://nostr.oxtr.dev", "wss://relay.nostr.bg", "wss://relay.f7z.io"]
             keys = Keys.from_sk_str(dvmkey)
-            opts = Options().wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5))
+            opts = Options().wait_for_send(wait_for_send).send_timeout(timedelta(seconds=5)).skip_disconnected_relays(True)
             cli = Client.with_opts(keys, opts)
             for relay in relay_list:
                 cli.add_relay(relay)
