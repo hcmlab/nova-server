@@ -27,7 +27,7 @@ from nova_utils.ssi_utils.ssi_anno_utils import Anno
 
 from nova_server.route.predict_static import LLAMA2
 from nova_server.utils.db_utils import db_entry_exists, add_new_session_to_db
-from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube
+from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube, downloadTwitter
 from configparser import ConfigParser
 import sqlite3
 
@@ -1869,6 +1869,19 @@ def get_overcast(input_value, request_form):
     return filename, start, end
 
 
+def get_Twitter(input_value, request_form):
+    filepath = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form["sessions"] + '\\'
+    start = request_form["startTime"]
+    end = request_form["endTime"]
+
+    try:
+        filename = downloadTwitter(input_value, filepath)
+
+    except Exception as e:
+        print(e)
+        return filename, start, end
+    return filename, start, end
+
 def get_youtube(input_value, request_form):
     filepath = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form["sessions"] + '\\'
     start = request_form["startTime"]
@@ -1968,6 +1981,12 @@ def organize_input_data(input_value, input_type, request_form, process=True, con
                 "www.", "").replace("youtu.be/", "youtube.com?v=")[0:11] == "youtube.com":
 
             filename, start, end = get_youtube(input_value, request_form)
+            request_form["startTime"] = str(start)
+            request_form["endTime"] = str(end)
+
+        elif str(input_value).startswith("https://x.com") or str(input_value).startswith("https://twitter.com"):
+
+            filename, start, end = get_Twitter(input_value, request_form)
             request_form["startTime"] = str(start)
             request_form["endTime"] = str(end)
 
