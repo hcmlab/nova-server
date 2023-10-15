@@ -3,12 +3,16 @@ import gc
 import json
 import os
 import re
+import urllib
 from datetime import timedelta
 import random
 from threading import Thread
+from urllib.parse import urlparse
 
+import ffmpegio
 import numpy as np
 from compel import ReturnedEmbeddingsType
+from decord import AudioReader, cpu
 from diffusers import DiffusionPipeline, StableDiffusionXLImg2ImgPipeline, StableDiffusionInstructPix2PixPipeline, \
     EulerAncestralDiscreteScheduler, DPMSolverMultistepScheduler, StableDiffusionXLInpaintPipeline, \
     StableDiffusionXLPipeline
@@ -16,6 +20,7 @@ from diffusers.utils import load_image
 from flask import Blueprint, request, jsonify
 from huggingface_hub import model_info
 from nostr_sdk import PublicKey, Timestamp, Tag, EventId
+from pyupload.uploader import CatboxUploader
 from safetensors import torch
 
 from nova_server.utils.thread_utils import THREADS
@@ -95,6 +100,8 @@ def predict_static_data(request_form):
                  anno = OCRtesseract(options["url"])
         elif task == "chat":
             anno = LLAMA2(options["message"], options["user"])
+        elif task == "conversion":
+            anno = convertMedia(options["url"], options["format"], request_form)
         elif task == "summarization":
             anno = LLAMA2(
                 "Give me a summarization of the most important points of the following text: " + options["message"],  options["user"], options["system_prompt"])
@@ -137,21 +144,37 @@ def uploadToHoster(filepath):
     import requests
     try:
         files = {'file': open(filepath, 'rb')}
-        url = 'https://nostr.build/api/v2/upload/files'
-        response = requests.post(url, files=files)
-        json_object = json.loads(response.text)
-        result = json_object["data"][0]["url"]
-        print(result)
-        return result
+        file_stats = os.stat(filepath)
+        sizeinmb = file_stats.st_size / (1024*1024)
+        print(sizeinmb)
+        if sizeinmb > 25:
+            uploader = CatboxUploader(filepath)
+            result = uploader.execute()
+            print(result)
+            return result
+        else:
+            url = 'https://nostr.build/api/v2/upload/files'
+            response = requests.post(url, files=files)
+            json_object = json.loads(response.text)
+            result = json_object["data"][0]["url"]
+            print(result)
+            return result
 
     except:
-        files = {'file': open(filepath, 'rb')}
-        url = 'https://nostrfiles.dev/upload_image'
-        response = requests.post(url, files=files)
-        json_object = json.loads(response.text)
-        print(json_object["url"])
-        return json_object["url"]
-        # fallback filehoster
+        try:
+            file = {'file': open(filepath, 'rb')}
+
+            url = 'https://nostrfiles.dev/upload_image'
+            response = requests.post(url, files=file)
+            json_object = json.loads(response.text)
+            print(json_object["url"])
+            return json_object["url"]
+            # fallback filehoster
+        except:
+            uploader = CatboxUploader(filepath)
+            result = uploader.execute()
+            print(result)
+            return result
 
 
 # SCRIPTS (TO BE MOVED TO FILES)
@@ -1086,7 +1109,183 @@ def LLAMA2(message, user, system_prompt="", clear=False):
 
     return answer
 
+def convertMedia(input_value, format, request_form):
 
+    import requests
+    import time
+    from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube, downloadTwitter
+
+    input_value = str(input_value).replace('<', '=')  # workaround for links with =
+    def get_overcast(input_value, request_form):
+        filename = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form[
+            "sessions"] + '\\' + \
+                   request_form[
+                       "roles"] + ".originalaudio.mp3"
+        print("Found overcast.fm Link.. downloading")
+        start = request_form["startTime"]
+        end = request_form["endTime"]
+        download_podcast(input_value, filename)
+        finaltag = str(input_value).replace("https://overcast.fm/", "").split('/')
+        if int(request_form["startTime"]) == 0:
+            if len(finaltag) > 1:
+                t = time.strptime(finaltag[1], "%H:%M:%S")
+                seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
+                start = str(seconds)  # overwrite from link.. why not..
+                print("Setting start time automatically to " + start)
+                if float(request_form["endTime"]) > 0.0:
+                    end = seconds + float(request_form["endTime"])
+                    print("Moving end time automatically to " + end)
+
+        return filename, start, end
+
+    def get_Twitter(input_value, request_form):
+        filepath = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form[
+            "sessions"] + '\\'
+        start = request_form["startTime"]
+        end = request_form["endTime"]
+
+        try:
+            filename = downloadTwitter(input_value, filepath)
+            print(filename)
+        except Exception as e:
+            print(e)
+            return "", start, end
+        return filename, start, end
+
+    def get_youtube(input_value, request_form, audioonly=True):
+        filepath = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form[
+            "sessions"] + '\\'
+        start = request_form["startTime"]
+        end = request_form["endTime"]
+        try:
+            filename = downloadYouTube(input_value, filepath, audioonly)
+
+        except Exception as e:
+            print(e)
+            return filename, start, end
+        try:
+            o = urlparse(input_value)
+            q = urllib.parse.parse_qs(o.query)
+            if int(request_form["startTime"]) == 0:
+                if o.query.find('?t=') != -1:
+                    start = q['t'][0]  # overwrite from link.. why not..
+                    print("Setting start time automatically to " + start)
+                    if float(request_form["endTime"]) > 0.0:
+                        end = str(float(q['t'][0]) + float(request_form["endTime"]))
+                        print("Moving end time automatically to " + end)
+
+        except Exception as e:
+            print(e)
+            return filename, start, end
+
+        return filename, start, end
+
+    def get_media_link(input_value, request_form):
+        req = requests.get(input_value)
+        content_type = req.headers['content-type']
+        print(content_type)
+        if content_type == 'audio/x-wav' or str(input_value).lower().endswith(".wav"):
+            ext = "wav"
+            file_type = "audio"
+        elif content_type == 'audio/mpeg' or str(input_value).lower().endswith(".mp3"):
+            ext = "mp3"
+            file_type = "audio"
+        elif content_type == 'audio/ogg' or str(input_value).lower().endswith(".ogg"):
+            ext = "ogg"
+            file_type = "audio"
+        elif content_type == 'video/mp4' or str(input_value).lower().endswith(".mp4"):
+            ext = "mp4"
+            file_type = "video"
+        elif content_type == 'video/avi' or str(input_value).lower().endswith(".avi"):
+            ext = "avi"
+            file_type = "video"
+        elif content_type == 'video/quicktime' or str(input_value).lower().endswith(".mov"):
+            ext = "mov"
+            file_type = "video"
+
+        else:
+            print(str(input_value).lower())
+            return None
+        filename = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form[
+            "sessions"] + '\\' + request_form["roles"] + '.original' + file_type + '.' + ext
+        print(filename)
+
+        try:
+            if not os.path.exists(filename):
+                file = open(filename, 'wb')
+                for chunk in req.iter_content(100000):
+                    file.write(chunk)
+                file.close()
+        except Exception as e:
+            print(e)
+
+        return filename
+
+    if not os.path.exists(
+            os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form["sessions"]):
+        os.mkdir(os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form["sessions"])
+
+    if str(input_value).startswith("https://overcast.fm/"):
+        filename, start, end = get_overcast(input_value, request_form)
+        start_time = str(start)
+        end_time = str(end)
+        # or youtube links..
+    elif str(input_value).replace("http://", "").replace("https://", "").replace(
+            "www.", "").replace("youtu.be/", "youtube.com?v=")[0:11] == "youtube.com":
+
+        filename, start, end = get_youtube(input_value, request_form, False)
+        request_form["startTime"] = str(start)
+        request_form["endTime"] = str(end)
+
+    elif str(input_value).startswith("https://x.com") or str(input_value).startswith("https://twitter.com"):
+
+        filename, start, end = get_Twitter(input_value,request_form)
+        request_form["startTime"] = str(start)
+        request_form["endTime"] = str(end)
+
+    else:
+        filename = get_media_link(input_value, request_form)
+
+    if filename == "" or filename == None:
+        return None, 0
+    try:
+
+        file_reader = AudioReader(filename, ctx=cpu(0), mono=False)
+        duration = file_reader.duration()
+    except Exception as e:
+        print(e)
+        return None, 0
+
+    print("Duration of the Media file: " + str(duration))
+    if float(request_form['endTime']) == 0.0:
+        end_time = float(duration)
+    elif float(request_form['endTime']) > duration:
+        end_time = float(duration)
+    else:
+        end_time = float(request_form['endTime'])
+    if float(request_form['startTime']) < 0.0 or float(request_form['startTime']) > end_time:
+        start_time = 0.0
+    else:
+        start_time = float(request_form['startTime'])
+
+    duration = end_time - start_time
+    print("Converting from " + str(start_time) + " until " + str(end_time))
+    # for now we cut and convert all files to mp3
+    finalfilename = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form[
+        "sessions"] + '\\' + request_form[
+                        "roles"] + '.' + "processed" + '.' + format
+
+
+    if format == "mp3" or format == "wav" or format == "ogg":
+        fs, x = ffmpegio.audio.read(filename, ss=start_time, to=end_time, sample_fmt='dbl', ac=1)
+        ffmpegio.audio.write(finalfilename, fs, x)
+        url = uploadToHoster(finalfilename)
+    else:
+
+        ffmpegio.transcode(filename, finalfilename, overwrite=True, show_log=True)
+        print("converted")
+        url = uploadToHoster(finalfilename)
+    return url
 
 
 def NoteRecommendations(user, notactivesincedays, is_bot):

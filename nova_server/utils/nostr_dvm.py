@@ -60,9 +60,11 @@ class EventDefinitions:
     KIND_NIP90_RESULT_RECOMMEND_NOTES = 65001  # 6005
     KIND_NIP90_RECOMMEND_USERS = 65007  # 5006
     KIND_NIP90_RESULT_RECOMMEND_USERS = 65001  # 6006
+    KIND_NIP90_CONVERT_VIDEO = 65011  # 5006
+    KIND_NIP90_RESULT_CONVERT_VIDEO = 65001  # 6006
     KIND_NIP90_GENERIC = 66000 #5999
     KIND_NIP90_RESULT_GENERIC =  65001 #6999
-    ANY_RESULT = [KIND_NIP90_RESULT_EXTRACT_TEXT, KIND_NIP90_RESULT_SUMMARIZE_TEXT, KIND_NIP90_RESULT_TRANSLATE_TEXT, KIND_NIP90_RESULT_GENERATE_IMAGE, KIND_NIP90_RESULT_RECOMMEND_NOTES, KIND_NIP90_RESULT_RECOMMEND_USERS, KIND_NIP90_RESULT_GENERIC]
+    ANY_RESULT = [KIND_NIP90_RESULT_EXTRACT_TEXT, KIND_NIP90_RESULT_SUMMARIZE_TEXT, KIND_NIP90_RESULT_TRANSLATE_TEXT, KIND_NIP90_RESULT_GENERATE_IMAGE, KIND_NIP90_RESULT_RECOMMEND_NOTES, KIND_NIP90_RESULT_RECOMMEND_USERS, KIND_NIP90_RESULT_CONVERT_VIDEO, KIND_NIP90_RESULT_GENERIC]
 
 
 use_logger= False
@@ -164,7 +166,7 @@ def nostr_server(config):
             kinds = [EventDefinitions.KIND_DM, EventDefinitions.KIND_ZAP]
 
         dm_zap_filter = Filter().pubkey(pk).kinds(kinds).since(Timestamp.now())
-        dvm_filter = (Filter().kinds([EventDefinitions.KIND_NIP90_GENERIC, EventDefinitions.KIND_NIP90_EXTRACT_TEXT, EventDefinitions.KIND_NIP90_SUMMARIZE_TEXT, EventDefinitions.KIND_NIP90_TRANSLATE_TEXT, EventDefinitions.KIND_NIP90_GENERATE_IMAGE, EventDefinitions.KIND_NIP90_RECOMMEND_USERS, EventDefinitions.KIND_NIP90_RECOMMEND_NOTES]).since(Timestamp.now()))
+        dvm_filter = (Filter().kinds([EventDefinitions.KIND_NIP90_GENERIC, EventDefinitions.KIND_NIP90_EXTRACT_TEXT, EventDefinitions.KIND_NIP90_SUMMARIZE_TEXT, EventDefinitions.KIND_NIP90_TRANSLATE_TEXT, EventDefinitions.KIND_NIP90_GENERATE_IMAGE, EventDefinitions.KIND_NIP90_RECOMMEND_USERS, EventDefinitions.KIND_NIP90_RECOMMEND_NOTES, EventDefinitions.KIND_NIP90_CONVERT_VIDEO]).since(Timestamp.now()))
         client.subscribe([dm_zap_filter, dvm_filter])
 
     elif dvmconfig.IS_BOT:
@@ -177,7 +179,7 @@ def nostr_server(config):
 
     else:
         dm_zap_filter = Filter().pubkey(pk).kinds([EventDefinitions.KIND_ZAP]).since(Timestamp.now())
-        dvm_filter = (Filter().kinds([EventDefinitions.KIND_NIP90_GENERIC, EventDefinitions.KIND_NIP90_EXTRACT_TEXT, EventDefinitions.KIND_NIP90_SUMMARIZE_TEXT,EventDefinitions.KIND_NIP90_TRANSLATE_TEXT, EventDefinitions.KIND_NIP90_GENERATE_IMAGE, EventDefinitions.KIND_NIP90_RECOMMEND_USERS, EventDefinitions.KIND_NIP90_RECOMMEND_NOTES]).since(Timestamp.now()))
+        dvm_filter = (Filter().kinds([EventDefinitions.KIND_NIP90_GENERIC, EventDefinitions.KIND_NIP90_EXTRACT_TEXT, EventDefinitions.KIND_NIP90_SUMMARIZE_TEXT,EventDefinitions.KIND_NIP90_TRANSLATE_TEXT, EventDefinitions.KIND_NIP90_GENERATE_IMAGE, EventDefinitions.KIND_NIP90_RECOMMEND_USERS, EventDefinitions.KIND_NIP90_RECOMMEND_NOTES, EventDefinitions.KIND_NIP90_CONVERT_VIDEO]).since(Timestamp.now()))
         client.subscribe([dm_zap_filter, dvm_filter])
 
     create_sql_table()
@@ -861,6 +863,24 @@ def nostr_server(config):
 
             request_form["optStr"] = 'user=' + user + ';since=' + days + ';is_bot=' + str(is_bot)
 
+        elif task == "conversion":
+            request_form["mode"] = "PREDICT_STATIC"
+            request_form["trainerFilePath"] = task
+            format = "mp4"
+            url=""
+
+            for tag in event.tags():
+                if tag.as_vec()[0] == 'i':
+                    input_type = tag.as_vec()[2]
+                    print(tag.as_vec()[1])
+                    if input_type == "url":
+                        url = tag.as_vec()[1]
+                if tag.as_vec()[0] == 'param':
+                    if tag.as_vec()[1] == 'format':
+                        format = tag.as_vec()[2]
+
+            request_form["optStr"] = 'url=' + url.replace('=', '<') + ';format=' + format
+
         return request_form
 
 
@@ -1077,6 +1097,8 @@ def get_task(event, client):
         return "summarization"
     elif event.kind() == EventDefinitions.KIND_NIP90_TRANSLATE_TEXT:
         return "translation"
+    elif event.kind() == EventDefinitions.KIND_NIP90_CONVERT_VIDEO:
+        return "conversion"
     elif event.kind() == EventDefinitions.KIND_NIP90_GENERATE_IMAGE:
         has_image_tag = False
         has_text_tag = False
@@ -1223,6 +1245,8 @@ def get_amount_per_task(task, duration = 0, config=None):
     elif task == "image-reimagine":
         amount = dvmconfig.COSTPERUNIT_IMAGETRANSFORMING
     elif task == "image-upscale":
+        amount = dvmconfig.COSTPERUNIT_IMAGEUPSCALING
+    elif task == "conversion":
         amount = dvmconfig.COSTPERUNIT_IMAGEUPSCALING
     elif task == "chat":
         amount = 0
@@ -1721,6 +1745,19 @@ def parse_bot_command_to_event(dec_text, sender):
         param_tag_user = Tag.parse(["param", "user", user])
         j_tag = Tag.parse(["j", "note-recommendation"])
         return [j_tag, param_tag_since, param_tag_user]
+
+    elif str(dec_text).startswith("-conversion"):
+        command = dec_text.replace("-conversion", "")
+        format = "mp4"
+        split = command.split(" -")
+        url = str(split[0]).replace(' ', '')
+        for i in split:
+            if i.startswith("format "):
+                format = i.replace("format ", "")
+        param_tag_format = Tag.parse(["param", "format", format])
+        j_tag = Tag.parse(["j", "conversion"])
+        i_tag = Tag.parse(["i", url, "url"])
+        return [i_tag, j_tag, param_tag_format]
     else:
         text = dec_text
         j_tag = Tag.parse(["j", "chat"])
@@ -1882,12 +1919,12 @@ def get_Twitter(input_value, request_form):
         return "", start, end
     return filename, start, end
 
-def get_youtube(input_value, request_form):
+def get_youtube(input_value, request_form, audioonly = True):
     filepath = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form["sessions"] + '\\'
     start = request_form["startTime"]
     end = request_form["endTime"]
     try:
-        filename = downloadYouTube(input_value, filepath)
+        filename = downloadYouTube(input_value, filepath, audioonly)
 
     except Exception as e:
         print(e)
@@ -2446,6 +2483,6 @@ if __name__ == '__main__':
     dvmconfig = DVMConfig()
     dvmconfig.PRIVATE_KEY = "privkey"
     dvmconfig.SUPPORTED_TASKS = ["inactive-following", "note-recommendation", "speech-to-text", "summarization",
-                                 "translation"]
+                                 "translation, conversion"]
     dvmconfig.PASSIVE_MODE = True
     nostr_server(dvmconfig)

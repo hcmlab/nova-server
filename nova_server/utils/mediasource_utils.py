@@ -94,14 +94,22 @@ def checkYoutubeLinkValid(link):
         return False
 
 
-def downloadYouTube(link, path):
+def downloadYouTube(link, path, audioonly=True):
 
     youtubeObject = YouTube(link)
-    youtubeObject = youtubeObject.streams.get_audio_only()
-    youtubeObject.download(path, "nostr.originalaudio.mp3")
+    if audioonly:
+        youtubeObject = youtubeObject.streams.get_audio_only()
+        youtubeObject.download(path, "nostr.originalaudio.mp3")
+        print("Download is completed successfully")
+        return path + "nostr.originalaudio.mp3"
+    else:
+        youtubeObject = youtubeObject.streams.get_highest_resolution()
+        youtubeObject.download(path, "nostr.original.mp4")
+        print("Download is completed successfully")
+        return path + "nostr.original.mp4"
 
-    print("Download is completed successfully")
-    return path + "nostr.originalaudio.mp3"
+
+
 
 
 
