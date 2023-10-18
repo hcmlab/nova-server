@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>nova_server.route.cancel &mdash; Nova Server 1.1.0 documentation</title>
+  <title>nova_server.route.cancel &mdash; Nova Server 1.2.1 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -114,6 +114,7 @@
 <span class="sd">        &gt;&gt;&gt; {&quot;job_id&quot;: &quot;12345&quot;}</span>
 <span class="sd">        {&quot;success&quot;: &quot;true&quot;}</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1">#TODO cancel job based on backend</span>
     <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;POST&quot;</span><span class="p">:</span>
         <span class="n">request_form</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">form</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
         <span class="n">key</span> <span class="o">=</span> <span class="n">get_job_id_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>nova_server.route.extract &mdash; Nova Server 1.1.0 documentation</title>
+  <title>nova_server.route.extract &mdash; Nova Server 1.2.1 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -141,20 +141,21 @@
 <span class="sd">    This function runs the data extraction process in a separate thread.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">key</span> <span class="o">=</span> <span class="n">get_job_id_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
+    <span class="n">job_id</span> <span class="o">=</span> <span class="n">get_job_id_from_request_form</span><span class="p">(</span><span class="n">request_form</span><span class="p">)</span>
 
-    <span class="n">job_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">job_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">)</span>
-    <span class="n">logger</span> <span class="o">=</span> <span class="n">log_utils</span><span class="o">.</span><span class="n">get_logger_for_job</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+    <span class="n">job_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">job_id</span><span class="p">,</span> <span class="n">job_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">RUNNING</span><span class="p">)</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">log_utils</span><span class="o">.</span><span class="n">get_logger_for_job</span><span class="p">(</span><span class="n">job_id</span><span class="p">)</span>
     <span class="n">handler</span> <span class="o">=</span> <span class="n">NovaExtractHandler</span><span class="p">(</span><span class="n">request_form</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="n">logger</span><span class="p">)</span>
 
     <span class="c1"># TODO replace .env with actual path</span>
     <span class="n">dotenv_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;.env&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
 
     <span class="k">try</span><span class="p">:</span>
-        <span class="n">handler</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">dotenv_path</span><span class="p">)</span>
-        <span class="n">job_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">job_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">FINISHED</span><span class="p">)</span>
-    <span class="k">except</span><span class="p">:</span>
-        <span class="n">job_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">job_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+        <span class="n">handler</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+        <span class="n">job_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">job_id</span><span class="p">,</span> <span class="n">job_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">FINISHED</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Job failed with exception </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">job_utils</span><span class="o">.</span><span class="n">update_status</span><span class="p">(</span><span class="n">job_id</span><span class="p">,</span> <span class="n">job_utils</span><span class="o">.</span><span class="n">JobStatus</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
 </pre></div>
 
            </div>

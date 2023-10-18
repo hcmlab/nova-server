@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>nova_server.exec.execution_handler &mdash; Nova Server 1.1.2 documentation</title>
+  <title>nova_server.exec.execution_handler &mdash; Nova Server 1.2.1 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -129,11 +129,29 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
 
     <span class="k">def</span> <span class="nf">_nova_server_env_to_arg</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="n">env_vars</span> <span class="o">=</span> <span class="p">[</span><span class="n">env</span><span class="o">.</span><span class="n">NOVA_SERVER_CML_DIR</span><span class="p">,</span> <span class="n">env</span><span class="o">.</span><span class="n">NOVA_SERVER_DATA_DIR</span><span class="p">,</span> <span class="n">env</span><span class="o">.</span><span class="n">NOVA_SERVER_LOG_DIR</span><span class="p">,</span> <span class="n">env</span><span class="o">.</span><span class="n">NOVA_SERVER_CACHE_DIR</span><span class="p">,</span> <span class="n">env</span><span class="o">.</span><span class="n">NOVA_SERVER_TMP_DIR</span><span class="p">]</span>
         <span class="n">arg_vars</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="n">prefix</span> <span class="o">=</span> <span class="s1">&#39;NOVA_SERVER_&#39;</span>
+        <span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;NOVA_SERVER_&quot;</span>
+
+        <span class="c1"># select data folder if multiple folders are passed</span>
+        <span class="n">dd</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">NOVA_SERVER_DATA_DIR</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s1">&#39;;&#39;</span> <span class="ow">in</span> <span class="n">dd</span><span class="p">:</span>
+            <span class="k">for</span> <span class="nb">dir</span> <span class="ow">in</span> <span class="n">dd</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;;&#39;</span><span class="p">):</span>
+                <span class="n">dataset_dir</span> <span class="o">=</span> <span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="nb">dir</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">script_arguments</span><span class="p">[</span><span class="s1">&#39;--dataset&#39;</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">dataset_dir</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">env</span><span class="o">.</span><span class="n">NOVA_SERVER_DATA_DIR</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">dataset_dir</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
+                    <span class="k">break</span>
+
+        <span class="c1"># set other vars</span>
+        <span class="n">env_vars</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">env</span><span class="o">.</span><span class="n">NOVA_SERVER_CML_DIR</span><span class="p">,</span>
+                <span class="n">env</span><span class="o">.</span><span class="n">NOVA_SERVER_DATA_DIR</span><span class="p">,</span>
+                <span class="n">env</span><span class="o">.</span><span class="n">NOVA_SERVER_LOG_DIR</span><span class="p">,</span>
+                <span class="n">env</span><span class="o">.</span><span class="n">NOVA_SERVER_CACHE_DIR</span><span class="p">,</span>
+                <span class="n">env</span><span class="o">.</span><span class="n">NOVA_SERVER_TMP_DIR</span><span class="p">,</span>
+        <span class="p">]</span>
+
         <span class="k">for</span> <span class="n">var</span> <span class="ow">in</span> <span class="n">env_vars</span><span class="p">:</span>
-            <span class="n">k</span> <span class="o">=</span> <span class="s2">&quot;--&quot;</span> <span class="o">+</span> <span class="n">var</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">prefix</span><span class="p">):]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+            <span class="n">k</span> <span class="o">=</span> <span class="s2">&quot;--&quot;</span> <span class="o">+</span> <span class="n">var</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span> <span class="p">:]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
             <span class="n">v</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
             <span class="n">arg_vars</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
         <span class="k">return</span> <span class="n">arg_vars</span>
@@ -147,13 +165,14 @@
             <span class="c1"># setup virtual environment</span>
             <span class="n">cml_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">NOVA_SERVER_CML_DIR</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">cml_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NOVA_CML_DIR not et&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NOVA_CML_DIR not set&quot;</span><span class="p">)</span>
 
             <span class="n">module_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">cml_dir</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">module_name</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">module_dir</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
                 <span class="k">raise</span> <span class="ne">NotADirectoryError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;NOVA_CML_DIR </span><span class="si">{</span><span class="n">module_dir</span><span class="si">}</span><span class="s2"> is not a valid directory&quot;</span>
                 <span class="p">)</span>
+
             <span class="n">backend_handler</span> <span class="o">=</span> <span class="n">backend</span><span class="o">.</span><span class="n">VenvHandler</span><span class="p">(</span>
                 <span class="n">module_dir</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">,</span> <span class="n">log_verbose</span><span class="o">=</span><span class="kc">True</span>
             <span class="p">)</span>
@@ -179,6 +198,7 @@
     <span class="k">def</span> <span class="nf">module_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">pass</span></div>
 
+
 <div class="viewcode-block" id="NovaProcessHandler"><a class="viewcode-back" href="../../../api/nova_server.exec.execution_handler.html#nova_server.exec.execution_handler.NovaProcessHandler">[docs]</a><span class="k">class</span> <span class="nc">NovaProcessHandler</span><span class="p">(</span><span class="n">ExecutionHandler</span><span class="p">):</span>
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">module_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -195,6 +215,7 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">action</span> <span class="o">=</span> <span class="n">Action</span><span class="o">.</span><span class="n">PROCESS</span></div>
+
 
 <div class="viewcode-block" id="NovaPredictHandler"><a class="viewcode-back" href="../../../api/nova_server.exec.execution_handler.html#nova_server.exec.execution_handler.NovaPredictHandler">[docs]</a><span class="k">class</span> <span class="nc">NovaPredictHandler</span><span class="p">(</span><span class="n">ExecutionHandler</span><span class="p">):</span>
     <span class="nd">@property</span>
@@ -213,6 +234,7 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">action</span> <span class="o">=</span> <span class="n">Action</span><span class="o">.</span><span class="n">PREDICT</span></div>
 
+
 <div class="viewcode-block" id="NovaExtractHandler"><a class="viewcode-back" href="../../../api/nova_server.exec.execution_handler.html#nova_server.exec.execution_handler.NovaExtractHandler">[docs]</a><span class="k">class</span> <span class="nc">NovaExtractHandler</span><span class="p">(</span><span class="n">ExecutionHandler</span><span class="p">):</span>
     <span class="nd">@property</span>
     <span class="k">def</span> <span class="nf">module_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -229,6 +251,7 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">action</span> <span class="o">=</span> <span class="n">Action</span><span class="o">.</span><span class="n">EXTRACT</span></div>
+
 
 <div class="viewcode-block" id="NovaTrainHandler"><a class="viewcode-back" href="../../../api/nova_server.exec.execution_handler.html#nova_server.exec.execution_handler.NovaTrainHandler">[docs]</a><span class="k">class</span> <span class="nc">NovaTrainHandler</span><span class="p">(</span><span class="n">ExecutionHandler</span><span class="p">):</span>
     <span class="nd">@property</span>
