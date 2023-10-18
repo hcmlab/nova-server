@@ -39,6 +39,10 @@ def complete_thread():
         request_form = request.form.to_dict()
         key = get_job_id_from_request_form(request_form)
 
+        job = job_utils.get_job(key)
+        if not job is None:
+            job.cancel()
+
         if key in THREADS:
             thread = THREADS[key]
             thread.raise_exception()

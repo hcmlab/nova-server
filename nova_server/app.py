@@ -155,7 +155,7 @@ def _run():
     host = os.environ[env.NOVA_SERVER_HOST]
     port = int(os.environ[env.NOVA_SERVER_PORT])
 
-    serve(app, host=host, port=port)
+    serve(app, host=host, port=port, threads=8)
 
 if __name__ == '__main__':
     _run()

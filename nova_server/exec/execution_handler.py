@@ -47,6 +47,7 @@ class ExecutionHandler(ABC):
         self.backend = backend
         self.script_arguments = request_form
         self.logger = logger
+        self.backend_handler = None
 
     def _nova_server_env_to_arg(self):
         arg_vars = {}
@@ -93,20 +94,24 @@ class ExecutionHandler(ABC):
                     f"NOVA_CML_DIR {module_dir} is not a valid directory"
                 )
 
-            backend_handler = backend.VenvHandler(
+            self.backend_handler = backend.VenvHandler(
                 module_dir, logger=self.logger, log_verbose=True
             )
 
             # add dotenv variables to arguments for script
             self._script_arguments |= self._nova_server_env_to_arg()
 
-            backend_handler.run_shell_script(
+            self.backend_handler.run_shell_script(
                 self.run_script,
                 script_kwargs=self._script_arguments,
             )
 
         else:
             raise ValueError(f"Unknown backend {self.backend}")
+
+    def cancel(self):
+        if self.backend == Backend.VENV:
+            self.backend_handler.kill()
 
     @property
     @abstractmethod

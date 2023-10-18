@@ -72,12 +72,19 @@ class Job:
         self.interactive_url = interactive_url
         self.log_path = log_path
         self.details = details
+        self.execution_handler = None
 
     def serializable(self):
         s = copy.deepcopy(vars(self))
         for key in s.keys():
             s[key] = str(s[key])
         return s
+
+    def run(self):
+        self.execution_handler.run()
+
+    def cancel(self):
+        self.execution_handler.cancel()
 
 
 @status_thread_wrapper
@@ -86,9 +93,11 @@ def add_new_job(job_key, interactive_url=None, request_form=None):
     job_details = log_utils.get_log_conform_request(request_form)
     job = Job(job_key, interactive_url, log_path, details=job_details)
     JOBS[job_key] = job
-
     return True
 
+@status_thread_wrapper
+def get_job(job_key):
+    return JOBS[job_key]
 
 @status_thread_wrapper
 def remove_job(job_key):
