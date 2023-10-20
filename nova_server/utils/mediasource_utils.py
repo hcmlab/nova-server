@@ -80,6 +80,20 @@ def downloadTwitter(videourl, path):
     tvdl.download_video(videourl, path + "twitter.mp4")
     return path + "twitter.mp4"
 
+def downloadTikTok(videourl, path):
+    from nova_server.utils.tiktoktinstagram_video_dl.download import TDLALL
+    values = [videourl]
+    result = TDLALL(values, path)
+
+    return result
+
+def downloadInstagram(videourl, path):
+    from nova_server.utils.tiktoktinstagram_video_dl.download import IDL
+
+    result = IDL(videourl, "insta", path)
+
+    return result
+
 
 def checkYoutubeLinkValid(link):
     try:

@@ -878,6 +878,32 @@ def nostr_server(config):
                 if tag.as_vec()[0] == 'param':
                     if tag.as_vec()[1] == 'format':
                         format = tag.as_vec()[2]
+                    elif tag.as_vec()[1] == "range":  # check for paramtype
+                        try:
+                            print(tag.as_vec()[2])
+                            print(tag.as_vec()[3])
+                            t = time.strptime(tag.as_vec()[2], "%H:%M:%S")
+                            seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
+                            request_form["startTime"] = str(seconds)
+                        except:
+                            try:
+                                t = time.strptime(tag.as_vec()[2], "%M:%S")
+                                seconds = t.tm_min * 60 + t.tm_sec
+                                request_form["startTime"] = str(seconds)
+                            except:
+                                request_form["startTime"] = tag.as_vec()[2]
+                        try:
+                            t = time.strptime(tag.as_vec()[3], "%H:%M:%S")
+                            seconds = t.tm_hour * 60 * 60 + t.tm_min * 60 + t.tm_sec
+                            request_form["endTime"] = str(seconds)
+                        except:
+                            try:
+                                t = time.strptime(tag.as_vec()[3], "%M:%S")
+                                seconds = t.tm_min * 60 + t.tm_sec
+                                request_form["endTime"] = str(seconds)
+                            except:
+                                request_form["endTime"] = tag.as_vec()[3]
+
 
             request_form["optStr"] = 'url=' + url.replace('=', '<') + ';format=' + format
 
@@ -1751,13 +1777,20 @@ def parse_bot_command_to_event(dec_text, sender):
         format = "mp4"
         split = command.split(" -")
         url = str(split[0]).replace(' ', '')
+        start = "0"
+        end = "0"
         for i in split:
             if i.startswith("format "):
                 format = i.replace("format ", "")
+            elif i.startswith("from "):
+                start = i.replace("from ", "")
+            elif i.startswith("to "):
+                end = i.replace("to ", "")
+        param_tag = Tag.parse(["param", "range", start, end])
         param_tag_format = Tag.parse(["param", "format", format])
         j_tag = Tag.parse(["j", "conversion"])
         i_tag = Tag.parse(["i", url, "url"])
-        return [i_tag, j_tag, param_tag_format]
+        return [i_tag, j_tag, param_tag_format, param_tag]
     else:
         text = dec_text
         j_tag = Tag.parse(["j", "chat"])

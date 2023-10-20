@@ -9,6 +9,7 @@ import random
 from threading import Thread
 from urllib.parse import urlparse
 
+import decord
 import ffmpegio
 import numpy as np
 from compel import ReturnedEmbeddingsType
@@ -22,6 +23,7 @@ from huggingface_hub import model_info
 from nostr_sdk import PublicKey, Timestamp, Tag, EventId
 from pyupload.uploader import CatboxUploader
 from safetensors import torch
+
 
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.status_utils import update_progress
@@ -1113,7 +1115,7 @@ def convertMedia(input_value, format, request_form):
 
     import requests
     import time
-    from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube, downloadTwitter
+    from nova_server.utils.mediasource_utils import download_podcast, downloadYouTube, downloadTwitter, downloadTikTok, downloadInstagram
 
     input_value = str(input_value).replace('<', '=')  # workaround for links with =
     def get_overcast(input_value, request_form):
@@ -1138,14 +1140,44 @@ def convertMedia(input_value, format, request_form):
 
         return filename, start, end
 
-    def get_Twitter(input_value, request_form):
+    def get_TikTok(input_value, request_form):
+        filepath = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form[
+            "sessions"] + '\\'
+        start = request_form["startTime"]
+        end = request_form["endTime"]
+
+
+        try:
+            filename = downloadTikTok(input_value, filepath)
+            print(filename)
+        except Exception as e:
+            print(e)
+            return "", start, end
+        return filename, start, end
+
+    def get_Instagram(input_value, request_form):
         filepath = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form[
             "sessions"] + '\\'
         start = request_form["startTime"]
         end = request_form["endTime"]
 
         try:
-            filename = downloadTwitter(input_value, filepath)
+            filename = downloadInstagram(input_value, filepath)
+            print(filename)
+        except Exception as e:
+            print(e)
+            return "", start, end
+        return filename, start, end
+
+    def get_Twitter(input_value, request_form):
+        filepath = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form[
+            "sessions"] + '\\'
+        start = request_form["startTime"]
+        end = request_form["endTime"]
+        cleanlink = str(input_value).replace("twitter.com", "x.com")
+
+        try:
+            filename = downloadTwitter(cleanlink, filepath)
             print(filename)
         except Exception as e:
             print(e)
@@ -1243,18 +1275,38 @@ def convertMedia(input_value, format, request_form):
         request_form["startTime"] = str(start)
         request_form["endTime"] = str(end)
 
+    elif str(input_value).startswith("https://vm.tiktok.com") or str(input_value).startswith("https://www.tiktok.com") or str(input_value).startswith("https://m.tiktok.com"):
+
+        filename, start, end = get_TikTok(input_value, request_form)
+        request_form["startTime"] = str(start)
+        request_form["endTime"] = str(end)
+    elif str(input_value).startswith("https://www.instagram.com") or str(input_value).startswith("https://instagram.com"):
+
+        filename, start, end = get_Instagram(input_value, request_form)
+        request_form["startTime"] = str(start)
+        request_form["endTime"] = str(end)
+
     else:
         filename = get_media_link(input_value, request_form)
 
     if filename == "" or filename == None:
+        raise Exception("Couldn't get video")
         return None, 0
-    try:
+    if filename.endswith((".jpg ")):
+        url = uploadToHoster(filename)
+        return url
 
+    duration = 0
+    try:
         file_reader = AudioReader(filename, ctx=cpu(0), mono=False)
         duration = file_reader.duration()
     except Exception as e:
         print(e)
-        return None, 0
+        try:
+            file_reader = (decord.VideoReader(filename, ctx=cpu(0), mono=False))
+            duration = file_reader.duration()
+        except:
+            print(e)
 
     print("Duration of the Media file: " + str(duration))
     if float(request_form['endTime']) == 0.0:
