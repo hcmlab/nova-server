@@ -328,3 +328,210 @@
 #             data["success"] = "success"
 #
 #     return Response(json.dumps(data), mimetype="text/plain")
+
+from pathlib import Path
+from flask import Blueprint, request, jsonify
+from nova_server.utils.thread_utils import THREADS
+from nova_server.utils.job_utils import get_job_id_from_request_form
+from nova_server.utils import thread_utils, job_utils
+from nova_server.utils import log_utils
+from nova_server.exec.execution_handler import NovaExtractHandler
+from nova_server.exec.execution_handler import NovaProcessHandler
+
+#python packages incompatible numpy tensorflow
+import tensorflow as tf
+
+import io
+import os
+import ast
+import numpy as np
+import io as inputoutput
+import base64
+import json
+import pickle
+import warnings
+import site as s
+from PIL import Image
+from PIL import Image as pilimage
+from flask import Blueprint, Response, request
+from lime import lime_image
+from lime import lime_tabular
+from skimage.segmentation import mark_boundaries
+
+from nova_utils.data.handler.mongo_handler import (
+    AnnotationHandler,
+    StreamHandler,
+    SessionHandler,
+)
+
+from nova_utils.data.provider.nova_iterator import NovaIterator
+
+def prepare_image(image, target):
+    # if the image mode is not RGB, convert it
+    if image.mode != "RGB":
+        image = image.convert("RGB")
+    # resize the input image and preprocess it
+    image = image.resize(target)
+    image = tf.keras.preprocessing.image.img_to_array(image)
+    image = np.expand_dims(image, axis=0)
+
+    # return the processed image
+    return image
+
+def getTopXpredictions(prediction, topLabels):
+
+    prediction_class = []
+
+    for i in range(0, len(prediction[0])):
+        prediction_class.append((i, prediction[0][i]))
+
+    prediction_class.sort(key=lambda x: x[1], reverse=True)
+
+    return prediction_class[:topLabels]
+
+
+explain = Blueprint("explain", __name__)
+
+
+@explain.route("/explain", methods=["POST"])
+def explain_thread():
+        if request.method == "POST":
+            request_form = request.form.to_dict()
+            key = get_job_id_from_request_form(request_form)
+            job_utils.add_new_job(key, request_form=request_form)
+            # thread = process_data(request_form)
+            # thread.start()
+            # THREADS[key] = thread
+            # data = {"success": "true"}
+            # return jsonify(data)
+            
+            if request_form.get("explainer") == "LIME_IMAGE":
+                return lime_image(request_form)
+            elif request_form.get("explaienr") == "LIME_TABULAR":
+                return lime_tabular(request_form)
+
+            return None
+
+
+@thread_utils.ml_thread_wrapper
+def process_data(request_form):
+    job_id = get_job_id_from_request_form(request_form)
+
+    job_utils.update_status(job_id, job_utils.JobStatus.RUNNING)
+    logger = log_utils.get_logger_for_job(job_id)
+    logger.info(request_form)
+
+def lime_image(request):
+    data = {"success": "failed"}
+
+    nova_iterator = NovaIterator(
+        request.get("dbHost"),
+        int(request.get("dbPort")),
+        request.get("dbUser"),
+        request.get("dbPassword"),
+        request.get("dataset"),
+        os.environ["NOVA_SERVER_DATA_DIR"],
+        ast.literal_eval(request.get("sessions")),
+        ast.literal_eval(request.get("data")),
+        0
+        )
+
+    session = nova_iterator.init_session(ast.literal_eval(request.get("sessions"))[0])
+    stream_data = session.input_data["explanation_stream"].data[int(request.get("frame"))]
+
+    frame = int(request.get("frame"))
+    sample = stream_data[frame]
+    num_features = int(request.get("numFeatures"))
+    top_labels = int(request.get("topLabels"))
+    num_samples = int(request.get("numSamples"))
+    hide_color = request.get("hideColor")
+    hide_rest = request.get("hideRest")
+    positive_only = request.get("positiveOnly")
+
+    model_path = request.get("model_path")
+    model = tf.keras.models.load_model(model_path)
+    
+    img = prepare_image(sample, (224, 224))
+    img = img * (1.0 / 255)
+    prediction = model.predict(img)
+    explainer = lime_image.LimeImageExplainer()
+    img = np.squeeze(img).astype("double")
+    explanation = explainer.explain_instance(
+        img,
+        model.predict,
+        top_labels=top_labels,
+        hide_color=hide_color == "True",
+        num_samples=num_samples,
+    )
+
+    top_classes = getTopXpredictions(prediction, top_labels)
+
+    explanations = []
+
+    for cl in top_classes:
+        temp, mask = explanation.get_image_and_mask(
+            cl[0],
+            positive_only=positive_only == "True",
+            num_features=num_features,
+            hide_rest=hide_rest == "True",
+        )
+        img_explained = mark_boundaries(temp, mask)
+        img = Image.fromarray(np.uint8(img_explained * 255))
+        img_byteArr = io.BytesIO()
+        img.save(img_byteArr, format="JPEG")
+        img_byteArr = img_byteArr.getvalue()
+        img64 = base64.b64encode(img_byteArr)
+        img64_string = img64.decode("utf-8")
+
+        explanations.append((str(cl[0]), str(cl[1]), img64_string))
+
+    data["explanations"] = explanations
+    data["success"] = "success"
+
+    return json.dumps(data)
+
+
+def lime_tabluar(request):
+    data = {"success": "failed"}
+
+    with open(request.get("modelPath"), "rb") as f:
+        model = pickle.load(f)
+
+    nova_iterator = NovaIterator(
+        request.get("dbHost"),
+        int(request.get("dbPort")),
+        request.get("dbUser"),
+        request.get("dbPassword"),
+        request.get("dataset"),
+        os.environ["NOVA_SERVER_DATA_DIR"],
+        ast.literal_eval(request.get("sessions")),
+        ast.literal_eval(request.get("data")),
+        0
+        )
+
+    stream_data = list(nova_iterator)[0]["explanation_stream"]
+
+    frame = int(request.get("frame"))
+    sample = stream_data[frame]
+    top_class = getTopXpredictions(model.predict_proba([sample]), 1)
+    num_features = int(request.get("numFeatures"))
+    explainer = lime_tabular.LimeTabularExplainer(
+        stream_data, mode="classification", discretize_continuous=True
+    )
+    exp = explainer.explain_instance(
+        np.asarray(sample),
+        model.predict_proba,
+        num_features=num_features,
+        top_labels=1,
+    )
+
+    explanation_dictionary = {}
+
+    for entry in exp.as_list(top_class[0][0]):
+        explanation_dictionary.update({entry[0]: entry[1]})
+
+
+    data = {"success": "true",
+            "explanation": explanation_dictionary}
+    return jsonify(data)
+
