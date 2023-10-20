@@ -218,3 +218,4 @@ nova_server/tests/hcai_nova_dynamic/1.0.0/hcai_nova_dynamic-dynamic_split.tfreco
 nova_server/tests/hcai_nova_dynamic/1.0.0/smile.labels.txt
 /nova_server/log/
 /nova_server/tmp/
+nova-server-venv/*
