@@ -47,23 +47,23 @@ import sqlite3
 class EventDefinitions:
     KIND_DM: int = 4
     KIND_ZAP: int = 9735
-    KIND_FEEDBACK: int =  65000 #7000
-    KIND_NIP90_EXTRACT_TEXT = 65002 #5001
-    KIND_NIP90_RESULT_EXTRACT_TEXT = 65001 # 6001
-    KIND_NIP90_SUMMARIZE_TEXT = 65003  # 5002
-    KIND_NIP90_RESULT_SUMMARIZE_TEXT = 65001  # 6002
-    KIND_NIP90_TRANSLATE_TEXT = 65004  # 5003
-    KIND_NIP90_RESULT_TRANSLATE_TEXT = 65001  # 6003
-    KIND_NIP90_GENERATE_IMAGE = 65005  # 5004
-    KIND_NIP90_RESULT_GENERATE_IMAGE = 65001  # 6004
+    KIND_FEEDBACK: int =  7000
+    KIND_NIP90_EXTRACT_TEXT = 5000
+    KIND_NIP90_RESULT_EXTRACT_TEXT = 6000
+    KIND_NIP90_SUMMARIZE_TEXT = 5001
+    KIND_NIP90_RESULT_SUMMARIZE_TEXT = 6001
+    KIND_NIP90_TRANSLATE_TEXT = 5002  # 500
+    KIND_NIP90_RESULT_TRANSLATE_TEXT = 6002  # 6003
+    KIND_NIP90_GENERATE_IMAGE = 5100  # 5004
+    KIND_NIP90_RESULT_GENERATE_IMAGE = 6100  # 6004
     KIND_NIP90_RECOMMEND_NOTES = 65006  # 5005
     KIND_NIP90_RESULT_RECOMMEND_NOTES = 65001  # 6005
     KIND_NIP90_RECOMMEND_USERS = 65007  # 5006
     KIND_NIP90_RESULT_RECOMMEND_USERS = 65001  # 6006
-    KIND_NIP90_CONVERT_VIDEO = 65011  # 5006
-    KIND_NIP90_RESULT_CONVERT_VIDEO = 65001  # 6006
-    KIND_NIP90_GENERIC = 66000 #5999
-    KIND_NIP90_RESULT_GENERIC =  65001 #6999
+    KIND_NIP90_CONVERT_VIDEO = 5200  # 5006
+    KIND_NIP90_RESULT_CONVERT_VIDEO = 6200  # 6006
+    KIND_NIP90_GENERIC = 5999 #5999
+    KIND_NIP90_RESULT_GENERIC =  6999 #6999
     ANY_RESULT = [KIND_NIP90_RESULT_EXTRACT_TEXT, KIND_NIP90_RESULT_SUMMARIZE_TEXT, KIND_NIP90_RESULT_TRANSLATE_TEXT, KIND_NIP90_RESULT_GENERATE_IMAGE, KIND_NIP90_RESULT_RECOMMEND_NOTES, KIND_NIP90_RESULT_RECOMMEND_USERS, KIND_NIP90_RESULT_CONVERT_VIDEO, KIND_NIP90_RESULT_GENERIC]
 
 
@@ -1376,8 +1376,18 @@ def send_nostr_reply_event(content, original_event_as_str, key=None):
     etag = Tag.parse(["e", originalevent.id().to_hex()])
     ptag = Tag.parse(["p", originalevent.pubkey().to_hex()])
     alttag = Tag.parse(["alt", "This is the result of a NIP90 DVM AI task with kind " + str(
-        originalevent.kind()) + ". The task was: " + originalevent.content()])
+    originalevent.kind()) + ". The task was: " + originalevent.content()])
     statustag = Tag.parse(["status", "success"])
+    replytags = [requesttag, etag, ptag, alttag, statustag]
+    for tag in originalevent.tags():
+        if tag.as_vec()[0] == "i":
+            icontent = tag.as_vec()[1]
+            ikind = tag.as_vec()[2]
+            itag = Tag.parse(["i", icontent, ikind])
+            replytags.append(itag)
+
+
+
 
     if key is None:
         key = Keys.from_sk_str(dvmconfig.PRIVATE_KEY)
@@ -1389,7 +1399,7 @@ def send_nostr_reply_event(content, original_event_as_str, key=None):
          responsekind = originalevent.kind() + 1000
 
 
-    event = EventBuilder(responsekind, str(content), [requesttag, etag, ptag, alttag, statustag]).to_event(key)
+    event = EventBuilder(responsekind, str(content), replytags).to_event(key)
     send_event(event, key=key)
     print("[Nostr] "+ str(responsekind) + " Job Response event sent: " + event.as_json())
     return event.as_json()
