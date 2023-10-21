@@ -1787,7 +1787,7 @@ def parse_bot_command_to_event(dec_text, sender):
             elif i.startswith("to "):
                 end = i.replace("to ", "")
         param_tag = Tag.parse(["param", "range", start, end])
-        param_tag_format = Tag.parse(["param", "format", format])
+        param_tag_format = Tag.parse(["param", "format b", format])
         j_tag = Tag.parse(["j", "conversion"])
         i_tag = Tag.parse(["i", url, "url"])
         return [i_tag, j_tag, param_tag_format, param_tag]
