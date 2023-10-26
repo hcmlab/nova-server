@@ -875,10 +875,9 @@ def nostr_server(config):
                     print(tag.as_vec()[1])
                     if input_type == "url":
                         url = tag.as_vec()[1]
-                if tag.as_vec()[0] == 'param':
-                    if tag.as_vec()[1] == 'format':
-                        format = tag.as_vec()[2]
-                    elif tag.as_vec()[1] == "range":  # check for paramtype
+                elif tag.as_vec()[0] == 'param':
+
+                    if tag.as_vec()[1] == "range":  # check for paramtype
                         try:
                             print(tag.as_vec()[2])
                             print(tag.as_vec()[3])
@@ -904,7 +903,8 @@ def nostr_server(config):
                             except:
                                 request_form["endTime"] = tag.as_vec()[3]
 
-
+                elif tag.as_vec()[0] == 'output':
+                        format = tag.as_vec()[1]
             request_form["optStr"] = 'url=' + url.replace('=', '<') + ';format=' + format
 
         return request_form
@@ -1806,7 +1806,7 @@ def parse_bot_command_to_event(dec_text, sender):
             command = dec_text.replace("-conversion", "")
         elif str(dec_text).startswith("-convert"):
             command = dec_text.replace("-convert", "")
-        format = "mp4"
+        format = "video/mp4"
         split = command.split(" -")
         url = str(split[0]).replace(' ', '')
         start = "0"
@@ -1819,10 +1819,10 @@ def parse_bot_command_to_event(dec_text, sender):
             elif i.startswith("to "):
                 end = i.replace("to ", "")
         param_tag = Tag.parse(["param", "range", start, end])
-        param_tag_format = Tag.parse(["param", "format b", format])
         j_tag = Tag.parse(["j", "conversion"])
         i_tag = Tag.parse(["i", url, "url"])
-        return [i_tag, j_tag, param_tag_format, param_tag]
+        output_tag = Tag.parse(["output", format])
+        return [i_tag, j_tag, output_tag, param_tag]
     else:
         text = dec_text
         j_tag = Tag.parse(["j", "chat"])

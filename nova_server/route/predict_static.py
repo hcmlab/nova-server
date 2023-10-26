@@ -1325,18 +1325,19 @@ def convertMedia(input_value, format, request_form):
     # for now we cut and convert all files to mp3
     finalfilename = os.environ["NOVA_DATA_DIR"] + '\\' + request_form["database"] + '\\' + request_form[
         "sessions"] + '\\' + request_form[
-                        "roles"] + '.' + "processed" + '.' + format
+                        "roles"] + '.' + "processed" + '.' + format.split('/')[1]
 
 
-    if format == "mp3" or format == "wav" or format == "ogg":
+    if format.split('/')[0] == "audio":
         fs, x = ffmpegio.audio.read(filename, ss=start_time, to=end_time, sample_fmt='dbl', ac=1)
         ffmpegio.audio.write(finalfilename, fs, x)
         url = uploadToHoster(finalfilename)
-    else:
-
+    elif format.split('/')[0] == "video":
         ffmpegio.transcode(filename, finalfilename, overwrite=True, show_log=True)
         print("converted")
         url = uploadToHoster(finalfilename)
+    else:
+        url = "Unspported Output format"
     return url
 
 
