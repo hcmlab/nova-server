@@ -64,20 +64,23 @@ class VenvHandler:
             context (str, optional): The context of the stream (stdout or stderr).
         """
         while True:
-            s = stream.readline()
-            if not s:
-                break
-            if self.logger is None:
-                if not self.log_verbose:
-                    sys.stderr.write(".")
+            try:
+                s = stream.readline()
+                if not s:
+                    break
+                if self.logger is None:
+                    if not self.log_verbose:
+                        sys.stderr.write(".")
+                    else:
+                        sys.stderr.write(s.strip('\n'))
                 else:
-                    sys.stderr.write(s.strip('\n'))
-            else:
-                if context == "stderr":
-                    self.logger.error(s.strip('\n'))
-                else:
-                    self.logger.info(s.strip('\n'))
-            sys.stderr.flush()
+                    if context == "stderr":
+                        self.logger.error(s.strip('\n'))
+                    else:
+                        self.logger.info(s.strip('\n'))
+                sys.stderr.flush()
+            except Exception as e:
+                print(e)
         stream.close()
 
     def _run_cmd(self, cmd: str, wait: bool = True) -> int:
