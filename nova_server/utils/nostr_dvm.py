@@ -4,7 +4,7 @@ import os
 import re
 import urllib
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import timedelta, datetime
 from sqlite3 import Error
 from types import NoneType
 from urllib.parse import urlparse
@@ -324,7 +324,7 @@ def nostr_server(config):
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(), get_bot_help_text(),
                                                                         event.id()).to_event(keys)
                             send_event(evt, key=keys)
-                        elif str(dec_text).lower().__contains__("bitcoin"):
+                        elif str(dec_text).lower().__contains__(" bitcoin "):
                             time.sleep(3.0)
                             evt = EventBuilder.new_encrypted_direct_msg(keys, event.pubkey(),
                                  "#Bitcoin? There is no second best.\n\nhttps://cdn.nostr.build/p/mYLv.mp4",
@@ -1519,6 +1519,23 @@ def post_process_result(anno, original_event):
                         result = replace_broken_words(str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None))
                         return result
 
+                    elif output_format == "text/vtt":
+                        result = ""
+                        print(str(anno.data))
+                        result = "WEBVTT\n\n"
+                        for element in anno.data:
+                            name = element["name"]  # name
+                            start = float(element["from"])
+                            convertstart = str(datetime.timedelta(seconds=start))
+                            end = float(element["to"])
+                            convertend = str(datetime.timedelta(seconds=end))
+                            print(str(convertstart) + " --> " + str(convertend))
+                            cleared_name = str(name).lstrip("\'").rstrip("\'")
+                            result = result + str(convertstart) + " --> " + str(convertend) + "\n" + cleared_name + "\n\n"
+                        result = replace_broken_words(
+                            str(result).replace("\"", "").replace('[', "").replace(']', "").lstrip(None))
+                        return result
+
                     elif output_format == "text/json" or output_format == "json":
                         #result = json.dumps(json.loads(anno.data.to_json(orient="records")))
                         result =  replace_broken_words(json.dumps(anno.data.tolist()))
@@ -1586,6 +1603,8 @@ def get_bot_help_text():
             "-speech-to-text urltofile \nAdditional parameters:\n-from timeinseconds -to timeinseconds\n\n"
             "Get a List of inactive users you follow (" + str(dvmconfig.COSTPERUNIT_INACTIVE_FOLLOWING) + " Sats)\n"
             "-inactive-following\nAdditional parameters:\n-sincedays days (e.g. 60), default 30\n\n"
+            "Convert a social media link (" + str(dvmconfig.COSTPERUNIT_IMAGEUPSCALING) + " Sats)\n"
+            "-convert https://linktosocialmedia (X,Tiktok,Insta,direct link)\nAdditional parameters:\n-format (e.g. mp3) default mp4 \n\n"
             "To show your current balance\n -balance \n\n"
             "You can zap any of my notes/dms or my profile to top up your balance. I also understand Zapplepay.")
 
@@ -1782,8 +1801,11 @@ def parse_bot_command_to_event(dec_text, sender):
         j_tag = Tag.parse(["j", "note-recommendation"])
         return [j_tag, param_tag_since, param_tag_user]
 
-    elif str(dec_text).startswith("-conversion"):
-        command = dec_text.replace("-conversion", "")
+    elif str(dec_text).startswith("-conversion") or str(dec_text).startswith("-convert"):
+        if str(dec_text).startswith("-conversion"):
+            command = dec_text.replace("-conversion", "")
+        elif str(dec_text).startswith("-convert"):
+            command = dec_text.replace("-convert", "")
         format = "mp4"
         split = command.split(" -")
         url = str(split[0]).replace(' ', '')
@@ -2144,7 +2166,6 @@ def check_url_is_readable(url):
        0:11] == "youtube.com" and str(url).find("live") == -1) or str(url).startswith('https://x.com') or str(url).startswith('https://twitter.com') :
         # print("CHECKING YOUTUBE")f
         # if (checkYoutubeLinkValid(url)):
-        print("YES")
         return "video"
 
     elif str(url).startswith("https://overcast.fm/"):
