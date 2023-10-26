@@ -11,6 +11,7 @@ import tensorflow as tf
 import io
 import ast
 import numpy as np
+import pandas as pd
 import io as inputoutput
 import base64
 import json
@@ -23,6 +24,7 @@ from flask import Blueprint, Response, request
 from lime.lime_image import LimeImageExplainer
 from lime.lime_tabular import LimeTabularExplainer
 import tf_explain
+import dice_ml
 from skimage.segmentation import mark_boundaries
 from nova_utils.data.handler.mongo_handler import (
     AnnotationHandler,
@@ -76,6 +78,8 @@ def explain_thread():
                 return lime_image(request_form)
             elif explanation_framework == "LIME_TABULAR":
                 return lime_tabular(request_form)
+            elif explanation_framework == "DICE":
+                return dice(request_form)
             elif explanation_framework == "TF_EXPLAIN":
                 return tf_explainer(request_form)
             return None
@@ -309,3 +313,116 @@ def tf_explainer(request):
     data["success"] = "success"
 
     return json.dumps(data)
+
+def dice(request):
+    data = {"success": "failed"}
+    train_data_available = False
+    frame = int(request.get("frame"))
+    ml_backend = request.get("mlBackend")
+    dim = int(request.get("dim"))
+    sr = int(request.get("sampleRate"))
+
+    # ADD logic to display multiple counterfactuals
+    num_counterfactuals = 1
+    # num_counterfactuals = int(request.get("numCounterfactuals"))
+    
+    class_counterfactual = request.get("classCounterfactual")
+
+    nova_iterator = NovaIterator(
+        request.get("dbHost"),
+        int(request.get("dbPort")),
+        request.get("dbUser"),
+        request.get("dbPassword"),
+        request.get("dataset"),
+        os.environ["NOVA_SERVER_DATA_DIR"],
+        ast.literal_eval(request.get("sessions")),
+        ast.literal_eval(request.get("data")),
+        0
+        )
+
+    # # NOTE: loading model before initializing data results in winerror insufficient system resources
+    session = nova_iterator.init_session(ast.literal_eval(request.get("sessions"))[0])
+    stream_data = session.input_data["explanation_stream"].data
+    sample = stream_data[frame]
+    anno = session.input_data["explanation_anno"].data
+    scheme_type = session.input_data["explanation_anno"].annotation_scheme.scheme_type.name
+    anno_name = session.input_data["explanation_anno"].annotation_scheme.name
+
+    if scheme_type == "DISCRETE":
+    
+        classes_dict = session.input_data["explanation_anno"].annotation_scheme.classes
+        sorted_class_dict = sorted(classes_dict)    
+
+        anno = discrete_anno_to_continuous(anno, sr, len(stream_data), list(sorted_class_dict)[-1]+1)
+
+        train_data_available = True
+    
+
+    model_path = request.get("modelPath")
+
+    if ml_backend == "SKLEARN":
+        with open(model_path, "rb") as f:
+            model = pickle.load(f)
+        model = dice_ml.Model(model=model, backend="sklearn")
+    elif ml_backend == "TENSORFLOW":
+        pass
+    elif ml_backend == "PYTORCH":
+        pass
+
+    # TODO add feature names if available
+    dim_cols = list(range(dim))
+    stream_data_as_data_frame = pd.DataFrame(stream_data, columns=dim_cols)
+    stream_data_as_data_frame_and_anno = pd.DataFrame(stream_data, columns=dim_cols)
+    stream_data_as_data_frame_and_anno[anno_name] = anno
+
+    if not train_data_available:
+        feature_dic = {}
+
+        for feat in dim_cols:
+            # add min max range for models without train data
+            feature_dic[str(feat)] = [0, 1]
+
+        d = dice_ml.Data(features=feature_dic, outcome_name=anno_name)
+    else:
+        d = dice_ml.Data(dataframe=stream_data_as_data_frame_and_anno, continuous_features=dim_cols, outcome_name=anno_name)
+
+    sample_dic = {}
+
+    for id, s in enumerate(sample):
+        sample_dic[str(id)] = s
+
+    exp = dice_ml.Dice(d, model, method="genetic")
+    try:
+        dice_exp = exp.generate_counterfactuals(stream_data_as_data_frame[frame:frame+1], total_CFs=num_counterfactuals, desired_class=int(class_counterfactual), initialization="random")
+
+        explanation_dictionary = {}
+        counterfactual = dice_exp.cf_examples_list[0].final_cfs_df_sparse.to_numpy()[0]
+
+        for id, feat in enumerate(counterfactual):
+            explanation_dictionary[id] = feat
+
+        data = {"success": "true",
+                "explanation": explanation_dictionary}
+    except:
+        data = {"sucess": "failed"}
+        
+    return jsonify(data)
+
+def discrete_anno_to_continuous(anno, sr, anno_length, rest_id):
+
+    cont_anno = []
+
+    for index in range(anno_length):
+        label = rest_id
+        for entry in anno:
+            # 25 is the sample rate of the stream
+            start = entry["from"] * sr
+            end = entry["to"] * sr
+            if index >= start and index < end:
+                label = entry["id"]
+            else:
+                continue
+            
+        cont_anno.append(label)
+
+    return cont_anno
