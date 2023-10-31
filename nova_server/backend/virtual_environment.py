@@ -100,7 +100,6 @@ class VenvHandler:
         t1.start()
         t2 = Thread(target=self._reader, args=(self.current_process.stderr, "stderr"))
         t2.start()
-        time.sleep(10)
         if wait:
             self.current_process.wait()
             t1.join()

@@ -37,7 +37,7 @@ class ExecutionHandler(ABC):
     def script_arguments(self, value):
         # convert dictionary keys from camelCase to snake_case
         self._script_arguments = {
-            "--" + re.sub(r"(?<!^)(?=[A-Z])", "_", k).lower(): v
+            "--" + re.sub(r"(?<!^)(?=[A-Z])(?<![A-Z])", "_", k).lower(): v
             for k, v in value.items()
         }
 
@@ -53,14 +53,16 @@ class ExecutionHandler(ABC):
         arg_vars = {}
         prefix = "NOVA_SERVER_"
 
-        # select data folder if multiple folders are passed
+        # Select data folder, where dataset exists if multiple folders are passed
         dd = os.getenv(env.NOVA_SERVER_DATA_DIR)
-        if ';' in dd:
-            for dir in dd.split(';'):
-                dataset_dir = (Path(dir) / self.script_arguments['--dataset'])
-                if dataset_dir.is_dir():
-                    os.environ[env.NOVA_SERVER_DATA_DIR] = str(dataset_dir.resolve())
-                    break
+        ds = self.script_arguments.get('--dataset')
+        if ds is not None:
+            if ';' in dd:
+                for dir in dd.split(';'):
+                    dataset_dir = (Path(dir) / ds)
+                    if dataset_dir.is_dir():
+                        os.environ[env.NOVA_SERVER_DATA_DIR] = str(dataset_dir.resolve())
+                        break
 
         # set other vars
         env_vars = [
@@ -79,11 +81,11 @@ class ExecutionHandler(ABC):
 
     def run(self):
 
-        # run with selected backend
+        # Run with selected backend
         if self.backend == Backend.VENV:
             from nova_server.backend import virtual_environment as backend
 
-            # setup virtual environment
+            # Setup virtual environment
             cml_dir = os.getenv(env.NOVA_SERVER_CML_DIR)
             if cml_dir is None:
                 raise ValueError(f"NOVA_CML_DIR not set")
@@ -98,8 +100,10 @@ class ExecutionHandler(ABC):
                 module_dir, logger=self.logger, log_verbose=True
             )
 
-            # add dotenv variables to arguments for script
+            # Add dotenv variables to arguments for script
             self._script_arguments |= self._nova_server_env_to_arg()
+            self._script_arguments.setdefault('--shared_dir', os.getenv(env.NOVA_SERVER_TMP_DIR))
+
 
             self.backend_handler.run_shell_script(
                 self.run_script,
