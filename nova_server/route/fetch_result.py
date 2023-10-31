@@ -49,24 +49,33 @@ def fetch_thread():
         if not job_dir.exists():
             raise FileNotFoundError
         elif job_dir.is_dir():
-            # Zip file Initialization
-            zip_fp = tmp_dir / 'tmp.zip'
-            zipfolder = zipfile.ZipFile(zip_fp,'w', compression = zipfile.ZIP_STORED) # Compression type
 
-            # zip all the files which are inside in the folder
-            for file in job_dir.glob('*'):
-                zipfolder.write(file, file.name)
-            zipfolder.close()
+            files =  list(job_dir.glob('*'))
+            if len(files) > 1:
 
-            # Delete the zip file if not needed
-            @after_this_request
-            def delete_file():
-                os.remove(zip_fp)
+                # Zip file Initialization
+                zip_fp = tmp_dir / 'tmp.zip'
+                zipfolder = zipfile.ZipFile(zip_fp,'w', compression = zipfile.ZIP_STORED) # Compression type
 
-            return send_file(zip_fp,
-                             mimetype = 'zip',
-                             attachment_filename= 'tmp.zip',
-                             as_attachment = True)
+                # zip all the files which are inside in the folder
+                for file in files:
+                    zipfolder.write(file, file.name)
+                zipfolder.close()
+
+                # TODO Not working fix
+                # Delete the zip file if not needed
+                # @after_this_request
+                # def delete_file(response):
+                #     os.remove(zip_fp)
+
+                return send_file(zip_fp,
+                                 mimetype = 'zip',
+                                 attachment_filename= 'tmp.zip',
+                                 as_attachment = True)
+            elif len(files) == 1:
+                return send_file(files[0])
+            else:
+                raise ValueError('Empty folder')
         else:
             return send_file(job_dir)
 
