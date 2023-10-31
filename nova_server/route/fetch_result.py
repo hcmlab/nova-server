@@ -22,6 +22,17 @@ import zipfile
 import os
 from flask import send_file,Flask,send_from_directory
 
+def supported_file(x: Path):
+
+    file_names = [
+    ]
+    file_starts_with = [
+        '.'
+    ]
+    file_ext = [
+
+    ]
+    return  not(x.name in file_names or any([x.name.startswith(s) for s in file_starts_with]) or x.suffix in file_ext)
 
 @fetch_result.route("/fetch_result", methods=["POST"])
 def fetch_thread():
@@ -50,7 +61,8 @@ def fetch_thread():
             raise FileNotFoundError
         elif job_dir.is_dir():
 
-            files =  list(job_dir.glob('*'))
+            files = list(filter(lambda x: supported_file(x), job_dir.glob('*')))
+
             if len(files) > 1:
 
                 # Zip file Initialization
@@ -62,16 +74,16 @@ def fetch_thread():
                     zipfolder.write(file, file.name)
                 zipfolder.close()
 
-                # TODO Not working fix
                 # Delete the zip file if not needed
-                # @after_this_request
-                # def delete_file(response):
-                #     os.remove(zip_fp)
+                @after_this_request
+                def delete_file(response):
+                    zip_fp.unlink()
+                    return response
 
                 return send_file(zip_fp,
                                  mimetype = 'zip',
-                                 attachment_filename= 'tmp.zip',
-                                 as_attachment = True)
+                                 download_name= 'result.zip',
+                               )
             elif len(files) == 1:
                 return send_file(files[0])
             else:
