@@ -54,9 +54,8 @@ def fetch_thread():
             zipfolder = zipfile.ZipFile(zip_fp,'w', compression = zipfile.ZIP_STORED) # Compression type
 
             # zip all the files which are inside in the folder
-            for files in job_dir.glob('*'):
-                for file in files:
-                    zipfolder.write(file, file.name)
+            for file in job_dir.glob('*'):
+                zipfolder.write(file, file.name)
             zipfolder.close()
 
             # Delete the zip file if not needed
