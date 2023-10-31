@@ -6,7 +6,7 @@ Author:
 Date:
     06.09.2023
 """
-
+import importlib
 import os
 import re
 from logging import Logger
@@ -19,13 +19,11 @@ from nova_server.utils import env
 
 class Action(Enum):
     PROCESS = "nu-process"
-    PREDICT = "nu-predict"
-    EXTRACT = "nu-extract"
     TRAIN = "nu-train"
 
-
 class Backend(Enum):
-    VENV = 0
+    DEBUG = 'debug'
+    VENV = 'venv'
 
 
 class ExecutionHandler(ABC):
@@ -42,9 +40,9 @@ class ExecutionHandler(ABC):
         }
 
     def __init__(
-        self, request_form: dict, backend: Backend = Backend.VENV, logger: Logger = None
+        self, request_form: dict, backend: str = 'venv', logger: Logger = None
     ):
-        self.backend = backend
+        self.backend = Backend(backend)
         self.script_arguments = request_form
         self.logger = logger
         self.backend_handler = None
@@ -82,7 +80,26 @@ class ExecutionHandler(ABC):
     def run(self):
 
         # Run with selected backend
-        if self.backend == Backend.VENV:
+        if self.backend == Backend.DEBUG:
+            from importlib.machinery import SourceFileLoader
+            import nova_utils as nu
+            from importlib.metadata import entry_points
+            ep = [x for x in entry_points().get('console_scripts') if x.name == self.run_script ][0]
+            run_module = importlib.import_module(ep.module)
+            _main = getattr(run_module, ep.attr)
+
+            # Add dotenv variables to arguments for script
+            self._script_arguments |= self._nova_server_env_to_arg()
+            self._script_arguments.setdefault('--shared_dir', os.getenv(env.NOVA_SERVER_TMP_DIR))
+
+            args = []
+            for k,v in self._script_arguments.items():
+                args.append(k)
+                args.append(v)
+
+            _main(args)
+
+        elif self.backend == Backend.VENV:
             from nova_server.backend import virtual_environment as backend
 
             # Setup virtual environment
@@ -144,43 +161,6 @@ class NovaProcessHandler(ExecutionHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.action = Action.PROCESS
-
-
-class NovaPredictHandler(ExecutionHandler):
-    @property
-    def module_name(self):
-        tfp = self.script_arguments.get("--trainer_file_path")
-        if tfp is None:
-            raise ValueError("trainerFilePath not specified in request.")
-        else:
-            return PureWindowsPath(tfp).parent
-
-    @property
-    def run_script(self):
-        return self.action.value
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.action = Action.PREDICT
-
-
-class NovaExtractHandler(ExecutionHandler):
-    @property
-    def module_name(self):
-        cfp = self.script_arguments.get("--chain_file_path")
-        if cfp is None:
-            raise ValueError("chainFilePath not specified in request.")
-        else:
-            return PureWindowsPath(cfp).parent
-
-    @property
-    def run_script(self):
-        return self.action.value
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.action = Action.EXTRACT
-
 
 class NovaTrainHandler(ExecutionHandler):
     @property

@@ -8,10 +8,12 @@ Date:
 This module defines a Flask Blueprint for predicting data.
 
 """
+import os
+
 from flask import Blueprint, request, jsonify
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.job_utils import get_job_id_from_request_form
-from nova_server.utils import thread_utils, job_utils
+from nova_server.utils import thread_utils, job_utils, env
 from nova_server.utils import log_utils
 from nova_server.exec.execution_handler import NovaProcessHandler
 
@@ -39,7 +41,7 @@ def process_data(request_form):
     logger.info(request_form)
 
     job = job_utils.get_job(job_id)
-    job.execution_handler = NovaProcessHandler(request_form, logger=logger)
+    job.execution_handler = NovaProcessHandler(request_form, logger=logger, backend=os.getenv(env.NOVA_SERVER_BACKEND))
 
     try:
         job.run()
