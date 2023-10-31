@@ -27,7 +27,7 @@ classifiers = [
 dependencies = [
     "flask",
     "waitress",
-    "hcai-nova-utils>=1.2.7",
+    "hcai-nova-utils<=1.12.0",
     "python-dotenv",
     "psutil"
 ]
