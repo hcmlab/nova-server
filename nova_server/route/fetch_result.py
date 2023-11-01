@@ -77,7 +77,7 @@ def fetch_thread():
                 # Delete the zip file if not needed
                 @after_this_request
                 def delete_file(response):
-                    zip_fp.unlink()
+                    #zip_fp.unlink(missing_ok=True)
                     return response
 
                 return send_file(zip_fp,
