@@ -15,6 +15,7 @@ from nova_server.utils.job_utils import get_job_id_from_request_form
 from nova_server.utils import env
 from pathlib import Path
 import shutil
+import tempfile
 fetch_result = Blueprint("fetch_result", __name__)
 
 
@@ -64,21 +65,15 @@ def fetch_thread():
             files = list(filter(lambda x: supported_file(x), job_dir.glob('*')))
 
             if len(files) > 1:
-
                 # Zip file Initialization
-                zip_fp = tmp_dir / 'tmp.zip'
-                zipfolder = zipfile.ZipFile(zip_fp,'w', compression = zipfile.ZIP_STORED) # Compression type
-
-                # zip all the files which are inside in the folder
+                zip_fp = tempfile.TemporaryFile()
+                zipfolder = zipfile.ZipFile(zip_fp,'w', compression = zipfile.ZIP_STORED)
                 for file in files:
                     zipfolder.write(file, file.name)
                 zipfolder.close()
 
-                # Delete the zip file if not needed
-                @after_this_request
-                def delete_file(response):
-                    #zip_fp.unlink(missing_ok=True)
-                    return response
+                # Reset file pointer to keep handle alive
+                zip_fp.seek(0)
 
                 return send_file(zip_fp,
                                  mimetype = 'zip',

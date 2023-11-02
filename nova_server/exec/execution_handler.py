@@ -86,7 +86,7 @@ class ExecutionHandler(ABC):
             from importlib.metadata import entry_points
             ep = [x for x in entry_points().get('console_scripts') if x.name == self.run_script ][0]
             run_module = importlib.import_module(ep.module)
-            _main = getattr(run_module, ep.attr)
+            main = getattr(run_module, 'main')
 
             # Add dotenv variables to arguments for script
             self._script_arguments |= self._nova_server_env_to_arg()
@@ -97,7 +97,7 @@ class ExecutionHandler(ABC):
                 args.append(k)
                 args.append(v)
 
-            _main(args)
+            main(args)
 
         elif self.backend == Backend.VENV:
             from nova_server.backend import virtual_environment as backend

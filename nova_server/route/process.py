@@ -24,18 +24,18 @@ process = Blueprint("process", __name__)
 def predict_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
-        key = get_job_id_from_request_form(request_form)
-        job_utils.add_new_job(key, request_form=request_form)
-        thread = process_data(request_form)
+        job_id = get_job_id_from_request_form(request_form)
+        job_added = job_utils.add_new_job(job_id, request_form=request_form)
+        thread = process_data(request_form, job_id)
         thread.start()
-        THREADS[key] = thread
-        data = {"success": "true"}
+        THREADS[job_id] = thread
+        data = {"success": str(job_added)}
         return jsonify(data)
 
 
 @thread_utils.ml_thread_wrapper
-def process_data(request_form):
-    job_id = get_job_id_from_request_form(request_form)
+def process_data(request_form, job_id):
+    #job_id = get_job_id_from_request_form(request_form)
     job_utils.update_status(job_id, job_utils.JobStatus.RUNNING)
     logger = log_utils.get_logger_for_job(job_id)
     logger.info(request_form)
