@@ -24,6 +24,7 @@ Example:
     >>> app.py --host 0.0.0.0 --port 53771 --cml_dir "/path/to/my/cml" --data_dir "/path/to/my/data" --cache_dir "/path/to/my/cache" --tmp_dir "/path/to/my/tmp"
 """
 import dotenv
+import tempfile
 from flask import Flask
 from nova_server.route.train import train
 from nova_server.route.status import status
@@ -160,7 +161,7 @@ def _run():
     )
 
     print("...done")
-
+    tempfile.tempdir = os.environ[env.NOVA_SERVER_TMP_DIR]
     host = os.environ[env.NOVA_SERVER_HOST]
     port = int(os.environ[env.NOVA_SERVER_PORT])
 
