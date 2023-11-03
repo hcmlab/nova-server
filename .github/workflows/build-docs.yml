@@ -49,7 +49,7 @@ jobs:
       
       - name: Make the sphinx docs
         run: |
-          make -C docs clean 
+          make -C main/docs clean 
           sphinx-build -M html main/docs/docsource docs/docbuild
 
       - name: Commit changes
