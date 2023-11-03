@@ -34,6 +34,12 @@ jobs:
         run: |
           make -C docs clean 
           sphinx-build -M html docs/docsource docs/docbuild
+
+      - name: Commit changes
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git commit -a -m "Update documentation"
       
       #sphinx-apidoc -e -M -d 8 -o ./api ../../nova-server/nova_server      
       # cd docs/docsource
