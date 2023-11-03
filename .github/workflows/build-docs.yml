@@ -31,7 +31,7 @@ jobs:
       - name: Checkout Nova Server Modules
         uses: actions/checkout@v4
         with:
-          repository: hcm-lab/nova-server-modules
+          repository: hcmlab/nova-server-modules
           token: ${{ secrets.NS_MODULES }}
           path: modules
           ref: main
