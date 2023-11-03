@@ -31,9 +31,9 @@ jobs:
       
       - name: Make the sphinx docs
         run: |
-     
-          make -C docs clean 
-          make -C docs html
+          cd docs
+          make clean 
+          sphinx-build -M html docsource docbuild
       
       #sphinx-apidoc -e -M -d 8 -o ./api ../../nova-server/nova_server      
       # cd docs/docsource
