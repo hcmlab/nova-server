@@ -23,6 +23,7 @@ jobs:
         with:
           repository: hcm-lab/nova-server-utils
           path: utils
+          ref: main
 
 #      - name: Checkout Nova Server Modules
 #        uses: actions/checkout@v4
