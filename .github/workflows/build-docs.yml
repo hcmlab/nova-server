@@ -31,11 +31,12 @@ jobs:
       
       - name: Make the sphinx docs
         run: |
-          cd docs/docsource
+     
           make -C docs clean 
-          sphinx-apidoc -e -M -d 8 -o ./api ../../nova-server/nova_server
           make -C docs html
-
+      
+      #sphinx-apidoc -e -M -d 8 -o ./api ../../nova-server/nova_server      
+      # cd docs/docsource
       #- name: Init new repo in dist folder and commit generated files
       #  run: |
       #    cd docs/docbuild/
