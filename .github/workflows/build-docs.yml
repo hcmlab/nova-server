@@ -50,6 +50,8 @@ jobs:
       - name: Make the sphinx docs
         run: |
           make -C main/docs clean 
+          sphinx-apidoc -e -M -d 8 -o main/docs/docsource/api main/nova_server
+          sphinx-apidoc -e -M -d 8 -o main/docs/docsource/api utils/nova_utils
           sphinx-build -M html main/docs/docsource main/docs/docbuild
 
       - name: Commit changes
