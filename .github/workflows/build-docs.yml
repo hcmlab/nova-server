@@ -21,7 +21,7 @@ jobs:
       - name: Checkout Nova Utils
         uses: actions/checkout@v4
         with:
-          repository: hcm-lab/nova-server-utils
+          repository: hcm-lab/nova-utils
           path: utils
           ref: main
 
