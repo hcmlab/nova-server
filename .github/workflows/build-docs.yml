@@ -1,6 +1,6 @@
 name: docs_pages_workflow
  
-# execute this workflow automatically when a we push to master
+# execute this workflow automatically when we push to master
 on:
   push:
     branches:
@@ -28,27 +28,28 @@ jobs:
           python -m pip install -U sphinx
           python -m pip install sphinx-rtd-theme
           python -m pip install sphinx-autoapi
-
-      - name: make the sphinx docs
+      
+      - name: Make the sphinx docs
         run: |
+          cd docs/docsource
           make -C docs clean 
-          # sphinx-apidoc -f -o docs/source . -H Test -e -t docs/source/_templates
+          sphinx-apidoc -e -M -d 8 -o ./api ../../nova-server/nova_server
           make -C docs html
 
-      - name: Init new repo in dist folder and commit generated files
-        run: |
-          cd docs/docbuild/
-          git init
-          touch .nojekyll
-          git add -A
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git commit -m 'deploy'
+      #- name: Init new repo in dist folder and commit generated files
+      #  run: |
+      #    cd docs/docbuild/
+      #    git init
+      #    touch .nojekyll
+      #    git add -A
+      #    git config --local user.email "action@github.com"
+      #    git config --local user.name "GitHub Action"
+      #    git commit -m 'deploy'
 
-      - name: Force push to destination branch
-        uses: ad-m/github-push-action@v0.5.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: docs
-          force: true
-          directory: ./docs/build/html
+      #- name: Force push to destination branch
+      #  uses: ad-m/github-push-action@v0.8.0
+      #  with:
+      #    github_token: ${{ secrets.GITHUB_TOKEN }}
+      #    branch: docs
+      #    force: true
+      #    directory: ./docs/build/html
