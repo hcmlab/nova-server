@@ -28,6 +28,7 @@ jobs:
           python -m pip install -U sphinx
           python -m pip install sphinx-rtd-theme
           python -m pip install sphinx-autoapi
+          python -m pip install myst-parser==1.0.0
       
       - name: Make the sphinx docs
         run: |
