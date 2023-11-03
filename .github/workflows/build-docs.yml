@@ -22,15 +22,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: hcm-lab/nova-server-utils
-          token: ${{ secrets.GH_PAT }}
           path: utils
 
-      - name: Checkout Nova Server Modules
-        uses: actions/checkout@v4
-        with:
-          repository: hcm-lab/nova-server-modules
-          token: ${{ secrets.GH_PAT }}
-          path: modules
+#      - name: Checkout Nova Server Modules
+#        uses: actions/checkout@v4
+#        with:
+#          repository: hcm-lab/nova-server-modules
+#          token: ${{ secrets.GH_PAT }}
+#          path: modules
 
       - name: Set up Python
         uses: actions/setup-python@v2.2.1
