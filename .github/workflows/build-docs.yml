@@ -17,6 +17,9 @@ jobs:
     steps:
       - name: Checkout Nova-Server
         uses: actions/checkout@v4
+        with:
+          path: main
+          ref: main
 
       - name: Checkout Nova Utils
         uses: actions/checkout@v4
@@ -47,10 +50,11 @@ jobs:
       - name: Make the sphinx docs
         run: |
           make -C docs clean 
-          sphinx-build -M html docs/docsource docs/docbuild
+          sphinx-build -M html main/docs/docsource docs/docbuild
 
       - name: Commit changes
         run: |
+          cd main
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add *
