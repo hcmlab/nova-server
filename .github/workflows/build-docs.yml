@@ -15,8 +15,22 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
  
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2.3.4
+      - name: Checkout Nova-Server
+        uses: actions/checkout@v4
+
+      - name: Checkout Nova Utils
+        uses: actions/checkout@v4
+        with:
+          repository: hcm-lab/nova-server-utils
+          token: ${{ secrets.GH_PAT }}
+          path: utils
+
+      - name: Checkout Nova Server Modules
+        uses: actions/checkout@v4
+        with:
+          repository: hcm-lab/nova-server-modules
+          token: ${{ secrets.GH_PAT }}
+          path: modules
 
       - name: Set up Python
         uses: actions/setup-python@v2.2.1
