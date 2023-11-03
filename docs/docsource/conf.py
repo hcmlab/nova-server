@@ -18,8 +18,6 @@ author = 'Dominik Schiller'
 release = nova_server.__version__
 
 
-import pytorch_sphinx_theme
-
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
@@ -40,7 +38,6 @@ napoleon_use_ivar = True  # to correctly handle Attributes header in class pydoc
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-
 
 
 # -- Options for HTML output -------------------------------------------------
