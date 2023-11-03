@@ -50,7 +50,7 @@ jobs:
       - name: Make the sphinx docs
         run: |
           make -C main/docs clean 
-          sphinx-build -M html main/docs/docsource docs/docbuild
+          sphinx-build -M html main/docs/docsource main/docs/docbuild
 
       - name: Commit changes
         run: |
