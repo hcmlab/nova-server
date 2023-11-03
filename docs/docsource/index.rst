@@ -33,7 +33,7 @@ The server api can be used either from the UI itself or as a standalone tool to 
     :maxdepth: 2
     :caption: Modules
 
-    api/modules/overview_link.md
+    modules/overview_link.md
 
 
 Indices and tables
