@@ -78,4 +78,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: docs
           force: true
-          #directory: ./docs/docbuild
+          directory: main
