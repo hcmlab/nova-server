@@ -29,6 +29,12 @@ The server api can be used either from the UI itself or as a standalone tool to 
      api/nova_server.route
      api/nova_server.utils
 
+.. toctree::
+    :maxdepth: 2
+    :caption: Modules
+
+    api/modules/overview
+
 
 Indices and tables
 ==================

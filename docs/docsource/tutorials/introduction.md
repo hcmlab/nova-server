@@ -1,8 +1,6 @@
-# Introduction
+# Installation
 
-## Installation
-
-### Prerequesites
+## Prerequesites
 
 Before starting to install NOVA-Server you need to install Python and FFMPEG.
 While other Python versions may work as well the module is only tested for the following versions:
@@ -22,13 +20,13 @@ You can then activate the virtual environment like this:
 ```.\nova-server-venv\Scripts\activate```
 
 
-### Setup
+## Setup
 
 Install NOVA-Server using pip like this:
 
 ```pip install hcai-nova-server```
 
-### Start the server
+## Start the server
 
 To start NOVA-Server you just open a Terminal and type 
 

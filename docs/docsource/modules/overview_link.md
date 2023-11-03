@@ -1,2 +1,2 @@
-```{include} ../../../../nova-server-modules/README.md
+```{include} ../../../modules/README.md
 ```
