@@ -24,7 +24,6 @@ import os
 from flask import send_file,Flask,send_from_directory
 
 def supported_file(x: Path):
-
     file_names = [
     ]
     file_starts_with = [
@@ -53,7 +52,6 @@ def fetch_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
         job_id = get_job_id_from_request_form(request_form)
-        tmp_dir = Path(os.getenv(env.NOVA_SERVER_TMP_DIR))
 
         shared_dir = os.getenv(env.NOVA_SERVER_TMP_DIR)
         job_dir = Path(shared_dir) / job_id
@@ -62,14 +60,14 @@ def fetch_thread():
             raise FileNotFoundError
         elif job_dir.is_dir():
 
-            files = list(filter(lambda x: supported_file(x), job_dir.glob('*')))
+            files = list(filter(lambda x: supported_file(x) and x.is_file(), job_dir.rglob('*')))
 
             if len(files) > 1:
                 # Zip file Initialization
                 zip_fp = tempfile.TemporaryFile()
                 zipfolder = zipfile.ZipFile(zip_fp,'w', compression = zipfile.ZIP_STORED)
                 for file in files:
-                    zipfolder.write(file, file.name)
+                    zipfolder.write(file, arcname=file.relative_to(job_dir.parent))
                 zipfolder.close()
 
                 # Reset file pointer to keep handle alive
