@@ -9,6 +9,7 @@ Date:
 
 import os
 import shutil
+import string
 import subprocess
 import signal
 import sys
@@ -66,7 +67,9 @@ class VenvHandler:
         while True:
             try:
                 s = stream.readline()
-                if not s:
+                printable = set(string.printable)
+                s = ''.join(filter(lambda x: x in printable, s))
+                if not s or s == "":
                     break
                 if self.logger is None:
                     if not self.log_verbose:
@@ -80,7 +83,8 @@ class VenvHandler:
                         self.logger.info(s.strip('\n'))
                 sys.stderr.flush()
             except Exception as e:
-                print(e)
+                continue
+               #self.logger.error(e)
         stream.close()
 
     def _run_cmd(self, cmd: str, wait: bool = True) -> int:
