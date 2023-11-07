@@ -323,7 +323,7 @@ def dice(request):
     sr = int(request.get("sampleRate"))
 
     # ADD logic to display multiple counterfactuals
-    num_counterfactuals = 1
+    num_counterfactuals = 10
     # num_counterfactuals = int(request.get("numCounterfactuals"))
     
     class_counterfactual = request.get("classCounterfactual")
@@ -396,16 +396,28 @@ def dice(request):
         dice_exp = exp.generate_counterfactuals(stream_data_as_data_frame[frame:frame+1], total_CFs=num_counterfactuals, desired_class=int(class_counterfactual), initialization="random")
 
         explanation_dictionary = {}
-        counterfactual = dice_exp.cf_examples_list[0].final_cfs_df_sparse.to_numpy()[0]
+        counterfactual = dice_exp.cf_examples_list[0].final_cfs_df_sparse.drop(anno_name, axis=1).to_numpy()[0]
 
         for id, feat in enumerate(counterfactual):
             explanation_dictionary[id] = feat
 
+        imp = {}
+
+        if num_counterfactuals >= 10:
+            # needs at least 10 cf
+            imp = exp.local_feature_importance(stream_data_as_data_frame[frame:frame+1], cf_examples_list=dice_exp.cf_examples_list)
+        else:
+            # no cf examples
+            imp = exp.local_feature_importance(stream_data_as_data_frame[frame:frame+1], posthoc_sparsity_param=None, desired_class=int(class_counterfactual))
+        global_imp = exp.global_feature_importance(stream_data_as_data_frame[0:10], total_CFs=10, posthoc_sparsity_param=None, desired_class=int(class_counterfactual))
+
         data = {"success": "true",
-                "explanation": explanation_dictionary}
+                "explanation": explanation_dictionary,
+                "local_importance": imp.local_importance[0],
+                "global_importance": global_imp.summary_importance}
     except:
         data = {"sucess": "failed"}
-        
+
     return jsonify(data)
 
 def discrete_anno_to_continuous(anno, sr, anno_length, rest_id):
