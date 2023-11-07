@@ -1,0 +1,85 @@
+name: docs_pages_workflow
+ 
+# execute this workflow automatically when we push to master
+on:
+  push:
+    branches:
+      - main
+      - workflow-dev
+ 
+jobs:
+ 
+  build_docs_job:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+ 
+    steps:
+      - name: Checkout Nova-Server
+        uses: actions/checkout@v4
+        with:
+          path: main
+          ref: main
+
+      - name: Checkout Nova Utils
+        uses: actions/checkout@v4
+        with:
+          repository: hcmlab/nova-utils
+          path: utils
+          ref: main
+
+      - name: Checkout Nova Server Modules
+        uses: actions/checkout@v4
+        with:
+          repository: hcmlab/nova-server-modules
+          token: ${{ secrets.NS_MODULES }}
+          path: modules
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v2.2.1
+        with:
+          python-version: 3.9
+ 
+      - name: Install dependencies
+        run: |
+          python -m pip install -U sphinx
+          python -m pip install sphinx-rtd-theme
+          python -m pip install sphinx-autoapi
+          python -m pip install myst-parser==1.0.0
+      
+      - name: Make the sphinx docs
+        run: |
+          make -C main/docs clean 
+          cp modules/README.md main/docs/docsource/modules
+          sphinx-apidoc -e -M -d 8 -o main/docs/docsource/api main/nova_server
+          sphinx-apidoc -e -M -d 8 -o main/docs/docsource/api utils/nova_utils
+          sphinx-build -M html main/docs/docsource main/docs/docbuild
+
+      - name: Commit changes
+        run: |
+          cd main
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add *
+          git commit -m "Update documentation"
+      
+      #sphinx-apidoc -e -M -d 8 -o ./api ../../nova-server/nova_server      
+      # cd docs/docsource
+      #- name: Init new repo in dist folder and commit generated files
+      #  run: |
+      #    cd docs/docbuild/
+      #    git init
+      #    touch .nojekyll
+      #    git add -A
+      #    git config --local user.email "action@github.com"
+      #    git config --local user.name "GitHub Action"
+      #    git commit -m 'deploy'
+
+      - name: Force push to destination branch
+        uses: ad-m/github-push-action@v0.8.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: docs
+          force: true
+          directory: main

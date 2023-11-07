@@ -9,9 +9,11 @@ Date:
 
 import os
 import shutil
+import string
 import subprocess
-
+import signal
 import sys
+import time
 from threading import Thread
 from subprocess import Popen, PIPE
 from pathlib import Path
@@ -19,6 +21,9 @@ from nova_server.utils import venv_utils as vu
 from dotenv import load_dotenv
 from logging import Logger
 
+import psutil
+import subprocess
+import os
 
 class VenvHandler:
     """
@@ -60,20 +65,26 @@ class VenvHandler:
             context (str, optional): The context of the stream (stdout or stderr).
         """
         while True:
-            s = stream.readline()
-            if not s:
-                break
-            if self.logger is None:
-                if not self.log_verbose:
-                    sys.stderr.write(".")
+            try:
+                s = stream.readline()
+                printable = set(string.printable)
+                s = ''.join(filter(lambda x: x in printable, s))
+                if not s or s == "":
+                    break
+                if self.logger is None:
+                    if not self.log_verbose:
+                        sys.stderr.write(".")
+                    else:
+                        sys.stderr.write(s.strip('\n'))
                 else:
-                    sys.stderr.write(s.strip('\n'))
-            else:
-                if context == "stderr":
-                    self.logger.error(s.strip('\n'))
-                else:
-                    self.logger.info(s.strip('\n'))
-            sys.stderr.flush()
+                    if context == "stderr":
+                        self.logger.error(s.strip('\n'))
+                    else:
+                        self.logger.info(s.strip('\n'))
+                sys.stderr.flush()
+            except Exception as e:
+                continue
+               #self.logger.error(e)
         stream.close()
 
     def _run_cmd(self, cmd: str, wait: bool = True) -> int:
@@ -87,17 +98,17 @@ class VenvHandler:
         Returns:
             int: Return code of the executed command
         """
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True, universal_newlines=True)
-        t1 = Thread(target=self._reader, args=(p.stdout, "stdout"))
+        # TODO check if CREATE_NEW_PROCESS_GROUP works in unix
+        self.current_process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True, universal_newlines=True)
+        t1 = Thread(target=self._reader, args=(self.current_process.stdout, "stdout"))
         t1.start()
-        t2 = Thread(target=self._reader, args=(p.stderr, "stderr"))
+        t2 = Thread(target=self._reader, args=(self.current_process.stderr, "stderr"))
         t2.start()
         if wait:
-            p.wait()
+            self.current_process.wait()
             t1.join()
             t2.join()
-
-        return p.returncode
+        return self.current_process.returncode
 
     def _get_or_create_venv(self):
         """
@@ -196,6 +207,7 @@ class VenvHandler:
             log_verbose (bool, optional): If True, log verbose output.
         """
         self.venv_dir = None
+        self.current_process = None
         self.log_verbose = log_verbose
         self.module_dir = module_dir
         self.logger = logger if logger is not None else Logger(__name__)
@@ -264,6 +276,19 @@ class VenvHandler:
         if not return_code == 0:
             raise subprocess.CalledProcessError(returncode=return_code, cmd=run_cmd)
 
+    def kill(self):
+        '''Kills parent and children processess'''
+        parent = psutil.Process(self.current_process.pid)
+        # kill all the child processes
+        for child in parent.children(recursive=True):
+            try:
+                self.logger.info(f'Killing process {child}')
+                child.kill()
+                # kill the parent process
+                self.logger.info(f'Killing process {parent}')
+                parent.kill()
+            except psutil.NoSuchProcess:
+                continue
 
 if __name__ == "__main__":
     import logging

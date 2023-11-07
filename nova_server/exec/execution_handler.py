@@ -6,7 +6,7 @@ Author:
 Date:
     06.09.2023
 """
-
+import importlib
 import os
 import re
 from logging import Logger
@@ -19,13 +19,11 @@ from nova_server.utils import env
 
 class Action(Enum):
     PROCESS = "nu-process"
-    PREDICT = "nu-predict"
-    EXTRACT = "nu-extract"
     TRAIN = "nu-train"
 
-
 class Backend(Enum):
-    VENV = 0
+    DEBUG = 'debug'
+    VENV = 'venv'
 
 
 class ExecutionHandler(ABC):
@@ -37,29 +35,32 @@ class ExecutionHandler(ABC):
     def script_arguments(self, value):
         # convert dictionary keys from camelCase to snake_case
         self._script_arguments = {
-            "--" + re.sub(r"(?<!^)(?=[A-Z])", "_", k).lower(): v
+            "--" + re.sub(r"(?<!^)(?=[A-Z])(?<![A-Z])", "_", k).lower(): v
             for k, v in value.items()
         }
 
     def __init__(
-        self, request_form: dict, backend: Backend = Backend.VENV, logger: Logger = None
+        self, request_form: dict, backend: str = 'venv', logger: Logger = None
     ):
-        self.backend = backend
+        self.backend = Backend(backend)
         self.script_arguments = request_form
         self.logger = logger
+        self.backend_handler = None
 
     def _nova_server_env_to_arg(self):
         arg_vars = {}
         prefix = "NOVA_SERVER_"
 
-        # select data folder if multiple folders are passed
+        # Select data folder, where dataset exists if multiple folders are passed
         dd = os.getenv(env.NOVA_SERVER_DATA_DIR)
-        if ';' in dd:
-            for dir in dd.split(';'):
-                dataset_dir = (Path(dir) / self.script_arguments['--dataset'])
-                if dataset_dir.is_dir():
-                    os.environ[env.NOVA_SERVER_DATA_DIR] = str(dataset_dir.resolve())
-                    break
+        ds = self.script_arguments.get('--dataset')
+        if ds is not None:
+            if ';' in dd:
+                for dir in dd.split(';'):
+                    dataset_dir = (Path(dir) / ds)
+                    if dataset_dir.is_dir():
+                        os.environ[env.NOVA_SERVER_DATA_DIR] = str(dataset_dir.resolve())
+                        break
 
         # set other vars
         env_vars = [
@@ -78,11 +79,30 @@ class ExecutionHandler(ABC):
 
     def run(self):
 
-        # run with selected backend
-        if self.backend == Backend.VENV:
+        # Run with selected backend
+        if self.backend == Backend.DEBUG:
+            from importlib.machinery import SourceFileLoader
+            import nova_utils as nu
+            from importlib.metadata import entry_points
+            ep = [x for x in entry_points().get('console_scripts') if x.name == self.run_script ][0]
+            run_module = importlib.import_module(ep.module)
+            main = getattr(run_module, 'main')
+
+            # Add dotenv variables to arguments for script
+            self._script_arguments |= self._nova_server_env_to_arg()
+            self._script_arguments.setdefault('--shared_dir', os.getenv(env.NOVA_SERVER_TMP_DIR))
+
+            args = []
+            for k,v in self._script_arguments.items():
+                args.append(k)
+                args.append(v)
+
+            main(args)
+
+        elif self.backend == Backend.VENV:
             from nova_server.backend import virtual_environment as backend
 
-            # setup virtual environment
+            # Setup virtual environment
             cml_dir = os.getenv(env.NOVA_SERVER_CML_DIR)
             if cml_dir is None:
                 raise ValueError(f"NOVA_CML_DIR not set")
@@ -93,20 +113,26 @@ class ExecutionHandler(ABC):
                     f"NOVA_CML_DIR {module_dir} is not a valid directory"
                 )
 
-            backend_handler = backend.VenvHandler(
+            self.backend_handler = backend.VenvHandler(
                 module_dir, logger=self.logger, log_verbose=True
             )
 
-            # add dotenv variables to arguments for script
+            # Add dotenv variables to arguments for script
             self._script_arguments |= self._nova_server_env_to_arg()
+            self._script_arguments.setdefault('--shared_dir', os.getenv(env.NOVA_SERVER_TMP_DIR))
 
-            backend_handler.run_shell_script(
+
+            self.backend_handler.run_shell_script(
                 self.run_script,
                 script_kwargs=self._script_arguments,
             )
 
         else:
             raise ValueError(f"Unknown backend {self.backend}")
+
+    def cancel(self):
+        if self.backend == Backend.VENV:
+            self.backend_handler.kill()
 
     @property
     @abstractmethod
@@ -135,43 +161,6 @@ class NovaProcessHandler(ExecutionHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.action = Action.PROCESS
-
-
-class NovaPredictHandler(ExecutionHandler):
-    @property
-    def module_name(self):
-        tfp = self.script_arguments.get("--trainer_file_path")
-        if tfp is None:
-            raise ValueError("trainerFilePath not specified in request.")
-        else:
-            return PureWindowsPath(tfp).parent
-
-    @property
-    def run_script(self):
-        return self.action.value
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.action = Action.PREDICT
-
-
-class NovaExtractHandler(ExecutionHandler):
-    @property
-    def module_name(self):
-        cfp = self.script_arguments.get("--chain_file_path")
-        if cfp is None:
-            raise ValueError("chainFilePath not specified in request.")
-        else:
-            return PureWindowsPath(cfp).parent
-
-    @property
-    def run_script(self):
-        return self.action.value
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.action = Action.EXTRACT
-
 
 class NovaTrainHandler(ExecutionHandler):
     @property

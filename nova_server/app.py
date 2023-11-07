@@ -24,16 +24,16 @@ Example:
     >>> app.py --host 0.0.0.0 --port 53771 --cml_dir "/path/to/my/cml" --data_dir "/path/to/my/data" --cache_dir "/path/to/my/cache" --tmp_dir "/path/to/my/tmp"
 """
 import dotenv
+import tempfile
 from flask import Flask
 from nova_server.route.train import train
-from nova_server.route.extract import extract
 from nova_server.route.status import status
 from nova_server.route.log import log
 from nova_server.route.ui import ui
 from nova_server.route.cml_info import cml_info
 from nova_server.route.cancel import cancel
-from nova_server.route.predict import predict
 from nova_server.route.process import process
+from nova_server.route.fetch_result import fetch_result
 from nova_server.route.explain import explain
 
 import argparse
@@ -45,14 +45,13 @@ from nova_server.utils import env
 print("Starting nova-backend server...")
 app = Flask(__name__, template_folder="./templates")
 app.register_blueprint(train)
-app.register_blueprint(predict)
 app.register_blueprint(process)
-app.register_blueprint(extract)
 app.register_blueprint(log)
 app.register_blueprint(status)
 app.register_blueprint(ui)
 app.register_blueprint(cancel)
 app.register_blueprint(cml_info)
+app.register_blueprint(fetch_result)
 app.register_blueprint(explain)
 
 parser = argparse.ArgumentParser(
@@ -93,6 +92,13 @@ parser.add_argument(
     type=str,
     default="log",
     help="Folder for temporary data storage.",
+)
+
+parser.add_argument(
+    "--backend",
+    type=str,
+    default="backend",
+    help="The backend used for processing requests",
 )
 
 def _run():
@@ -153,12 +159,16 @@ def _run():
     os.environ[env.NOVA_SERVER_LOG_DIR] = resolve_arg(
         args.log_dir, env.NOVA_SERVER_LOG_DIR, default_args.log_dir, create_directory=True
     )
-    print("...done")
+    os.environ[env.NOVA_SERVER_BACKEND] = resolve_arg(
+        args.backend, env.NOVA_SERVER_BACKEND, default_args.backend
+    )
 
+    print("...done")
+    tempfile.tempdir = os.environ[env.NOVA_SERVER_TMP_DIR]
     host = os.environ[env.NOVA_SERVER_HOST]
     port = int(os.environ[env.NOVA_SERVER_PORT])
 
-    serve(app, host=host, port=port)
+    serve(app, host=host, port=port, threads=8)
 
 if __name__ == '__main__':
     _run()

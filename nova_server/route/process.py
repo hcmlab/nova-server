@@ -8,10 +8,12 @@ Date:
 This module defines a Flask Blueprint for predicting data.
 
 """
+import os
+
 from flask import Blueprint, request, jsonify
 from nova_server.utils.thread_utils import THREADS
 from nova_server.utils.job_utils import get_job_id_from_request_form
-from nova_server.utils import thread_utils, job_utils
+from nova_server.utils import thread_utils, job_utils, env
 from nova_server.utils import log_utils
 from nova_server.exec.execution_handler import NovaProcessHandler
 
@@ -22,26 +24,27 @@ process = Blueprint("process", __name__)
 def predict_thread():
     if request.method == "POST":
         request_form = request.form.to_dict()
-        key = get_job_id_from_request_form(request_form)
-        job_utils.add_new_job(key, request_form=request_form)
-        thread = process_data(request_form)
+        job_id = get_job_id_from_request_form(request_form)
+        job_added = job_utils.add_new_job(job_id, request_form=request_form)
+        thread = process_data(request_form, job_id)
         thread.start()
-        THREADS[key] = thread
-        data = {"success": "true"}
+        THREADS[job_id] = thread
+        data = {"success": str(job_added)}
         return jsonify(data)
 
 
 @thread_utils.ml_thread_wrapper
-def process_data(request_form):
-    job_id = get_job_id_from_request_form(request_form)
-
+def process_data(request_form, job_id):
+    #job_id = get_job_id_from_request_form(request_form)
     job_utils.update_status(job_id, job_utils.JobStatus.RUNNING)
     logger = log_utils.get_logger_for_job(job_id)
     logger.info(request_form)
-    handler = NovaProcessHandler(request_form, logger=logger)
+
+    job = job_utils.get_job(job_id)
+    job.execution_handler = NovaProcessHandler(request_form, logger=logger, backend=os.getenv(env.NOVA_SERVER_BACKEND))
 
     try:
-        handler.run()
+        job.run()
         job_utils.update_status(job_id, job_utils.JobStatus.FINISHED)
     except Exception as e:
         logger.critical(f"Job failed with exception {str(e)}")
