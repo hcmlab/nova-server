@@ -20,6 +20,7 @@ from nova_server.utils import env
 class Action(Enum):
     PROCESS = "nu-process"
     TRAIN = "nu-train"
+    EXPLAIN = "nu-explain"
 
 class Backend(Enum):
     DEBUG = 'debug'
@@ -178,3 +179,20 @@ class NovaTrainHandler(ExecutionHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.action = Action.TRAIN
+
+class NovaExplainHandler(ExecutionHandler):
+    @property
+    def module_name(self):
+        tfp = self.script_arguments.get("--trainer_file_path")
+        if tfp is None:
+            raise ValueError("trainerFilePath not specified in request.")
+        else:
+            return PureWindowsPath(tfp).parent
+
+    @property
+    def run_script(self):
+        return self.action.value
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.action = Action.EXPLAIN
