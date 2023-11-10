@@ -196,7 +196,7 @@ class VenvHandler:
                 raise ValueError(f'Could not find unique version for hcai-nova-utils in {dependencies}')
 
     def __init__(
-        self, module_dir: Path = None, logger: Logger = None, log_verbose: bool = False
+        self, module_dir: Path = None, logger: Logger = None, log_verbose: bool = False, force_requirements: bool = True
     ):
         """
         Initializes the VenvHandler instance.
@@ -205,12 +205,14 @@ class VenvHandler:
             module_dir (Path, optional): The path to the module directory.
             logger (Logger, optional): The logger instance for logging.
             log_verbose (bool, optional): If True, log verbose output.
+            force_requirements(bool, optional): If True, requirement.txt will always be installed. If false skipping requirements installation if venv already exist.
         """
         self.venv_dir = None
         self.current_process = None
         self.log_verbose = log_verbose
         self.module_dir = module_dir
         self.logger = logger if logger is not None else Logger(__name__)
+        self.force_requirements = force_requirements
         if module_dir is not None:
             self.init_venv()
 
@@ -221,7 +223,7 @@ class VenvHandler:
         self.logger.info(f"Initializing venv")
         venv_dir, existed = self._get_or_create_venv()
         self.venv_dir = venv_dir
-        if not existed:
+        if not existed or self.force_requirements:
             self._install_requirements()
         self.logger.info(f"Venv {self.venv_dir} initialized")
 
