@@ -69,8 +69,8 @@ def info():
         chains_faulty = {}
 
         request_form = request.form.to_dict()
-        input_filter = json.loads(request_form.get('input_filter'))
-        output_filter = json.loads(request_form.get('output_filter'))
+        input_filter = json.loads(request_form.get('input_filter', '[]'))
+        output_filter = json.loads(request_form.get('output_filter', '[]'))
 
 
         for tf in trainer_files:
