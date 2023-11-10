@@ -94,7 +94,7 @@ parser.add_argument(
 parser.add_argument(
     "--backend",
     type=str,
-    default="backend",
+    default="venv",
     help="The backend used for processing requests",
 )
 
