@@ -34,6 +34,7 @@ from nova_server.route.cml_info import cml_info
 from nova_server.route.cancel import cancel
 from nova_server.route.process import process
 from nova_server.route.fetch_result import fetch_result
+from nova_server.route.upload import upload
 import argparse
 import os
 from pathlib import Path
@@ -50,6 +51,7 @@ app.register_blueprint(ui)
 app.register_blueprint(cancel)
 app.register_blueprint(cml_info)
 app.register_blueprint(fetch_result)
+app.register_blueprint(upload)
 
 parser = argparse.ArgumentParser(
     description="Commandline arguments to configure the nova backend server"
