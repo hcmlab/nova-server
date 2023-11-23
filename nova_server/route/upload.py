@@ -31,7 +31,7 @@ def upload_file():
     if request.method == "POST":
         file = request.files['file']
 
-        upload_dir = Path(tempfile.tempdir) / 'upload'
+        upload_dir = Path(tempfile.tempdir)
         upload_dir.mkdir(parents=False, exist_ok=True)
 
         fn = ''.join(random.choices(string.ascii_lowercase, k=6)) + '.'+file.filename.split('.')[-1]
