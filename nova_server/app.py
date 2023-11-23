@@ -25,7 +25,9 @@ Example:
 """
 import dotenv
 import tempfile
-from flask import Flask
+import traceback
+from werkzeug.exceptions import HTTPException
+from flask import Flask, render_template
 from nova_server.route.train import train
 from nova_server.route.status import status
 from nova_server.route.log import log
@@ -99,6 +101,18 @@ parser.add_argument(
     default="venv",
     help="The backend used for processing requests",
 )
+
+
+# Error Handling
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # pass through HTTP errors
+    if isinstance(e, HTTPException):
+        return e
+
+    # now you're handling non-HTTP exceptions only
+    msg = traceback.format_exception(e, limit=0)
+    return msg[0], 500
 
 def _run():
 
