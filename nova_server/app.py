@@ -112,6 +112,7 @@ def handle_exception(e):
 
     # now you're handling non-HTTP exceptions only
     msg = traceback.format_exception(e, limit=0)
+    print(msg)
     return msg[0], 500
 
 def _run():

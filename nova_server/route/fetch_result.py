@@ -19,6 +19,7 @@ fetch_result = Blueprint("fetch_result", __name__)
 
 import zipfile
 import os
+from nova_utils.utils.string_utils import string_to_bool
 from flask import send_file, current_app
 from mimetypes import guess_type
 
@@ -83,7 +84,7 @@ def fetch_thread():
     """
     Retrieve the results of a specific job.
 
-    This route allows retrieving the data file for a job by providing the job's unique identifier in the request.
+    This route allows retrieving the data file  for a job by providing the job's unique identifier in the request.
 
     Returns:
         dict: Data object for the respective job. 404 if not data has been found
@@ -97,12 +98,14 @@ def fetch_thread():
         request_form = request.form.to_dict()
         job_id = get_job_id_from_request_form(request_form)
         delete_after_download = request_form.get('delete_after_download', False)
+        if isinstance(delete_after_download, str):
+            delete_after_download = string_to_bool(delete_after_download)
 
         shared_dir = os.getenv(env.NOVA_SERVER_TMP_DIR)
         job_dir = Path(shared_dir) / job_id
 
         if not job_dir.exists():
-            raise FileNotFoundError(job_dir)
+            raise FileNotFoundError(f'No data for job id {job_id} found on server.')
 
         else:
             return download_and_remove_dir(job_dir, delete_after_download)
