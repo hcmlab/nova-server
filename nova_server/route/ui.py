@@ -2,7 +2,7 @@ from flask import Blueprint, render_template
 from nova_server.utils import job_utils
 
 ui = Blueprint("ui", __name__)
-
+#TODO remove
 
 @ui.route("/")
 def index():

@@ -196,7 +196,7 @@ class VenvHandler:
                 raise ValueError(f'Could not find unique version for hcai-nova-utils in {dependencies}')
 
     def __init__(
-        self, module_dir: Path = None, logger: Logger = None, log_verbose: bool = False, force_requirements: bool = True
+        self, module_dir: Path = None, logger: Logger = None, log_verbose: bool = False, force_requirements: bool = False
     ):
         """
         Initializes the VenvHandler instance.
