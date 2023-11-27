@@ -13,8 +13,8 @@ import os
 import json
 from flask import Blueprint, request
 from nova_server.utils import env
-from nova_utils.utils.json_utils import ChainEncoder, TrainerEncoder
-from nova_utils.utils.ssi_xml_utils import Chain, Trainer
+from nova_utils.utils.json_utils import ChainEncoder, TrainerEncoder, ExplainerEncoder
+from nova_utils.utils.ssi_xml_utils import Chain, Trainer, Explainer
 from nova_utils.utils.request_utils import parse_cml_filter
 from pathlib import Path
 from glob import glob
@@ -62,16 +62,20 @@ def info():
 
         trainer_files = glob(cml_dir + '/**/*.trainer', recursive = True)
         chain_files = glob(cml_dir + '/**/*.chain', recursive = True)
+        explainer_files = glob(cml_dir + '/**/*.explainer', recursive = True)
 
         trainer_ok = {}
         trainer_faulty = {}
         chains_ok = {}
         chains_faulty = {}
+        explainer_ok = {}
+        explainer_faulty = {}
 
         request_form = request.form.to_dict()
         input_filter = json.loads(request_form.get('input_filter', '[]'))
         output_filter = json.loads(request_form.get('output_filter', '[]'))
-
+        model_id_filter = request_form.get('model_id', '')
+        ml_framework_filter = request_form.get('ml_framework', '')
 
         for tf in trainer_files:
             t = Trainer()
@@ -95,12 +99,26 @@ def info():
             except Exception as e:
                 chains_faulty[rcf] = str(e)
 
+        for ef in explainer_files:
+            e = Explainer()
+            rtf = str(Path(ef).relative_to(cml_dir))
+            try:
+                e.load_from_file(ef)
+                inputs_ok = filter([x for x in e.meta_io if x.io_type=='input'], input_filter) if input_filter else True
+                model_id_ok = e.model_id == model_id_filter
+                ml_framework_ok = ml_framework_filter in e.frameworks
+                if not (inputs_ok and model_id_ok and ml_framework_ok):
+                    continue
+                explainer_ok[rtf] = json.dumps(e, cls=ExplainerEncoder)
+            except Exception as e:
+                explainer_faulty[rtf] = str(e)
 
         return {
             'chains_ok' : chains_ok,
             'chains_faulty' : chains_faulty,
             'trainer_ok' : trainer_ok,
-            'trainer_faulty' : trainer_faulty
+            'trainer_faulty' : trainer_faulty,
+            'explainer_ok' : explainer_ok
         }
 
 
