@@ -177,6 +177,9 @@ def _run():
         args.backend, env.NOVA_SERVER_BACKEND, default_args.backend
     )
 
+    os.environ[env.VENV_FORCE_UPDATE] = resolve_arg(
+        None, env.VENV_FORCE_UPDATE, None
+    )
     print("...done")
     tempfile.tempdir = os.environ[env.NOVA_SERVER_TMP_DIR]
     host = os.environ[env.NOVA_SERVER_HOST]

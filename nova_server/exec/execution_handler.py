@@ -114,7 +114,7 @@ class ExecutionHandler(ABC):
                 )
 
             self.backend_handler = backend.VenvHandler(
-                module_dir, logger=self.logger, log_verbose=True
+                module_dir, logger=self.logger, log_verbose=True, force_requirements=os.getenv(env.VENV_FORCE_UPDATE, False)
             )
 
             # Add dotenv variables to arguments for script
