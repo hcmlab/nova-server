@@ -28,6 +28,7 @@ import tempfile
 import traceback
 from werkzeug.exceptions import HTTPException
 from flask import Flask, render_template
+from nova_server import __version__
 from nova_server.route.train import train
 from nova_server.route.status import status
 from nova_server.route.log import log
@@ -43,7 +44,7 @@ from pathlib import Path
 from waitress import serve
 from nova_server.utils import env
 
-print("Starting nova-backend server...")
+print(f"Starting nova-server v{__version__}...")
 app = Flask(__name__, template_folder="./templates")
 app.register_blueprint(train)
 app.register_blueprint(process)
@@ -122,13 +123,14 @@ def _run():
     default_args = parser.parse_args([])
 
     # Loading dot env file if provided
+    env_path = Path(dotenv.find_dotenv())
     if args.env:
         env_path = Path(args.env)
-        if env_path.is_file():
-            print(f'loading environment from {env_path.resolve()}')
-            dotenv.load_dotenv(env_path, verbose=True, override=True)
-        else:
+        if not env_path.is_file():
             raise FileNotFoundError(f'.env file not found at {env_path} ')
+    if env_path.is_file():
+        print(f'Loading environment from {env_path.resolve()}')
+        dotenv.load_dotenv(env_path, verbose=True, override=True)
 
     # Setting environment variables in the following priority from highest to lowest:
     # Provided commandline argument -> Dotenv environment variable -> System environment variable -> Default value
@@ -143,14 +145,14 @@ def _run():
         # Return default
         else:
             val = arg_default_val
-        print(f"\t{env_var} : {val}")
+        print(f"\t{env_var}: {val}")
 
         if create_directory:
             Path(val).mkdir(parents=False, exist_ok=True)
 
         return val
 
-    # Write values to OS variables
+    print('\t#Nova Server')
     os.environ[env.NOVA_SERVER_HOST] = resolve_arg(
         args.host, env.NOVA_SERVER_HOST, default_args.host
     )
@@ -177,6 +179,7 @@ def _run():
         args.backend, env.NOVA_SERVER_BACKEND, default_args.backend
     )
 
+    print('\n\t#Processing backend')
     os.environ[env.VENV_FORCE_UPDATE] = resolve_arg(
         'False', env.VENV_FORCE_UPDATE, 'False'
     )
