@@ -77,10 +77,10 @@ class VenvHandler:
                     else:
                         sys.stderr.write(s.strip('\n'))
                 else:
-                    if context == "stderr":
-                        self.logger.error(s.strip('\n'))
-                    else:
-                        self.logger.info(s.strip('\n'))
+                    #if context == "stderr":
+                    #    self.logger.error(s.strip('\n'))
+                    #else:
+                    self.logger.info(s.strip('\n'))
                 sys.stderr.flush()
             except Exception as e:
                 continue

@@ -15,7 +15,7 @@ from enum import Enum
 from pathlib import Path
 from pathlib import PureWindowsPath
 from nova_server.utils import env
-
+from nova_utils.utils.string_utils import string_to_bool
 
 class Action(Enum):
     PROCESS = "nu-process"
@@ -114,8 +114,9 @@ class ExecutionHandler(ABC):
                     f"NOVA_CML_DIR {module_dir} is not a valid directory"
                 )
 
+
             self.backend_handler = backend.VenvHandler(
-                module_dir, logger=self.logger, log_verbose=True
+                module_dir, logger=self.logger, log_verbose=string_to_bool(os.getenv(env.VENV_LOG_VERBOSE, 'True')), force_requirements=string_to_bool(os.getenv(env.VENV_FORCE_UPDATE, 'False'))
             )
 
             # Add dotenv variables to arguments for script
