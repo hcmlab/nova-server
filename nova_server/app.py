@@ -108,6 +108,14 @@ parser.add_argument(
     help="The backend used for processing requests",
 )
 
+parser.add_argument(
+    "--video_backend",
+    type=str,
+    choices=["DECORD", "DECORDBATCH", "IMAGEIO", "MOVIEPY", "PYAV"],
+    default="IMAGEIO",
+    help="The backend used for reading videos requests",
+)
+
 
 # Error Handling
 @app.errorhandler(Exception)
@@ -196,7 +204,7 @@ def _run():
     )
 
     os.environ[env.NOVA_SERVER_VIDEO_BACKEND] = resolve_arg(
-        args.backend, env.NOVA_SERVER_VIDEO_BACKEND, default_args.backend
+        args.video_backend, env.NOVA_SERVER_VIDEO_BACKEND, default_args.video_backend
     )
 
     print('\n\t#Processing backend')
