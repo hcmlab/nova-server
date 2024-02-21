@@ -160,7 +160,7 @@ class VenvHandler:
             return
         else:
             self._install_nova_utils(requirements_file=req_txt)
-            args = ["install", '--upgrade', '--force-reinstall']
+            args = ["install", "--upgrade", "--force-reinstall"]
             if not self.log_verbose:
                 args.append("-q")
             run_cmd = vu.get_module_run_cmd(
@@ -172,7 +172,7 @@ class VenvHandler:
             self._run_cmd(run_cmd)
 
     def _install_nova_utils(self, requirements_file=None):
-        args = ["install", "--upgrade"]
+        args = ["install", "--upgrade", "--force-reinstall"]
         package = 'hcai-nova-utils'
         if not self.log_verbose:
             args.append("-q")
