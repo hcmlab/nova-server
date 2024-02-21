@@ -69,6 +69,7 @@ class ExecutionHandler(ABC):
                 env.NOVA_SERVER_LOG_DIR,
                 env.NOVA_SERVER_CACHE_DIR,
                 env.NOVA_SERVER_TMP_DIR,
+                env.NOVA_SERVER_VIDEO_BACKEND
         ]
 
         for var in env_vars:

@@ -194,6 +194,11 @@ def _run():
     os.environ[env.NOVA_SERVER_BACKEND] = resolve_arg(
         args.backend, env.NOVA_SERVER_BACKEND, default_args.backend
     )
+
+    os.environ[env.NOVA_SERVER_VIDEO_BACKEND] = resolve_arg(
+        args.backend, env.NOVA_SERVER_VIDEO_BACKEND, default_args.backend
+    )
+
     print('\n\t#Processing backend')
 
     os.environ[env.VENV_FORCE_UPDATE] = resolve_arg(
