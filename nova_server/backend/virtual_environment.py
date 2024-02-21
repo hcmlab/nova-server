@@ -173,6 +173,7 @@ class VenvHandler:
 
     def _install_nova_utils(self, requirements_file=None):
         args = ["install", "--upgrade"]
+        package = 'hcai-nova-utils'
         if not self.log_verbose:
             args.append("-q")
         try:
@@ -206,7 +207,6 @@ class VenvHandler:
         except Exception as e:
             self.logger.exception(e)
             args.append('hcai-nova-utils')
-            package = 'hcai-nova-utils'
         finally:
             args.append(f'"{package}"')
             run_cmd = vu.get_module_run_cmd(self.venv_dir, "pip", args=args)
