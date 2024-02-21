@@ -25,6 +25,7 @@ import psutil
 import subprocess
 import os
 
+
 class VenvHandler:
     """
     Handles the creation and management of a virtual environment and running scripts within it.
@@ -68,23 +69,23 @@ class VenvHandler:
             try:
                 s = stream.readline()
                 printable = set(string.printable)
-                s = ''.join(filter(lambda x: x in printable, s))
+                s = "".join(filter(lambda x: x in printable, s))
                 if not s or s == "":
                     break
                 if self.logger is None:
                     if not self.log_verbose:
                         sys.stderr.write(".")
                     else:
-                        sys.stderr.write(s.strip('\n'))
+                        sys.stderr.write(s.strip("\n"))
                 else:
-                    #if context == "stderr":
+                    # if context == "stderr":
                     #    self.logger.error(s.strip('\n'))
-                    #else:
-                    self.logger.info(s.strip('\n'))
+                    # else:
+                    self.logger.info(s.strip("\n"))
                 sys.stderr.flush()
             except Exception as e:
                 continue
-               #self.logger.error(e)
+            # self.logger.error(e)
         stream.close()
 
     def _run_cmd(self, cmd: str, wait: bool = True) -> int:
@@ -99,7 +100,9 @@ class VenvHandler:
             int: Return code of the executed command
         """
         # TODO check if CREATE_NEW_PROCESS_GROUP works in unix
-        self.current_process = Popen(cmd, stdout=PIPE, stderr=PIPE, shell=True, universal_newlines=True)
+        self.current_process = Popen(
+            cmd, stdout=PIPE, stderr=PIPE, shell=True, universal_newlines=True
+        )
         t1 = Thread(target=self._reader, args=(self.current_process.stdout, "stdout"))
         t1.start()
         t2 = Thread(target=self._reader, args=(self.current_process.stderr, "stderr"))
@@ -150,18 +153,14 @@ class VenvHandler:
         # pip
         self._upgrade_pip()
 
-        # hcai-nova-utils
-        #self._install_nova_utils()
-
         # requirements.txt
         req_txt = self.module_dir / "requirements.txt"
         if not req_txt.is_file():
+            self._install_nova_utils()
             return
         else:
-            # TODO: replace with custom import utils for better parsing
-            # requirements.txt
-
-            args = ["install"]
+            self._install_nova_utils(requirements_file=req_txt)
+            args = ["install", '--upgrade']
             if not self.log_verbose:
                 args.append("-q")
             run_cmd = vu.get_module_run_cmd(
@@ -172,31 +171,55 @@ class VenvHandler:
             )
             self._run_cmd(run_cmd)
 
-    def _install_nova_utils(self):
-        import toml
+    def _install_nova_utils(self, requirements_file=None):
+        args = ["install", "--upgrade"]
+        if not self.log_verbose:
+            args.append("-q")
+        try:
+            # check if nova-utils version is specified in requirements
+            if requirements_file is not None:
+                import requirements
 
-        toml_file = Path(__file__) / '..' / '..' / '..' / 'pyproject.toml'
-        with open(toml_file.resolve(), 'r') as f:
-            config = toml.load(f)
-            dependencies = config['project']['dependencies']
-            nu_dependency = list(filter(lambda x: x.startswith('hcai-nova-utils'), dependencies))
-            if len(nu_dependency) == 1:
-                args = ["install"]
-                if not self.log_verbose:
-                    args.append("-q")
-                args.append(nu_dependency[0])
+                with open(requirements_file, "r") as fd:
+                    for req in requirements.parse(fd):
+                        if req.name == "hcai-nova-utils":
+                            package = req.line
 
-                run_cmd = vu.get_module_run_cmd(
-                    self.venv_dir,
-                    "pip",
-                    args=args
-                )
-                self._run_cmd(run_cmd)
+            # else install same version as nova-server has
             else:
-                raise ValueError(f'Could not find unique version for hcai-nova-utils in {dependencies}')
+                import toml
+
+                toml_file = Path(__file__) / ".." / ".." / ".." / "pyproject.toml"
+
+                with open(toml_file.resolve(), "r") as f:
+                    config = toml.load(f)
+                    dependencies = config["project"]["dependencies"]
+                    nu_dependency = list(
+                        filter(lambda x: x.startswith("hcai-nova-utils"), dependencies)
+                    )
+                    if len(nu_dependency) == 1:
+
+                        package = nu_dependency[0]
+                    else:
+                        raise ValueError(
+                            f"Could not find unique version for hcai-nova-utils in {dependencies}"
+                        )
+        # in case of exception log error and install latest release
+        except Exception as e:
+            self.logger.exception(e)
+            args.append('hcai-nova-utils')
+            package = 'hcai-nova-utils'
+        finally:
+            args.append(f'"{package}"')
+            run_cmd = vu.get_module_run_cmd(self.venv_dir, "pip", args=args)
+            self._run_cmd(run_cmd)
 
     def __init__(
-        self, module_dir: Path = None, logger: Logger = None, log_verbose: bool = False, force_requirements: bool = False
+        self,
+        module_dir: Path = None,
+        logger: Logger = None,
+        log_verbose: bool = False,
+        force_requirements: bool = False,
     ):
         """
         Initializes the VenvHandler instance.
@@ -253,7 +276,9 @@ class VenvHandler:
         if not return_code == 0:
             raise subprocess.CalledProcessError(returncode=return_code, cmd=run_cmd)
 
-    def run_shell_script(self, script: str, script_args: list = None, script_kwargs: dict = None):
+    def run_shell_script(
+        self, script: str, script_args: list = None, script_kwargs: dict = None
+    ):
         """
         Runs a command in the respective os shell with an activated virtual environment
 
@@ -279,30 +304,31 @@ class VenvHandler:
             raise subprocess.CalledProcessError(returncode=return_code, cmd=run_cmd)
 
     def kill(self):
-        '''Kills parent and children processess'''
+        """Kills parent and children processess"""
         parent = psutil.Process(self.current_process.pid)
         # kill all the child processes
         for child in parent.children(recursive=True):
             try:
-                self.logger.info(f'Killing process {child}')
+                self.logger.info(f"Killing process {child}")
                 child.kill()
                 # kill the parent process
-                self.logger.info(f'Killing process {parent}')
+                self.logger.info(f"Killing process {parent}")
                 parent.kill()
             except psutil.NoSuchProcess:
                 continue
+
 
 if __name__ == "__main__":
     import logging
 
     load_dotenv("../.env")
 
-    log_dir = Path(os.getenv("NOVA_LOG_DIR", "."))
+    log_dir = Path(os.getenv("NOVA_SERVER_LOG_DIR", "."))
     log_file = log_dir / "test.log"
     logging.basicConfig(filename=log_file, encoding="utf-8", level=logging.DEBUG)
     logger = logging.getLogger("test_logger")
 
-    module_path = Path(os.getenv("NOVA_CML_DIR")) / "test"
+    module_path = Path(os.getenv("NOVA_SERVER_CML_DIR")) / "test"
     venv_handler = VenvHandler(module_path, logger=logger, log_verbose=True)
     venv_handler.run_python_script_from_file(
         module_path / "test.py",
