@@ -178,12 +178,10 @@ class VenvHandler:
         try:
             # check if nova-utils version is specified in requirements
             if requirements_file is not None:
-                import requirements
-
                 with open(requirements_file, "r") as fd:
-                    for req in requirements.parse(fd):
-                        if req.name == "hcai-nova-utils":
-                            package = req.line
+                    for req in fd.readlines():
+                        if 'hcai-nova-utils' in req:
+                            package = req
 
             # else install same version as nova-server has
             else:

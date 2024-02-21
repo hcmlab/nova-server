@@ -29,7 +29,6 @@ dependencies = [
     "hcai-nova-utils>=1.5.0",
     "waitress",
     "python-dotenv",
-    "requirements-parser",
     "psutil"
 ]
 dynamic = ["version"]
