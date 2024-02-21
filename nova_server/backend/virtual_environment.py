@@ -160,7 +160,7 @@ class VenvHandler:
             return
         else:
             self._install_nova_utils(requirements_file=req_txt)
-            args = ["install", '--upgrade']
+            args = ["install", '--upgrade', '--force-reinstall']
             if not self.log_verbose:
                 args.append("-q")
             run_cmd = vu.get_module_run_cmd(
