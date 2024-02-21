@@ -59,7 +59,7 @@ class ExecutionHandler(ABC):
                 for dir in dd.split(';'):
                     dataset_dir = (Path(dir) / ds)
                     if dataset_dir.is_dir():
-                        os.environ[env.NOVA_SERVER_DATA_DIR] = str(dataset_dir.resolve())
+                        os.environ[env.NOVA_SERVER_DATA_DIR] = str(dataset_dir.parent)
                         break
 
         # set other vars

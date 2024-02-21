@@ -56,7 +56,7 @@ def _src_activate_cmd(env_path: Path):
     if platform.system() == "Windows":
         return f"{env_path/'Scripts'/'activate'}"
     else:
-        return f"source {env_path/'bin'/'activate'}"
+        return f". {env_path/'bin'/'activate'}"
 
 
 def get_module_run_cmd(
