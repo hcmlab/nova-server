@@ -17,13 +17,15 @@ from pathlib import PureWindowsPath
 from nova_server.utils import env
 from nova_utils.utils.string_utils import string_to_bool
 
+
 class Action(Enum):
     PROCESS = "nu-process"
     TRAIN = "nu-train"
 
+
 class Backend(Enum):
-    DEBUG = 'debug'
-    VENV = 'venv'
+    DEBUG = "debug"
+    VENV = "venv"
 
 
 class ExecutionHandler(ABC):
@@ -40,7 +42,7 @@ class ExecutionHandler(ABC):
         }
 
     def __init__(
-        self, request_form: dict, backend: str = 'venv', logger: Logger = None
+        self, request_form: dict, backend: str = "venv", logger: Logger = None
     ):
         self.backend = Backend(backend)
         self.script_arguments = request_form
@@ -53,23 +55,23 @@ class ExecutionHandler(ABC):
 
         # Select data folder, where dataset exists if multiple folders are passed
         dd = os.getenv(env.NOVA_SERVER_DATA_DIR)
-        ds = self.script_arguments.get('--dataset')
+        ds = self.script_arguments.get("--dataset")
         if ds is not None:
-            if ';' in dd:
-                for dir in dd.split(';'):
-                    dataset_dir = (Path(dir) / ds)
+            if ";" in dd:
+                for dir in dd.split(";"):
+                    dataset_dir = Path(dir) / ds
                     if dataset_dir.is_dir():
                         os.environ[env.NOVA_SERVER_DATA_DIR] = str(dataset_dir.parent)
                         break
 
         # set other vars
         env_vars = [
-                env.NOVA_SERVER_CML_DIR,
-                env.NOVA_SERVER_DATA_DIR,
-                env.NOVA_SERVER_LOG_DIR,
-                env.NOVA_SERVER_CACHE_DIR,
-                env.NOVA_SERVER_TMP_DIR,
-                env.NOVA_SERVER_VIDEO_BACKEND
+            env.NOVA_SERVER_CML_DIR,
+            env.NOVA_SERVER_DATA_DIR,
+            env.NOVA_SERVER_LOG_DIR,
+            env.NOVA_SERVER_CACHE_DIR,
+            env.NOVA_SERVER_TMP_DIR,
+            env.NOVA_SERVER_VIDEO_BACKEND,
         ]
 
         for var in env_vars:
@@ -85,16 +87,23 @@ class ExecutionHandler(ABC):
             from importlib.machinery import SourceFileLoader
             import nova_utils as nu
             from importlib.metadata import entry_points
-            ep = [x for x in entry_points().get('console_scripts') if x.name == self.run_script ][0]
+
+            ep = [
+                x
+                for x in entry_points().get("console_scripts")
+                if x.name == self.run_script
+            ][0]
             run_module = importlib.import_module(ep.module)
-            main = getattr(run_module, 'main')
+            main = getattr(run_module, "main")
 
             # Add dotenv variables to arguments for script
             self._script_arguments |= self._nova_server_env_to_arg()
-            self._script_arguments.setdefault('--shared_dir', os.getenv(env.NOVA_SERVER_TMP_DIR))
+            self._script_arguments.setdefault(
+                "--shared_dir", os.getenv(env.NOVA_SERVER_TMP_DIR)
+            )
 
             args = []
-            for k,v in self._script_arguments.items():
+            for k, v in self._script_arguments.items():
                 args.append(k)
                 args.append(v)
 
@@ -114,15 +123,25 @@ class ExecutionHandler(ABC):
                     f"NOVA_CML_DIR {module_dir} is not a valid directory"
                 )
 
+            extra_index_urls = os.getenv(env.VENV_EXTRA_INDEX_URLS, None)
+            if extra_index_urls is not None:
+                extra_index_urls = extra_index_urls.split(";")
 
             self.backend_handler = backend.VenvHandler(
-                module_dir, logger=self.logger, log_verbose=string_to_bool(os.getenv(env.VENV_LOG_VERBOSE, 'True')), force_requirements=string_to_bool(os.getenv(env.VENV_FORCE_UPDATE, 'False'))
+                module_dir,
+                logger=self.logger,
+                log_verbose=string_to_bool(os.getenv(env.VENV_LOG_VERBOSE, "True")),
+                force_requirements=string_to_bool(
+                    os.getenv(env.VENV_FORCE_UPDATE, "False"),
+                ),
+                extra_index_urls=extra_index_urls,
             )
 
             # Add dotenv variables to arguments for script
             self._script_arguments |= self._nova_server_env_to_arg()
-            self._script_arguments.setdefault('--shared_dir', os.getenv(env.NOVA_SERVER_TMP_DIR))
-
+            self._script_arguments.setdefault(
+                "--shared_dir", os.getenv(env.NOVA_SERVER_TMP_DIR)
+            )
 
             self.backend_handler.run_shell_script(
                 self.run_script,
@@ -163,6 +182,7 @@ class NovaProcessHandler(ExecutionHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.action = Action.PROCESS
+
 
 class NovaTrainHandler(ExecutionHandler):
     @property

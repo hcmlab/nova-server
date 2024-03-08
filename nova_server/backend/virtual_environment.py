@@ -12,15 +12,17 @@ import shutil
 import string
 import subprocess
 import signal
+import tempfile
+
 import sys
 import time
 from threading import Thread
 from subprocess import Popen, PIPE
 from pathlib import Path
 from nova_server.utils import venv_utils as vu
+from nova_server.utils import env
 from dotenv import load_dotenv
 from logging import Logger
-
 import psutil
 import subprocess
 import os
@@ -159,7 +161,20 @@ class VenvHandler:
             self._install_nova_utils()
             return
         else:
-            self._install_nova_utils(requirements_file=req_txt)
+
+            # Create tmp copy of requirement file
+            tmp_req_txt = (
+                Path(tempfile.tempdir) / f"_{self.module_dir.name}_requirements.txt"
+            )
+            with open(tmp_req_txt, mode="wt") as tmp:
+                requirements = open(req_txt).readlines()
+                if self.extra_index_urls is not None:
+                    tmp.writelines(
+                        [f"--extra-index-url {x}\n" for x in self.extra_index_urls]
+                    )
+                tmp.writelines(requirements)
+
+            self._install_nova_utils(requirements_file=str(tmp_req_txt))
             args = ["install", "--upgrade", "--force-reinstall"]
             if not self.log_verbose:
                 args.append("-q")
@@ -167,13 +182,14 @@ class VenvHandler:
                 self.venv_dir,
                 "pip",
                 args=args,
-                kwargs={"-r": str(req_txt.resolve())},
+                kwargs={"-r": str(tmp_req_txt)},
             )
             self._run_cmd(run_cmd)
+            tmp_req_txt.unlink()
 
     def _install_nova_utils(self, requirements_file=None):
         args = ["install", "--upgrade", "--force-reinstall"]
-        package = 'hcai-nova-utils'
+        package = "hcai-nova-utils"
         if not self.log_verbose:
             args.append("-q")
         try:
@@ -181,7 +197,7 @@ class VenvHandler:
             if requirements_file is not None:
                 with open(requirements_file, "r") as fd:
                     for req in fd.readlines():
-                        if 'hcai-nova-utils' in req:
+                        if "hcai-nova-utils" in req:
                             package = req
 
             # else install same version as nova-server has
@@ -206,7 +222,7 @@ class VenvHandler:
         # in case of exception log error and install latest release
         except Exception as e:
             self.logger.exception(e)
-            args.append('hcai-nova-utils')
+            args.append("hcai-nova-utils")
         finally:
             args.append(f'"{package}"')
             run_cmd = vu.get_module_run_cmd(self.venv_dir, "pip", args=args)
@@ -217,6 +233,7 @@ class VenvHandler:
         module_dir: Path = None,
         logger: Logger = None,
         log_verbose: bool = False,
+        extra_index_urls: list = None,
         force_requirements: bool = False,
     ):
         """
@@ -234,6 +251,7 @@ class VenvHandler:
         self.module_dir = module_dir
         self.logger = logger if logger is not None else Logger(__name__)
         self.force_requirements = force_requirements
+        self.extra_index_urls = extra_index_urls
         if module_dir is not None:
             self.init_venv()
 
